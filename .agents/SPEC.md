@@ -38,13 +38,30 @@ CUDII comercializa sus funciones en niveles (Tier) o módulos independientes act
 
 ---
 
-## 3. Arquitectura SaaS (Cloud-First)
+## 3. Arquitectura SaaS (Cloud-First) y Stack Tecnológico
 
-1. **Persistencia Cloud:** Todas las operaciones de caja se escriben directamente en **PostgreSQL** a través del backend NestJS. La capacidad offline queda pospuesta para futuras versiones.
-2. **Borrado Lógico (Soft Delete) e Históricos:**
+### 3.1 Stack Tecnológico
+* **Backend:** NestJS (Node.js framework).
+* **Base de Datos:** PostgreSQL como fuente principal de verdad.
+* **ORM:** Prisma para un tipado estricto y migraciones seguras.
+* **Caché y Mensajería:** Redis para manejo de sesiones, colas de trabajo y caché rápida.
+* **Frontend:** Vite + React (para Web) y Expo (para POS local).
+* **Estilos y Diseño (CSS):** Tailwind CSS, usado de forma obligatoria para garantizar consistencia, diseño estructurado y evitar código CSS espagueti.
+
+### 3.2 Infraestructura y Despliegue (Docker)
+* Todo el desarrollo y despliegue se realizará mediante contenedores. Se utilizará exclusivamente **Docker y docker-compose**.
+* **Volúmenes Docker (Hot-Reload):** En los entornos de desarrollo, se configurarán volúmenes (`volumes`) en el `docker-compose.yml` para asegurar que los cambios en el código fuente se reflejen "en caliente" (hot-reloading) sin necesidad de reconstruir o reiniciar los contenedores. No se utilizarán devcontainers.
+
+### 3.3 Estrategia de Persistencia y Borrado
+1. **Persistencia Cloud:** Todas las operaciones de caja se escriben directamente en **PostgreSQL** a través del backend NestJS. 
+2. **Soporte Offline (Deuda Técnica):** Actualmente el sistema opera como *Cloud-First*. La capacidad de seguir cobrando ante fallas eléctricas o de internet se abordará en futuras fases como deuda técnica para casos críticos.
+3. **Borrado Lógico (Soft Delete) e Históricos:**
 * Queda prohibida la eliminación física (`DELETE`) en base de datos local y remota para entidades core (Productos, Clientes, Usuarios, Promociones, Sucursales).
 * Al eliminar una entidad, el sistema realiza una desactivación lógica (`estaActivo: false`), guardando marcas temporales y auditoría de quién realizó la acción. Esto asegura la consistencia relacional e histórica.
 * Los cambios en campos críticos (como el precio de venta de productos) se registran en una tabla histórica inmutable, lo que permite al módulo de reportes graficar evoluciones temporales del comportamiento del negocio.
+
+### 3.4 Respaldos de Base de Datos (Backups)
+* **Backups Automatizados:** Se implementarán tareas automatizadas (cron jobs) para realizar volcados periódicos (`pg_dump`) de PostgreSQL, almacenando los datos de forma externa y segura.
 
 ---
 

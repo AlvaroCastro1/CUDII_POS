@@ -2,6 +2,8 @@
 
 Este documento establece las directrices visuales, tokens de diseño dinámicos, adaptabilidad responsive, notificaciones Toast, sistema de iconografía y patrones de experiencia de usuario para el ecosistema **CUDII**. Toda IA debe consumir estas variables y reglas sin hardcodear estilos estáticos ni componentes rígidos, en coordinación con la especificación técnica en [SPEC.md](/CUDII_POS/.agents/SPEC.md).
 
+**Importante:** El uso de **Tailwind CSS** es **OBLIGATORIO** para todos los estilos de la interfaz. No se permite el uso de CSS puro, SCSS o estilos en línea (salvo para variables dinámicas inyectadas por el Whitelabel), de esta forma garantizamos la consistencia visual y prevenimos el código espagueti.
+
 ---
 
 ## 1. Arquitectura Whitelabel de Hiper-Personalización

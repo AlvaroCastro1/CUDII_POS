@@ -1,6 +1,8 @@
 # CUDII - Reglas de Negocio y Contratos Comerciales (REGLAS_NEGOCIO)
 
-Este documento define TODAS las reglas de negocio, validaciones comerciales, flujos de venta, inventario, promociones, precios y políticas que el sistema **CUDII** debe enforce estrictamente. Ningún código de negocio puede violar estas reglas, las cuales complementan la especificación técnica en [SPEC.md](/CUDII_POS/.agents/SPEC.md).
+Este documento define TODAS las reglas de negocio, validaciones comerciales, flujos de venta, inventario, promociones, precios y políticas que el sistema **CUDII** debe enforce estrictamente. Ningún código de negocio puede violar estas reglas, las cuales complementan la especificación técnica en [SPEC.md](/CUDII_POS/.agents/SPEC.md). 
+
+*Nota importante: Los fragmentos de código, interfaces y estructuras de datos descritos en este documento son exclusivamente de carácter referencial y explicativo para ilustrar las reglas y estructura de datos. La implementación final dependerá del ORM (Prisma) y el stack.*
 
 ---
 
@@ -40,16 +42,22 @@ interface Producto {
 
 ### 1.2 Unidades de Venta Configurables por Negocio
 
-Cada negocio define qué unidades de venta soporta. CUDII se adapta al giro del comercio:
+Cada negocio define qué unidades de venta soporta. CUDII se adapta al giro del comercio y provee múltiples unidades, permitiendo que un mismo producto se venda en diferentes presentaciones (por ejemplo: por pieza, por caja o por pallet):
 
 | Unidad | Ejemplo | Configurable por |
 |---|---|---|
-| **Unidad (pieza)** | 1 playera, 1 refresco | Todo negocio |
-| **Peso (granel)** | 1.250 kg de.tomate | Tiendas de abarrotes, carnicerías |
-| **Caja/Cajas** | 1 caja de 24 refrescos | Mayoreo, distribuidores |
-| **Paquete** | 6 piezas en pack | Promociones, combos |
+| **Unidad (pieza)** | 1 playera, 1 lata de refresco | Todo negocio |
+| **Peso (granel)** | 1.250 kg de tomate, 500g de jamón | Tiendas de abarrotes, carnicerías |
+| **Caja/Cajas** | 1 caja de 24 latas de refresco | Mayoreo, distribuidores, abarrotes |
+| **Paquete** | 6 piezas en pack (Six-pack) | Promociones, combos, minisúper |
 | **Litro/Metro** | 1 litro de aceite, 2m de tela | Papelerías, ferreterías |
-| **Servicio** | 1 corte de pelo, 1 lavado | Salones, talleres |
+| **Docena** | 1 docena de rosas, docena de huevos | Florerías, mercados |
+| **Costal/Bulto** | 1 costal de azúcar (50kg), bulto de cemento | Abarrotes, ferreterías, materiales |
+| **Pallet/Tarima** | 1 pallet de papel higiénico | Mayoristas, bodegas |
+| **Servicio** | 1 corte de pelo, 1 reparación | Salones, talleres |
+
+**Ejemplo de Producto Multimedida:** 
+Un mismo producto (ej. "Refresco de Cola") puede tener asociadas varias unidades de medida a través de sus `preciosPorUnidad`. Si el cajero escanea el código de barras principal, el sistema puede preguntar si está vendiendo 1 Pieza ($15), 1 Paquete de 6 ($85) o 1 Caja de 24 ($320), descontando la cantidad correspondiente del stock base de piezas (o stockeando por cajas directamente según configuración).
 
 **Regla de negocio:**
 - El administrador selecciona las unidades habilitadas en **Configuración > Unidades de Venta**.
@@ -1441,7 +1449,32 @@ interface Proveedor {
 
 ---
 
-## 20. Documentos de Referencia (Orden Arquitectónico)
+## 20. Fechas y Husos Horarios
+
+* **Regla estricta:** Todas las fechas guardadas en la base de datos (y transmitidas a través de la API) DEBEN usar estrictamente el formato **ISO 8601 en UTC**. 
+* La conversión a la zona horaria local de la sucursal o del usuario solo debe realizarse en la capa de presentación (Frontend/POS).
+
+---
+
+## 21. Logs y Formato de Métricas
+
+* **Logs centralizados:** Todo log del backend (NestJS) deberá registrarse en un formato JSON estructurado que incluya: `timestamp` (ISO 8601), `level` (info, warn, error), `context` (módulo o clase), `message`, y `tenantId` (si aplica).
+* **Métricas de rendimiento:** La visualización de métricas (uso de memoria, tiempos de respuesta, tasa de error) debe exponerse utilizando formatos compatibles con herramientas estándar (ej. endpoints de Prometheus) o reportes gráficos dentro del Dashboard usando agregaciones en PostgreSQL/Redis.
+
+---
+
+## 22. Generación y Acceso a Reportes (RBAC)
+
+* **Restricción por Rol (RBAC):** El acceso a los reportes de ventas, inventarios y caja chica está fuertemente vinculado a los permisos. Un *Cajero* solo puede ver reportes de su propio turno/caja. Un *Gerente* de sucursal puede ver todo lo de su sucursal. Un *Admin/Dueño* tiene acceso global (multisucursal).
+* **Reportes Contextuales:** En lugar de solo tener un "Módulo de Reportes" aislado, el sistema permite generar reportes específicos desde las páginas clave:
+  - **En página de Producto:** Botón para generar reporte de "Desempeño y Rotación de este Producto".
+  - **En página de Vendedor/Cajero:** Botón para reporte de "Rendimiento y Ventas del empleado".
+  - **En página de Caja/Terminal:** Botón para reporte de "Historial de Cortes y Anomalías de esta Caja".
+* Estos reportes contextuales utilizan los mismos filtros e infraestructura subyacente pero pre-parametrizados para maximizar la usabilidad del gerente.
+
+---
+
+## 23. Documentos de Referencia (Orden Arquitectónico)
 
 | Nivel | Documento | Ruta Absoluta | Descripción |
 | :---: | :--- | :--- | :--- |
