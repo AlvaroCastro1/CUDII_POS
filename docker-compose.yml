@@ -1,20 +1,21 @@
-version: '3.8'
-
 services:
   # Backend NestJS (API)
   api:
     build: 
       context: ./backend
-      target: development
     container_name: cudii_api
     restart: unless-stopped
+    ports:
+      - "${API_PORT:-3000}:3000"
     networks:
       - cudii_net
     volumes:
       - ./backend:/usr/src/app
-      - /usr/src/app/node_modules
+      - api_node_modules:/usr/src/app/node_modules
     environment:
       - NODE_ENV=${NODE_ENV:-development}
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
       - PORT=${API_PORT:-3000}
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${POSTGRES_DB}?schema=public
       - REDIS_HOST=${REDIS_HOST:-redis}
@@ -24,7 +25,27 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    command: npm run start:dev
+
+  # Frontend Vite (React)
+  frontend:
+    build: 
+      context: ./frontend
+    container_name: cudii_frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    networks:
+      - cudii_net
+    volumes:
+      - ./frontend:/usr/src/app
+      - frontend_node_modules:/usr/src/app/node_modules
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - VITE_API_URL=http://localhost:${API_PORT:-3000}
+    depends_on:
+      - api
 
   # Base de Datos PostgreSQL
   postgres:
@@ -59,6 +80,8 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  api_node_modules:
+  frontend_node_modules:
 
 networks:
   cudii_net:

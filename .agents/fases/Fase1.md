@@ -4,11 +4,11 @@ Este documento detalla las tareas secuenciales para completar la Fase 1 del proy
 **Regla estricta:** No se puede avanzar a la siguiente tarea sin haber implementado, validado y confirmado como funcional la tarea actual.
 
 ## 1. Configuración de Infraestructura y Entorno
-- [ ] **Tarea 1.1:** Crear entorno Dockerizado (`docker-compose.yml`).
+- [x] **Tarea 1.1:** Crear entorno Dockerizado (`docker-compose.yml`).
   - **Descripción:** Configurar los servicios base: PostgreSQL, Redis y la estructura para el backend NestJS y frontend Vite.
   - **Criterios de validación:** El comando `docker-compose up -d` levanta todos los contenedores sin errores.
   - **Verificación manual:** Conectarse a la BD PostgreSQL y Redis asegurando que los puertos están expuestos unicamente para la red Docker y las credenciales son correctas.
-- [ ] **Tarea 1.2:** Configurar hot-reloading local con volúmenes.
+- [x] **Tarea 1.2:** Configurar hot-reloading local con volúmenes.
   - **Descripción:** Ajustar volúmenes en Docker para que los cambios en el código local de NestJS y React se reflejen automáticamente en el contenedor.
   - **Criterios de validación:** Los cambios en archivos locales son detectados y recargan los servicios.
   - **Verificación manual:** Modificar un archivo `.ts` en NestJS y verificar en logs que el servicio se reinicia; modificar un componente en Vite y verificar HMR en el navegador.
