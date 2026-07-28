@@ -6,7 +6,7 @@ Este documento establece las reglas y convenciones arquitectónicas para el desa
 
 ## 1. Stack Tecnológico y Herramientas
 
-- **Framework Core:** React 18+ (Functional Components).
+- **Framework Core:** React 19+ (Functional Components).
 - **Bundler:** Vite.
 - **Estilos:** Tailwind CSS (Uso exclusivo de utilidades; prohibido escribir CSS personalizado a menos que sea estrictamente necesario para animaciones complejas, en cuyo caso va en `index.css`).
 - **Estado Global:** Zustand (preferible sobre Redux/Context por rendimiento en la caja).

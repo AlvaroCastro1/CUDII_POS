@@ -28,7 +28,7 @@ Este documento detalla las tareas secuenciales para completar la Fase 1 del proy
   - **Verificación manual:** Crear un producto por API, listarlo y probar su borrado lógico, verificando que el registro se marque como inactivo en la base de datos pero siga existiendo.
 
 ## 3. Frontend y Arquitectura Web
-- [ ] **Tarea 3.1:** Setup de Aplicación Web (Vite + React + TailwindCSS).
+- [x] **Tarea 3.1:** Setup de Aplicación Web (Vite + React + TailwindCSS).
   - **Descripción:** Inicializar el frontend, configurar TailwindCSS (obligatorio) y el enrutador.
   - **Criterios de validación:** La app compila sin errores y los estilos globales están aplicados.
   - **Verificación manual:** Abrir el navegador en el puerto correspondiente, verificar que la pantalla carga y que las clases base de Tailwind funcionan.
