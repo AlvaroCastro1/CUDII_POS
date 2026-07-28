@@ -1,0 +1,174 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------
+// MODELO MULTITENANT (Nivel de Empresa/Organización)
+// ---------------------------------------------------------
+
+model Empresa {
+  id              String     @id @default(uuid())
+  nombre          String
+  rfc             String?
+  estaActivo      Boolean    @default(true)
+  creadoEn        DateTime   @default(now())
+  actualizadoEn   DateTime   @updatedAt
+
+  // Relaciones
+  sucursales      Sucursal[]
+  usuarios        Usuario[]
+  productos       Producto[]
+}
+
+// ---------------------------------------------------------
+// SUCURSALES Y CAJAS
+// ---------------------------------------------------------
+
+model Sucursal {
+  id              String     @id @default(uuid())
+  empresaId       String
+  empresa         Empresa    @relation(fields: [empresaId], references: [id])
+  nombre          String
+  direccion       String?
+  estaActivo      Boolean    @default(true)
+  creadoEn        DateTime   @default(now())
+
+  // Relaciones
+  cajas           Caja[]
+  inventario      InventarioSucursal[]
+}
+
+model Caja {
+  id              String     @id @default(uuid())
+  sucursalId      String
+  sucursal        Sucursal   @relation(fields: [sucursalId], references: [id])
+  nombre          String
+  codigo          String?    // ej: "CAJA-01"
+  estaActivo      Boolean    @default(true)
+}
+
+// ---------------------------------------------------------
+// USUARIOS Y RBAC
+// ---------------------------------------------------------
+
+model Usuario {
+  id              String     @id @default(uuid())
+  empresaId       String
+  empresa         Empresa    @relation(fields: [empresaId], references: [id])
+  nombre          String
+  email           String     @unique
+  passwordHash    String
+  rol             Rol        @default(CAJERO)
+  estaActivo      Boolean    @default(true)
+  creadoEn        DateTime   @default(now())
+  actualizadoEn   DateTime   @updatedAt
+  
+  // Relaciones (Opcionales, por ejemplo auditoría de quién desactivó)
+  movimientosInventario MovimientoInventario[]
+}
+
+enum Rol {
+  SUPER_ADMIN
+  ADMIN
+  GERENTE
+  CAJERO
+  ALMACEN
+  CONTADOR
+}
+
+// ---------------------------------------------------------
+// PRODUCTOS Y CATÁLOGO
+// ---------------------------------------------------------
+
+model Producto {
+  id              String     @id @default(uuid())
+  empresaId       String
+  empresa         Empresa    @relation(fields: [empresaId], references: [id])
+  codigoBarras    String
+  codigoInterno   String?
+  nombre          String
+  descripcion     String?
+  
+  unidadMedida    String     @default("pieza")
+  estaActivo      Boolean    @default(true)
+  esGranel        Boolean    @default(false)
+  requiereLote    Boolean    @default(false)
+  manejaInventario Boolean   @default(true)
+  
+  precioCompra    Float      @default(0)
+  precioVentaBase Float      @default(0)
+
+  creadoEn        DateTime   @default(now())
+  actualizadoEn   DateTime   @updatedAt
+
+  // Relaciones
+  preciosPorUnidad   PrecioPorUnidad[]
+  inventario         InventarioSucursal[]
+  movimientos        MovimientoInventario[]
+}
+
+model PrecioPorUnidad {
+  id              String     @id @default(uuid())
+  productoId      String
+  producto        Producto   @relation(fields: [productoId], references: [id])
+  unidad          String     // 'pieza', 'kilogramo', 'caja', etc.
+  nombreAlternativo String?
+  cantidadMinima  Float
+  cantidadMaxima  Float?
+  precio          Float
+  esDefault       Boolean    @default(false)
+}
+
+// ---------------------------------------------------------
+// INVENTARIO Y MOVIMIENTOS
+// ---------------------------------------------------------
+
+model InventarioSucursal {
+  id              String     @id @default(uuid())
+  sucursalId      String
+  sucursal        Sucursal   @relation(fields: [sucursalId], references: [id])
+  productoId      String
+  producto        Producto   @relation(fields: [productoId], references: [id])
+  
+  stockActual     Float      @default(0)
+  stockMinimo     Float      @default(0)
+  stockMaximo     Float      @default(100)
+  
+  ultimoMovimiento DateTime  @default(now())
+
+  @@unique([sucursalId, productoId])
+}
+
+model MovimientoInventario {
+  id              String     @id @default(uuid())
+  productoId      String
+  producto        Producto   @relation(fields: [productoId], references: [id])
+  sucursalId      String
+  tipo            TipoMovimientoInventario
+  cantidad        Float
+  stockAnterior   Float
+  stockNuevo      Float
+  referencia      String?    // ID de venta, traspaso
+  motivo          String?
+  usuarioId       String
+  usuario         Usuario    @relation(fields: [usuarioId], references: [id])
+  fechaHora       DateTime   @default(now())
+}
+
+enum TipoMovimientoInventario {
+  venta
+  devolucion_venta
+  ajuste_positivo
+  ajuste_negativo
+  traspaso_salida
+  traspaso_entrada
+  compra
+  apertura_inicial
+}

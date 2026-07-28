@@ -22,8 +22,8 @@ Para garantizar la calidad y reducir errores en producción, el desarrollo de CU
 *Objetivo:* Obtener una versión estable y lista para que los primeros comercios locales puedan operar con las funciones esenciales.
 
 **Entregables:**
-- **Infraestructura:** Entorno Dockerizado (NestJS, Prisma, PostgreSQL, Redis) con soporte de volúmenes para hot-reloading local.
-- **Backend & BD:** Modelo Multitenant (Empresa, Sucursal, Caja), Autenticación RBAC (JWT), y control de inventario local.
+- **Infraestructura:** (Completado) Entorno Dockerizado (NestJS, Prisma, PostgreSQL, Redis) con soporte de volúmenes para hot-reloading local.
+- **Backend & BD:** (Completado) Modelo Multitenant (Empresa, Sucursal, Caja), Autenticación RBAC (JWT), y control de inventario local.
 - **Frontend & App:** Aplicación Web (Vite + React) para administración y Cajero.
 - **Flujos Core:** 
   - Onboarding asistido (Día 0).

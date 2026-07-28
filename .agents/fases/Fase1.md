@@ -14,15 +14,15 @@ Este documento detalla las tareas secuenciales para completar la Fase 1 del proy
   - **Verificación manual:** Modificar un archivo `.ts` en NestJS y verificar en logs que el servicio se reinicia; modificar un componente en Vite y verificar HMR en el navegador.
 
 ## 2. Base de Datos y Backend Core
-- [ ] **Tarea 2.1:** Definir y migrar el Modelo Multitenant (Prisma).
+- [x] **Tarea 2.1:** Definir y migrar el Modelo Multitenant (Prisma).
   - **Descripción:** Crear el esquema Prisma con las entidades base: Tenant (Empresa), Sucursal, Caja (Terminal), Usuario, y Producto.
   - **Criterios de validación:** Migración inicial creada (`prisma migrate dev`) y tablas generadas en PostgreSQL con tipado estricto.
   - **Verificación manual:** Revisar el esquema generado en Prisma Studio o DBeaver, validando relaciones lógicas y llaves foráneas.
-- [ ] **Tarea 2.2:** Implementar Autenticación RBAC y JWT.
+- [x] **Tarea 2.2:** Implementar Autenticación RBAC y JWT.
   - **Descripción:** Desarrollar login, generación de JWT y guards/decoradores en NestJS para validar roles.
   - **Criterios de validación:** Endpoints protegidos devuelven `401/403` si no hay token o los permisos son insuficientes.
   - **Verificación manual:** Probar el endpoint de login vía Postman/cURL, obtener el token y realizar una petición a un endpoint protegido verificando la respuesta correcta.
-- [ ] **Tarea 2.3:** CRUD de Inventario Local.
+- [x] **Tarea 2.3:** CRUD de Inventario Local.
   - **Descripción:** Endpoints para crear, leer, actualizar y hacer soft-delete de productos, soportando múltiples unidades de medida.
   - **Criterios de validación:** Operaciones funcionales, manejo de errores y logs centralizados implementados. Prohibido el `DELETE` físico.
   - **Verificación manual:** Crear un producto por API, listarlo y probar su borrado lógico, verificando que el registro se marque como inactivo en la base de datos pero siga existiendo.
