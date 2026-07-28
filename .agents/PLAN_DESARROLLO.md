@@ -24,7 +24,7 @@ Para garantizar la calidad y reducir errores en producción, el desarrollo de CU
 **Entregables:**
 - **Infraestructura:** (Completado) Entorno Dockerizado (NestJS, Prisma, PostgreSQL, Redis) con soporte de volúmenes para hot-reloading local.
 - **Backend & BD:** (Completado) Modelo Multitenant (Empresa, Sucursal, Caja), Autenticación RBAC (JWT), y control de inventario local.
-- **Frontend & App:** Aplicación Web (Vite + React) para administración y Cajero.
+- **Frontend & App:** Aplicación Web (Vite + React) para administración y Cajero. *(Enfoque en Diseño Premium y filosofía Stitch de Google para evitar el aspecto de SaaS genérico).*
 - **Flujos Core:** 
   - Onboarding asistido (Día 0).
   - Venta de productos con unidades de medida múltiples (Pieza, Granel, Caja, etc.).

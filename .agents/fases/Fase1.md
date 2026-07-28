@@ -32,6 +32,9 @@ Este documento detalla las tareas secuenciales para completar la Fase 1 del proy
   - **Descripción:** Inicializar el frontend, configurar TailwindCSS (obligatorio) y el enrutador.
   - **Criterios de validación:** La app compila sin errores y los estilos globales están aplicados.
   - **Verificación manual:** Abrir el navegador en el puerto correspondiente, verificar que la pantalla carga y que las clases base de Tailwind funcionan.
+- [ ] **Tarea 3.2:** Integración de Diseño Premium (Estética Stitch / Avanzada).
+  - **Descripción:** Elevar la UI/UX de CUDII POS para lograr una interfaz sobresaliente e impactante, abandonando el aspecto clásico de un "SaaS genérico" y apoyándose en herramientas avanzadas de diseño (como las filosofías de Google Stitch / Material You).
+  - **Criterios de validación:** La interfaz final debe sentirse fluida, premium, con micro-interacciones excelentes y una identidad de vanguardia.
 
 ## 4. Flujos Core (Lógica de Negocio)
 - [ ] **Tarea 4.1:** Implementar Onboarding Asistido (Día 0).
