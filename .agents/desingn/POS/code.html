@@ -1,0 +1,261 @@
+<!DOCTYPE html><html class="dark" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>AetherPOS | Terminal de Venta</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&amp;display=swap" rel="stylesheet">
+<style>
+        :root {
+            --glass-blur: 40px;
+            --glass-opacity: 0.1;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            background-color: #131313;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .spatial-glass {
+            background: rgba(20, 20, 20, 0.4);
+            backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .liquid-glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(60px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+        }
+
+        .bento-card-hover {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .bento-card-hover:hover {
+            transform: translateY(-4px) scale(1.01);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 255, 255, 0.05);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 0.8; }
+        }
+        .glow-effect {
+            animation: pulse-glow 3s infinite;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#131313",
+                        "surface": "#131313",
+                        "primary": "#ffffff",
+                        "on-primary": "#2f3131",
+                        "secondary": "#adc6ff",
+                        "on-secondary": "#002e69",
+                        "surface-container-low": "#1c1b1b",
+                        "surface-container-high": "#2a2a2a",
+                        "surface-container-highest": "#353534",
+                        "on-surface-variant": "#c4c7c8",
+                        "outline": "#8e9192",
+                        "error": "#ffb4ab"
+                    },
+                    "spacing": {
+                        "bento-gap": "24px",
+                        "touch-target-min": "48px",
+                        "unit": "4px",
+                        "panel-padding": "32px",
+                        "container-margin": "40px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Geist"],
+                        "label-sm": ["JetBrains Mono"],
+                        "display-lg": ["Geist"],
+                        "headline-md": ["Geist"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.04em", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "500"}]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md selection:bg-primary selection:text-on-primary">
+<!-- Navigation Shell (Desktop SideNav) -->
+<aside class="w-64 border-r border-white/10 flex flex-col glass-panel shrink-0 fixed left-0 top-0 bottom-0 z-40 hidden lg:flex">
+<div class="p-8 flex items-center gap-3">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary !text-xl">auto_awesome</span>
+</div>
+<span class="font-display-lg text-xl tracking-tighter text-primary">Cudii</span>
+</div>
+<nav class="flex-1 px-4 sidebar-scroll overflow-y-auto pb-8">
+<div class="mb-8">
+<h3 class="px-4 mb-3 font-label-sm text-[10px] text-outline uppercase tracking-widest">Panel de Control</h3>
+<div class="space-y-1">
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">insights</span>
+<span class="text-sm font-medium">Estadísticas</span>
+</a>
+</div>
+</div>
+<div class="mb-8">
+<h3 class="px-4 mb-3 font-label-sm text-[10px] text-outline uppercase tracking-widest">Operaciones</h3>
+<div class="space-y-1">
+<a class="nav-link active flex items-center gap-3 px-4 py-2.5 rounded-xl text-primary bg-white/10" href="#">
+<span class="material-symbols-outlined !text-xl">point_of_sale</span>
+<span class="text-sm font-medium">Ventas (POS)</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">receipt_long</span>
+<span class="text-sm font-medium">Pedidos</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">payments</span>
+<span class="text-sm font-medium">Caja</span>
+</a>
+</div>
+</div>
+<div class="mb-8">
+<h3 class="px-4 mb-3 font-label-sm text-[10px] text-outline uppercase tracking-widest">Gestión</h3>
+<div class="space-y-1">
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">inventory</span>
+<span class="text-sm font-medium">Productos</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">inventory_2</span>
+<span class="text-sm font-medium">Inventario</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">group</span>
+<span class="text-sm font-medium">Clientes</span>
+</a>
+</div>
+</div>
+<div>
+<h3 class="px-4 mb-3 font-label-sm text-[10px] text-outline uppercase tracking-widest">Administración</h3>
+<div class="space-y-1">
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">analytics</span>
+<span class="text-sm font-medium">Reportes</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">settings</span>
+<span class="text-sm font-medium">Configuración</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">person_search</span>
+<span class="text-sm font-medium">Usuarios</span>
+</a>
+</div>
+</div>
+</nav>
+<div class="p-6 border-t border-white/10 mt-auto">
+
+</div>
+</aside>
+<!-- Main POS Canvas -->
+<main class="relative z-10 h-screen flex flex-col gap-bento-gap p-container-margin overflow-hidden md:ml-72"><header class="h-20 border-b border-white/10 flex items-center justify-between px-8 shrink-0 glass-panel mb-10 z-50">
+<div class="flex items-center gap-6 flex-1 max-w-2xl">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline !text-xl">search</span>
+<input class="w-full bg-white/5 border-none rounded-full py-2.5 pl-12 pr-4 text-sm focus:ring-1 focus:ring-primary/30 transition-all" placeholder="Buscar en Cudii..." type="text">
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2.5 rounded-full hover:bg-white/5 text-outline transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2.5 right-2.5 w-2 h-2 bg-secondary rounded-full border-2 border-background"></span>
+</button>
+<button class="p-2.5 rounded-full hover:bg-white/5 text-outline transition-colors">
+<span class="material-symbols-outlined">auto_awesome</span>
+</button>
+<div class="h-8 w-[1px] bg-white/10 mx-2"></div>
+<div class="flex items-center gap-3 pl-2">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-medium text-primary">Admin User</p>
+<p class="text-[10px] text-outline uppercase tracking-wider">Pro Plan</p>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-secondary overflow-hidden">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8dVLKM-9F_hdR6-Zw9yrwSL4USuRTSalmZOPwYIGhFTPd1GddBCysM19EORExjsUrYM85wjJhtXjz0crjNhdtIqRmAa3MdycVtOZD7M3HZTGJVerlx2j11MHPTE0S4_Km8wdamnUFpzdNObVkk5YUmt-pvxr_BqKIQEf3eM8-BrdfBB3n34L_97MsTFVUi5fLWn-bvvToZf_lsKPr65Qb_vIzlqbY5swC2Y4iEDyWOcOZfCObwhpAxA">
+</div>
+</div>
+</div>
+</header>
+<!-- Center Section: Catalog -->
+<div class="flex flex-1 gap-bento-gap min-h-0"><section class="flex-1 flex flex-col min-w-0"><div class="flex gap-3 mb-6 overflow-x-auto pb-2 custom-scrollbar"><button class="px-6 py-2 rounded-full bg-white text-on-primary font-label-sm whitespace-nowrap">Todo</button><button class="px-6 py-2 rounded-full spatial-glass text-on-surface-variant font-label-sm whitespace-nowrap hover:bg-white/5 transition-colors">Café</button><button class="px-6 py-2 rounded-full spatial-glass text-on-surface-variant font-label-sm whitespace-nowrap hover:bg-white/5 transition-colors">Pastelería</button><button class="px-6 py-2 rounded-full spatial-glass text-on-surface-variant font-label-sm whitespace-nowrap hover:bg-white/5 transition-colors">Bebidas</button><button class="px-6 py-2 rounded-full spatial-glass text-on-surface-variant font-label-sm whitespace-nowrap hover:bg-white/5 transition-colors">Desayunos</button><button class="px-6 py-2 rounded-full spatial-glass text-on-surface-variant font-label-sm whitespace-nowrap hover:bg-white/5 transition-colors">Aperitivos</button></div><div class="flex-1 overflow-y-auto pr-2 custom-scrollbar"><div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 pb-12 items-stretch"><div class="spatial-glass rounded-[28px] overflow-hidden bento-card-hover group cursor-pointer flex flex-col"><div class="aspect-square w-full overflow-hidden relative"><div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuA9yEvX0G5qbFfnGr3uFVitc4rSx32zeKbZoaqtifi-CUdiU6G-rSi7mdz1OlqaP1IUX1X9g0ZntIkH5orrfx4Eo304_Ei3sFl-QrZC4jMC-5RvOenbGiIwrVKkoPsWf6Q1wSD-JEQMVChpJFV4c0GW_8PkXR8X0T1t8TRD46Dk9PYdZB68E2kLzzBscBs2Qt-xeauz7_y3f5bx-ZisFGSa7heWD1NCUkSI_6d9LNHo5tLYM9P6joKbvA&quot;);"></div><div class="absolute top-4 right-4 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/10"><p class="font-label-sm text-[10px] text-primary">STK: 12</p></div></div><div class="p-5 flex flex-col flex-1"><p class="font-label-sm text-outline text-[10px] uppercase tracking-wider mb-1 truncate">Bebidas Calientes</p><h3 class="font-headline-md text-base text-primary mb-4 line-clamp-1">Caffé Latte</h3><div class="mt-auto flex items-center justify-between"><p class="font-label-sm text-lg text-primary">$4.50</p></div></div></div><div class="spatial-glass rounded-[28px] overflow-hidden bento-card-hover group cursor-pointer flex flex-col"><div class="aspect-square w-full overflow-hidden relative"><div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuByg5-AYoFjZgNVymSB5XXZLodwl0kSBEjDFh5p9QujdDfIj3AcNR7drJDjRuj-uU0v_orTXEKMvElIpE1vQmnF9BdXwJynkwB2-By1GdwZ98Tw_rbRRNddDQS7lo1qUzn_xzF7esv5xWiS3Xq3qsy6I2R25bH_6AErFVeQLxtSuCljnQL80gBRwijoWQ1yYE4e2A_kZPW0aaqL4pm8VRbgzAawDuNpThT6eaDTkKnVUnKarePbel0zmw&quot;);"></div><div class="absolute top-4 right-4 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/10"><p class="font-label-sm text-[10px] text-primary">STK: 5</p></div></div><div class="p-5 flex flex-col flex-1"><p class="font-label-sm text-outline text-[10px] uppercase tracking-wider mb-1 truncate">Pastelería</p><h3 class="font-headline-md text-base text-primary mb-4 line-clamp-1">Croissant Mantequilla</h3><div class="mt-auto flex items-center justify-between"><p class="font-label-sm text-lg text-primary">$3.25</p></div></div></div><div class="spatial-glass rounded-[28px] overflow-hidden bento-card-hover group cursor-pointer flex flex-col"><div class="aspect-square w-full overflow-hidden relative"><div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuDL_HiyyDpNeTP6V9m8z79ylxoVjEgSyS7pte4JGOuh7Re7W4RqvUq5ROS3KdgQMgwM5knkNZKrutiI2P-GJ3KD48btW1apH-UXrei_ShfRq4MDgXfTc4L0RKqDYnHo1hFeCZJIXJ3XmRv9cS6_L5vU8Hyp7vJMCfDErjVclEQnJYMlZttcj1HfwBxB6SMnkpnH32q31Ee6o2QauhEuduUZ6L0uxqdfjHsb_IHAlN3YrmRG07QiULKWUw&quot;);"></div><div class="absolute top-4 right-4 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/10"><p class="font-label-sm text-[10px] text-primary">STK: 8</p></div></div><div class="p-5 flex flex-col flex-1"><p class="font-label-sm text-outline text-[10px] uppercase tracking-wider mb-1 truncate">Desayunos</p><h3 class="font-headline-md text-base text-primary mb-4 line-clamp-1">Bowl de Frutas</h3><div class="mt-auto flex items-center justify-between"><p class="font-label-sm text-lg text-primary">$12.00</p></div></div></div><div class="spatial-glass rounded-[28px] overflow-hidden bento-card-hover group cursor-pointer flex flex-col"><div class="aspect-square w-full overflow-hidden relative"><div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuC1pZAd-2HiAeeJBOTe3_UiO_1PfrBJixQGdlePyWm96QNGOJZCy1WyFpEDE8KUxSKhvLB3Ep-Md4CZavb-usP85j4PePRB70gPIvQYuvXaz-2AqNXTJwe4W8-e5esGroq8AvQ52t3HKecXDslWoGNVQjMf02mGfPsDk8LV4FPmzxHMEHNlzdGd8TjLH__f4BPnEDV9HVFTetAVqhSHW0-l32OrVT47dAzrLoWnDyq9cz5NgMWxKtEALQ&quot;);"></div><div class="absolute top-4 right-4 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/10"><p class="font-label-sm text-[10px] text-primary">STK: 15</p></div></div><div class="p-5 flex flex-col flex-1"><p class="font-label-sm text-outline text-[10px] uppercase tracking-wider mb-1 truncate">Bebidas Frías</p><h3 class="font-headline-md text-base text-primary mb-4 line-clamp-1">Smoothie Baya</h3><div class="mt-auto flex items-center justify-between"><p class="font-label-sm text-lg text-primary">$6.50</p></div></div></div><div class="spatial-glass rounded-[28px] overflow-hidden bento-card-hover group cursor-pointer flex flex-col"><div class="aspect-square w-full liquid-glass flex items-center justify-center relative"><div class="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/10"></div><span class="material-symbols-outlined text-4xl text-outline/30 group-hover:scale-110 transition-transform" data-icon="no_photography">no_photography</span><div class="absolute top-4 right-4 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/10"><p class="font-label-sm text-[10px] text-primary">STK: 24</p></div></div><div class="p-5 flex flex-col flex-1"><p class="font-label-sm text-outline text-[10px] uppercase tracking-wider mb-1 truncate">Bebidas Frías</p><h3 class="font-headline-md text-base text-primary mb-4 line-clamp-1">Cold Brew Nitro</h3><div class="mt-auto flex items-center justify-between"><p class="font-label-sm text-lg text-primary">$5.75</p></div></div></div><div class="spatial-glass rounded-[28px] overflow-hidden bento-card-hover group cursor-pointer flex flex-col"><div class="aspect-square w-full overflow-hidden relative"><div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuARlC7mbm60aPKIEg9rSLZ3uCj1xXYeEvHXqCUHmvQ8ORMOicRxxUNMUYhR0HHdjOsHlfHPL0lQ9NeC6wMx_h2PsvCoqNV5p1205gDY_3vhhWTlPv_-6WSNX8mrd2cJOfVRRsSPdw5ioA5sthsgmq6PsEkG-mq4-0LCNrtdu9PjeqQcGT7PQgd86HR48GtoQndLgpwkomGeHs9ZGgKGvmRsOuqF42m_5v8TCxkNP1EeYsHSmSVMOSbbBw&quot;);"></div><div class="absolute top-4 right-4 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/10"><p class="font-label-sm text-[10px] text-primary">STK: 42</p></div></div><div class="p-5 flex flex-col flex-1"><p class="font-label-sm text-outline text-[10px] uppercase tracking-wider mb-1 truncate">Aperitivos</p><h3 class="font-headline-md text-base text-primary mb-4 line-clamp-1">Muffin Arándanos</h3><div class="mt-auto flex items-center justify-between"><p class="font-label-sm text-lg text-primary">$2.95</p></div></div></div></div></div></section><aside class="w-full md:w-[400px] flex flex-col z-20 h-full"><div class="liquid-glass rounded-[32px] h-full flex flex-col shadow-2xl relative overflow-hidden"><div class="absolute top-0 left-0 w-1/2 h-1/2 bg-gradient-to-br from-white/5 to-transparent pointer-events-none"></div><div class="p-8 border-b border-white/10"><div class="flex items-center justify-between mb-2"><h2 class="font-headline-md text-2xl text-primary">Ticket Actual</h2><span class="font-label-sm px-3 py-1 bg-surface-container-high rounded-full text-outline">#0892</span></div><div class="flex items-center gap-2 text-outline"><span class="material-symbols-outlined text-sm" data-icon="person">person</span><p class="text-sm">Cliente: Público General</p></div></div><div class="flex-1 overflow-y-auto p-6 custom-scrollbar"><div class="space-y-6"><div class="flex items-center gap-4 group"><div class="w-14 h-14 rounded-xl overflow-hidden bg-surface-container-high flex-shrink-0"><div class="w-full h-full bg-cover bg-center" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuA9yEvX0G5qbFfnGr3uFVitc4rSx32zeKbZoaqtifi-CUdiU6G-rSi7mdz1OlqaP1IUX1X9g0ZntIkH5orrfx4Eo304_Ei3sFl-QrZC4jMC-5RvOenbGiIwrVKkoPsWf6Q1wSD-JEQMVChpJFV4c0GW_8PkXR8X0T1t8TRD46Dk9PYdZB68E2kLzzBscBs2Qt-xeauz7_y3f5bx-ZisFGSa7heWD1NCUkSI_6d9LNHo5tLYM9P6joKbvA&quot;);"></div></div><div class="flex-1"><h4 class="text-primary font-body-md truncate">Caffé Latte</h4><div class="flex items-center gap-2 mt-1"><button class="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"><span class="material-symbols-outlined text-xs">remove</span></button><span class="text-primary font-label-sm text-xs">2</span><button class="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"><span class="material-symbols-outlined text-xs">add</span></button><span class="text-outline text-[10px] ml-1">($4.50 c/u)</span></div></div><div class="text-right"><p class="text-primary font-label-sm text-lg">$9.00</p><button class="text-error opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-sm" data-icon="delete">delete</span></button></div></div><div class="flex items-center gap-4 group"><div class="w-14 h-14 rounded-xl overflow-hidden bg-surface-container-high flex-shrink-0"><div class="w-full h-full bg-cover bg-center" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuByg5-AYoFjZgNVymSB5XXZLodwl0kSBEjDFh5p9QujdDfIj3AcNR7drJDjRuj-uU0v_orTXEKMvElIpE1vQmnF9BdXwJynkwB2-By1GdwZ98Tw_rbRRNddDQS7lo1qUzn_xzF7esv5xWiS3Xq3qsy6I2R25bH_6AErFVeQLxtSuCljnQL80gBRwijoWQ1yYE4e2A_kZPW0aaqL4pm8VRbgzAawDuNpThT6eaDTkKnVUnKarePbel0zmw&quot;);"></div></div><div class="flex-1"><h4 class="text-primary font-body-md truncate">Croissant Mantequilla</h4><div class="flex items-center gap-2 mt-1"><button class="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"><span class="material-symbols-outlined text-xs">remove</span></button><span class="text-primary font-label-sm text-xs">1</span><button class="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"><span class="material-symbols-outlined text-xs">add</span></button></div></div><div class="text-right"><p class="text-primary font-label-sm text-lg">$3.25</p><button class="text-error opacity-0 group-hover:opacity-100 transition-opacity"><span class="material-symbols-outlined text-sm" data-icon="delete">delete</span></button></div></div></div><div class="mt-8 pt-8 border-t border-white/5 border-dashed"><button class="w-full flex items-center justify-center gap-2 py-4 border border-white/10 rounded-2xl text-outline hover:text-primary hover:border-primary transition-all"><span class="material-symbols-outlined" data-icon="style">style</span><span class="font-label-sm">Aplicar Descuento / Cupón</span></button></div></div><div class="p-8 bg-surface-container-highest/30 backdrop-blur-md rounded-t-[32px]"><div class="space-y-2 mb-8"><div class="flex justify-between text-outline"><p class="font-body-md">Subtotal</p><p class="font-label-sm">$12.25</p></div><div class="flex justify-between text-outline"><p class="font-body-md">Impuestos (10%)</p><p class="font-label-sm">$1.22</p></div><div class="flex justify-between items-end mt-4"><p class="text-primary font-headline-md">Total</p><p class="text-primary font-display-lg text-4xl">$13.47</p></div></div><button class="w-full h-20 bg-primary text-on-primary rounded-2xl font-display-lg text-2xl flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_40px_rgba(255,255,255,0.2)]"><span class="material-symbols-outlined text-4xl" data-icon="payments" style="font-variation-settings: &quot;FILL&quot; 1;">payments</span>COBRAR</button><div class="flex gap-4 mt-4"><button class="flex-1 py-4 spatial-glass rounded-xl font-label-sm text-primary flex items-center justify-center gap-2"><span class="material-symbols-outlined text-lg" data-icon="print">print</span> Ticket</button><button class="flex-1 py-4 spatial-glass rounded-xl font-label-sm text-error flex items-center justify-center gap-2"><span class="material-symbols-outlined text-lg" data-icon="close">close</span> Vaciar</button></div></div></div></aside></div>
+<!-- Right Section: Checkout Ticket -->
+
+</main>
+<!-- Mobile Navigation Shell (BottomNavBar) -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-4 bg-background/60 backdrop-blur-xl border-t border-white/10 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-primary" href="#">
+<span class="material-symbols-outlined" data-icon="shopping_cart">shopping_cart</span>
+<span class="font-label-sm">Venta</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="font-label-sm">Pedidos</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline" href="#">
+<span class="material-symbols-outlined" data-icon="list_alt">list_alt</span>
+<span class="font-label-sm">Inventario</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline" href="#">
+<span class="material-symbols-outlined" data-icon="more_horiz">more_horiz</span>
+<span class="font-label-sm">Más</span>
+</a>
+</nav>
+<!-- AI Assistant Button -->
+
+<script>
+    // Micro-interactions for product cards
+    document.querySelectorAll('.bento-card-hover').forEach(card => {
+        card.addEventListener('mousedown', () => {
+            card.style.transform = 'scale(0.98)';
+        });
+        card.addEventListener('mouseup', () => {
+            card.style.transform = '';
+        });
+    });
+</script>
+
+
+
+
+
+
+</body></html>

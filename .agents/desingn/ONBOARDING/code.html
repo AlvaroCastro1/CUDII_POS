@@ -1,0 +1,344 @@
+<!DOCTYPE html><html class="dark" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>AetherPOS | Onboarding</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=JetBrains+Mono:wght@100..800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=JetBrains+Mono:wght@100..900&amp;display=swap" rel="stylesheet">
+<!-- Design System Tokens -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "background": "#131313",
+                "on-primary-fixed-variant": "#454747",
+                "surface-variant": "#353534",
+                "surface-container-lowest": "#0e0e0e",
+                "on-tertiary-fixed": "#07006c",
+                "secondary-fixed-dim": "#adc6ff",
+                "secondary-container": "#4b8eff",
+                "secondary-fixed": "#d8e2ff",
+                "on-error-container": "#ffdad6",
+                "on-background": "#e5e2e1",
+                "primary-container": "#e2e2e2",
+                "surface": "#131313",
+                "secondary": "#adc6ff",
+                "on-tertiary-fixed-variant": "#2f2ebe",
+                "inverse-on-surface": "#313030",
+                "primary-fixed-dim": "#c6c6c7",
+                "on-surface": "#e5e2e1",
+                "outline": "#8e9192",
+                "on-secondary-fixed": "#001a41",
+                "surface-bright": "#3a3939",
+                "error-container": "#93000a",
+                "inverse-surface": "#e5e2e1",
+                "tertiary-fixed": "#e1e0ff",
+                "on-tertiary-container": "#4f51dd",
+                "surface-container-high": "#2a2a2a",
+                "on-primary-container": "#636565",
+                "on-surface-variant": "#c4c7c8",
+                "on-secondary-fixed-variant": "#004493",
+                "surface-container-low": "#1c1b1b",
+                "surface-tint": "#c6c6c7",
+                "primary-fixed": "#e2e2e2",
+                "inverse-primary": "#5d5f5f",
+                "surface-dim": "#131313",
+                "on-primary-fixed": "#1a1c1c",
+                "tertiary": "#ffffff",
+                "error": "#ffb4ab",
+                "surface-container": "#201f1f",
+                "primary": "#ffffff",
+                "on-primary": "#2f3131",
+                "tertiary-fixed-dim": "#c0c1ff",
+                "on-secondary-container": "#00285c",
+                "on-tertiary": "#1000a9",
+                "surface-container-highest": "#353534",
+                "outline-variant": "#444748",
+                "tertiary-container": "#e1e0ff",
+                "on-error": "#690005",
+                "on-secondary": "#002e69"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "spacing": {
+                "bento-gap": "24px",
+                "touch-target-min": "48px",
+                "unit": "4px",
+                "panel-padding": "32px",
+                "container-margin": "40px"
+            },
+            "fontFamily": {
+                "body-md": ["Geist"],
+                "label-sm": ["JetBrains Mono"],
+                "display-lg": ["Geist"],
+                "display-lg-mobile": ["Geist"],
+                "headline-md": ["Geist"],
+                "body-lg": ["Geist"]
+            },
+            "fontSize": {
+                "body-md": ["16px", {"lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400"}],
+                "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.04em", "fontWeight": "600"}],
+                "display-lg-mobile": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "500"}],
+                "body-lg": ["18px", {"lineHeight": "28px", "letterSpacing": "0em", "fontWeight": "400"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        /* Glassmorphism Styles */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .step-transition {
+            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .liquid-input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .liquid-input:focus {
+            outline: none;
+            border-bottom-color: #ffffff;
+            box-shadow: 0 4px 12px -4px rgba(255, 255, 255, 0.2);
+        }
+
+        /* Ambient background movement */
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(5deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+        .ambient-sphere {
+            animation: float 15s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen font-body-md overflow-hidden selection:bg-primary selection:text-on-primary">
+<!-- Ambient Background Layer -->
+<div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+<div class="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-secondary/10 rounded-full blur-[120px] ambient-sphere"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-tertiary-container/10 rounded-full blur-[100px] ambient-sphere" style="animation-delay: -5s;"></div>
+<div class="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-secondary-container/5 rounded-full blur-[80px] ambient-sphere" style="animation-delay: -10s;"></div>
+</div>
+<!-- Onboarding Container -->
+<main class="relative z-10 flex flex-col items-center justify-center min-h-screen px-panel-padding">
+<!-- Header Branding (Suppressed Nav as per Shell Rule) -->
+<header class="fixed top-container-margin flex flex-col items-center">
+<h1 class="font-display-lg text-display-lg-mobile md:text-display-lg tracking-tighter text-primary">CUDII</h1>
+<p class="font-label-sm text-label-sm text-outline tracking-[0.2em] mt-2">CONFIGURACIÓN INICIAL</p>
+</header>
+<!-- Progress Indicator -->
+<div class="w-full max-w-[400px] mb-12 flex justify-between relative">
+<div class="absolute top-1/2 left-0 w-full h-[1px] bg-white/10 -translate-y-1/2 z-0"></div>
+<div class="absolute top-1/2 left-0 w-0 h-[1px] bg-primary -translate-y-1/2 z-0 transition-all duration-700 ease-in-out" id="progress-bar" style="width: 0%;"></div>
+<div class="step-dot relative z-10 w-8 h-8 rounded-full border border-white/20 flex items-center justify-center text-label-sm transition-all duration-500 bg-white text-black border-white" data-step="1">1</div>
+<div class="step-dot relative z-10 w-8 h-8 rounded-full bg-surface-container border border-white/20 flex items-center justify-center text-label-sm transition-all duration-500 text-on-surface-variant" data-step="2">2</div>
+<div class="step-dot relative z-10 w-8 h-8 rounded-full bg-surface-container border border-white/20 flex items-center justify-center text-label-sm transition-all duration-500 text-on-surface-variant" data-step="3">3</div>
+</div>
+<!-- Glass Main Card -->
+<div class="glass-panel w-full max-w-[640px] rounded-[32px] p-12 relative overflow-hidden">
+<form id="onboarding-form" onsubmit="return false">
+<!-- Step 1: Business Name -->
+<section class="step-content opacity-100 translate-x-0 transition-all duration-500 flex flex-col" id="step-1">
+<h2 class="font-display-lg text-display-lg-mobile md:text-display-lg-mobile text-primary mb-4">¿Cómo se llama tu negocio?</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-12">Comencemos con lo básico. Este nombre aparecerá en tus facturas y reportes.</p>
+<div class="relative group">
+<input autocomplete="off" class="liquid-input w-full py-6 font-display-lg text-display-lg-mobile md:text-display-lg-mobile text-white placeholder:text-white/10" id="business-name" placeholder="Ej: Café Estelar" required="" type="text">
+<span class="material-symbols-outlined absolute right-0 bottom-6 text-outline group-focus-within:text-primary transition-colors">storefront</span>
+</div>
+<div class="mt-16 flex justify-end">
+<button class="px-8 py-4 bg-primary text-on-primary font-bold rounded-full hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 group" onclick="nextStep(2)" type="button">
+                            Continuar
+                            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+</section>
+<!-- Step 2: Infrastructure -->
+<section class="step-content hidden opacity-0 translate-x-12 transition-all duration-500 flex flex-col" id="step-2">
+<h2 class="font-display-lg text-display-lg-mobile md:text-display-lg-mobile text-primary mb-4">Configura tu estructura</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-12">Define tu primera sucursal y el punto de venta inicial.</p>
+<div class="space-y-10">
+<div class="relative group">
+<label class="font-label-sm text-label-sm text-outline block mb-2">NOMBRE DE LA SUCURSAL</label>
+<input class="liquid-input w-full py-4 font-headline-md text-headline-md text-white placeholder:text-white/10" id="branch-name" placeholder="Sucursal Principal" required="" type="text">
+</div>
+<div class="relative group">
+<label class="font-label-sm text-label-sm text-outline block mb-2">IDENTIFICADOR DE CAJA</label>
+<input class="liquid-input w-full py-4 font-headline-md text-headline-md text-white placeholder:text-white/10" id="register-id" placeholder="Caja 01 - Principal" required="" type="text">
+</div>
+</div>
+<div class="mt-16 flex justify-between items-center">
+<button class="px-8 py-4 text-outline font-medium hover:text-white transition-colors" onclick="nextStep(1)" type="button">Atrás</button>
+<button class="px-8 py-4 bg-primary text-on-primary font-bold rounded-full hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 group" onclick="nextStep(3)" type="button">
+                            Continuar
+                            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+</section>
+<!-- Step 3: Admin User -->
+<section class="step-content hidden opacity-0 translate-x-12 transition-all duration-500 flex flex-col" id="step-3">
+<h2 class="font-display-lg text-display-lg-mobile md:text-display-lg-mobile text-primary mb-4">Acceso de Administrador</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-12">Crea las credenciales maestras para gestionar tu ecosistema.</p>
+<div class="space-y-10">
+<div class="relative group">
+<label class="font-label-sm text-label-sm text-outline block mb-2">CORREO ELECTRÓNICO</label>
+<input class="liquid-input w-full py-4 font-headline-md text-headline-md text-white placeholder:text-white/10" id="admin-email" placeholder="admin@tualma.com" required="" type="email">
+</div>
+<div class="relative group">
+<label class="font-label-sm text-label-sm text-outline block mb-2">CONTRASEÑA</label>
+<input class="liquid-input w-full py-4 font-headline-md text-headline-md text-white placeholder:text-white/10" id="admin-pass" placeholder="••••••••" required="" type="password">
+</div>
+</div>
+<div class="mt-16 flex justify-between items-center">
+<button class="px-8 py-4 text-outline font-medium hover:text-white transition-colors" onclick="nextStep(2)" type="button">Atrás</button>
+<button class="px-10 py-4 bg-white text-black font-bold rounded-full hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] active:scale-95 transition-all flex items-center gap-2 group" onclick="finishOnboarding()" type="button">
+                            Finalizar Setup
+                            <span class="material-symbols-outlined group-hover:scale-110 transition-transform">auto_awesome</span>
+</button>
+</div>
+</section>
+</form>
+<!-- Success Splash -->
+<section class="hidden flex flex-col items-center text-center py-8" id="success-state">
+<div class="w-24 h-24 rounded-full bg-primary text-on-primary flex items-center justify-center mb-8 animate-bounce">
+<span class="material-symbols-outlined !text-5xl">check_circle</span>
+</div>
+<h2 class="font-display-lg text-display-lg-mobile text-primary mb-4">¡Todo listo!</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-[320px]">Estamos preparando tu terminal Aether. Serás redirigido en unos segundos.</p>
+<div class="mt-12 w-full max-w-[200px] h-1 bg-white/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary animate-[loading_3s_ease-in-out_forwards]"></div>
+</div>
+</section>
+</div>
+<footer class="mt-12">
+<p class="font-label-sm text-label-sm text-outline/50">© 2026 Un sistema para ti.</p>
+</footer>
+</main>
+<script>
+        let currentStep = 1;
+
+        function updateProgress(step) {
+            const dots = document.querySelectorAll('.step-dot');
+            const progressBar = document.getElementById('progress-bar');
+            
+            // Update progress bar width
+            const progressPercentage = ((step - 1) / (dots.length - 1)) * 100;
+            progressBar.style.width = `${progressPercentage}%`;
+
+            dots.forEach((dot, index) => {
+                const dotStep = parseInt(dot.getAttribute('data-step'));
+                if (dotStep < step) {
+                    dot.classList.add('bg-primary', 'text-on-primary', 'border-primary');
+                    dot.innerHTML = '<span class="material-symbols-outlined !text-sm">check</span>';
+                } else if (dotStep === step) {
+                    dot.classList.add('bg-white', 'text-black', 'border-white');
+                    dot.classList.remove('bg-surface-container', 'text-on-surface-variant');
+                    dot.innerHTML = dotStep;
+                } else {
+                    dot.classList.remove('bg-primary', 'text-on-primary', 'bg-white', 'text-black', 'border-white', 'border-primary');
+                    dot.classList.add('bg-surface-container', 'text-on-surface-variant');
+                    dot.innerHTML = dotStep;
+                }
+            });
+        }
+
+        function nextStep(step) {
+            const currentSection = document.getElementById(`step-${currentStep}`);
+            const nextSection = document.getElementById(`step-${step}`);
+
+            // Validation (Simple check for demo)
+            if (step > currentStep) {
+                const inputs = currentSection.querySelectorAll('input');
+                let valid = true;
+                inputs.forEach(input => {
+                    if (!input.checkValidity()) {
+                        input.reportValidity();
+                        valid = false;
+                    }
+                });
+                if (!valid) return;
+            }
+
+            // Animate Out
+            currentSection.classList.add('opacity-0', step > currentStep ? '-translate-x-12' : 'translate-x-12');
+            
+            setTimeout(() => {
+                currentSection.classList.add('hidden');
+                nextSection.classList.remove('hidden');
+                
+                // Trigger reflow for animation
+                void nextSection.offsetWidth;
+                
+                nextSection.classList.remove('opacity-0', step > currentStep ? 'translate-x-12' : '-translate-x-12');
+                nextSection.classList.add('opacity-100', 'translate-x-0');
+                
+                currentStep = step;
+                updateProgress(currentStep);
+            }, 300);
+        }
+
+        function finishOnboarding() {
+            const currentSection = document.getElementById(`step-3`);
+            const successSection = document.getElementById('success-state');
+            const progressBarContainer = document.querySelector('.max-w-\\[400px\\]');
+
+            currentSection.classList.add('opacity-0', 'translate-y-8');
+            
+            setTimeout(() => {
+                currentSection.classList.add('hidden');
+                progressBarContainer.classList.add('opacity-0');
+                successSection.classList.remove('hidden');
+                
+                void successSection.offsetWidth;
+                successSection.classList.add('opacity-100');
+                
+                // Simulate redirect
+                setTimeout(() => {
+                    alert('Proceso completado. Redirigiendo al Dashboard...');
+                }, 3500);
+            }, 300);
+        }
+
+        // Initialize progress
+        updateProgress(1);
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && currentStep < 3) {
+                nextStep(currentStep + 1);
+            }
+        });
+    </script>
+<style>
+        @keyframes loading {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+    </style>
+
+
+</body></html>

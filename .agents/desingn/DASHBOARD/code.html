@@ -1,0 +1,526 @@
+<!DOCTYPE html><html class="dark" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>AetherPOS | Admin Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=JetBrains+Mono:wght@100..800&display=swap');
+        
+        body {
+            background-color: #131313;
+            color: #e5e2e1;
+            overflow-x: hidden;
+            font-family: 'Geist', sans-serif;
+        }
+
+        .glass-panel {
+            background: rgba(28, 27, 27, 0.4);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .bento-card {
+            background: rgba(32, 31, 31, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .bento-card:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .reflection-overlay {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 40%);
+            pointer-events: none;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "background": "#131313",
+                    "surface-variant": "#353534",
+                    "secondary-container": "#4b8eff",
+                    "on-background": "#e5e2e1",
+                    "primary-container": "#e2e2e2",
+                    "surface": "#131313",
+                    "secondary": "#adc6ff",
+                    "on-surface": "#e5e2e1",
+                    "outline": "#8e9192",
+                    "surface-container-high": "#2a2a2a",
+                    "on-surface-variant": "#c4c7c8",
+                    "surface-container-low": "#1c1b1b",
+                    "primary": "#ffffff",
+                    "on-primary": "#2f3131",
+                    "surface-container": "#201f1f",
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "bento-gap": "24px",
+                    "touch-target-min": "48px",
+                    "unit": "4px",
+                    "panel-padding": "32px",
+                    "container-margin": "40px"
+            },
+            "fontFamily": {
+                    "body-md": ["Geist"],
+                    "label-sm": ["JetBrains Mono"],
+                    "display-lg": ["Geist"],
+                    "headline-md": ["Geist"]
+            },
+            "fontSize": {
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.04em", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "500"}]
+            }
+          }
+        }
+      }
+    </script>
+<link data-snapdom="injected-import" href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=JetBrains+Mono:wght@100..800&amp;display=swap" rel="stylesheet"></head>
+<body class="bg-background text-on-surface selection:bg-primary selection:text-on-primary">
+<!-- Background Atmospheric Shader -->
+<!-- Side Navigation (Shared Component Integration) -->
+<aside class="w-64 border-r border-white/10 flex flex-col glass-panel shrink-0 fixed left-0 top-0 bottom-0 z-40 hidden md:flex">
+<div class="p-8 flex items-center gap-3">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary !text-xl">auto_awesome</span>
+</div>
+<span class="font-display-lg text-xl tracking-tighter text-primary">CUDII</span>
+</div>
+<nav class="flex-1 px-4 sidebar-scroll overflow-y-auto pb-8">
+<div class="mb-8">
+<h3 class="px-4 mb-3 font-label-sm text-[10px] text-outline uppercase tracking-widest">Panel de Control</h3>
+<div class="space-y-1">
+<a class="nav-link active flex items-center gap-3 px-4 py-2.5 rounded-xl text-primary bg-white/10" href="#">
+<span class="material-symbols-outlined !text-xl">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">insights</span>
+<span class="text-sm font-medium">Estadísticas</span>
+</a>
+</div>
+</div>
+<div class="mb-8">
+<h3 class="px-4 mb-3 font-label-sm text-[10px] text-outline uppercase tracking-widest">Operaciones</h3>
+<div class="space-y-1">
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">point_of_sale</span>
+<span class="text-sm font-medium">Ventas (POS)</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">receipt_long</span>
+<span class="text-sm font-medium">Pedidos</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">payments</span>
+<span class="text-sm font-medium">Caja</span>
+</a>
+</div>
+</div>
+<div class="mb-8">
+<h3 class="px-4 mb-3 font-label-sm text-[10px] text-outline uppercase tracking-widest">Gestión</h3>
+<div class="space-y-1">
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">inventory</span>
+<span class="text-sm font-medium">Productos</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">inventory_2</span>
+<span class="text-sm font-medium">Inventario</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">group</span>
+<span class="text-sm font-medium">Clientes</span>
+</a>
+</div>
+</div>
+<div>
+<h3 class="px-4 mb-3 font-label-sm text-[10px] text-outline uppercase tracking-widest">Administración</h3>
+<div class="space-y-1">
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">analytics</span>
+<span class="text-sm font-medium">Reportes</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">settings</span>
+<span class="text-sm font-medium">Configuración</span>
+</a>
+<a class="nav-link flex items-center gap-3 px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-white/5" href="#">
+<span class="material-symbols-outlined !text-xl">person_search</span>
+<span class="text-sm font-medium">Usuarios</span>
+</a>
+</div>
+</div>
+</nav>
+<div class="p-6 border-t border-white/10 mt-auto">
+
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-72 min-h-screen p-container-margin transition-all duration-500">
+<!-- Top Navigation Bar -->
+
+<!-- KPI Bento Section -->
+<header class="h-20 border-b flex items-center justify-between px-8 shrink-0 mb-10 border-white/5">
+<div class="flex items-center gap-6 flex-1 max-w-2xl">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline !text-xl">search</span>
+<input class="w-full bg-white/5 border-none rounded-full py-2.5 pl-12 pr-4 text-sm focus:ring-1 focus:ring-primary/30 transition-all" placeholder="Buscar en Cudii..." type="text">
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2.5 rounded-full hover:bg-white/5 text-outline transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2.5 right-2.5 w-2 h-2 bg-secondary rounded-full border-2 border-background"></span>
+</button>
+<button class="p-2.5 rounded-full hover:bg-white/5 text-outline transition-colors">
+<span class="material-symbols-outlined">auto_awesome</span>
+</button>
+<div class="h-8 w-[1px] bg-white/10 mx-2"></div>
+<div class="flex items-center gap-3 pl-2">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-medium text-primary">Admin User</p>
+<p class="text-[10px] text-outline uppercase tracking-wider">Pro Plan</p>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-secondary overflow-hidden">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8dVLKM-9F_hdR6-Zw9yrwSL4USuRTSalmZOPwYIGhFTPd1GddBCysM19EORExjsUrYM85wjJhtXjz0crjNhdtIqRmAa3MdycVtOZD7M3HZTGJVerlx2j11MHPTE0S4_Km8wdamnUFpzdNObVkk5YUmt-pvxr_BqKIQEf3eM8-BrdfBB3n34L_97MsTFVUi5fLWn-bvvToZf_lsKPr65Qb_vIzlqbY5swC2Y4iEDyWOcOZfCObwhpAxA">
+</div>
+</div>
+</div>
+</header><section class="grid grid-cols-1 md:grid-cols-3 gap-bento-gap mb-bento-gap">
+<!-- Revenue Card -->
+<div class="bento-card rounded-xl p-panel-padding relative overflow-hidden group">
+<div class="reflection-overlay absolute inset-0"></div>
+<div class="flex justify-between items-start mb-6">
+<div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: &quot;FILL&quot; 1;">payments</span>
+</div>
+<span class="font-label-sm text-secondary bg-secondary/10 px-2 py-1 rounded">+12.5%</span>
+</div>
+<h3 class="text-on-surface-variant font-label-sm uppercase tracking-wider mb-1">Ingresos Totales</h3>
+<div class="flex items-baseline gap-2">
+<span class="font-display-lg text-primary">€42,850</span>
+<span class="text-on-surface-variant font-label-sm">EUR</span>
+</div>
+</div>
+<!-- Sales Count -->
+<div class="bento-card rounded-xl p-panel-padding relative overflow-hidden group">
+<div class="reflection-overlay absolute inset-0"></div>
+<div class="flex justify-between items-start mb-6">
+<div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: &quot;FILL&quot; 1;">shopping_bag</span>
+</div>
+<span class="font-label-sm text-primary bg-primary/10 px-2 py-1 rounded">+8.2%</span>
+</div>
+<h3 class="text-on-surface-variant font-label-sm uppercase tracking-wider mb-1">Ventas Mensuales</h3>
+<div class="flex items-baseline gap-2">
+<span class="font-display-lg text-primary">1,284</span>
+<span class="text-on-surface-variant font-label-sm">Transacciones</span>
+</div>
+</div>
+<!-- Active Terminals -->
+<div class="bento-card rounded-xl p-panel-padding relative overflow-hidden group">
+<div class="reflection-overlay absolute inset-0"></div>
+<div class="flex justify-between items-start mb-6">
+<div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-outline" style="font-variation-settings: &quot;FILL&quot; 1;">terminal</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+<span class="font-label-sm text-emerald-500">Live</span>
+</div>
+</div>
+<h3 class="text-on-surface-variant font-label-sm uppercase tracking-wider mb-1">Terminales Activas</h3>
+<div class="flex items-baseline gap-2">
+<span class="font-display-lg text-primary">42</span>
+<span class="text-on-surface-variant font-label-sm">/ 50 Max</span>
+</div>
+</div>
+</section>
+<!-- Visualization Section -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-bento-gap mb-bento-gap">
+<!-- Main Chart Area -->
+<div class="lg:col-span-2 bento-card rounded-xl p-panel-padding flex flex-col min-h-[400px]">
+<div class="flex justify-between items-center mb-8">
+<div>
+<h4 class="font-headline-md text-primary">Tendencias de Ventas</h4>
+<p class="text-on-surface-variant font-label-sm">Comparativa semanal de ingresos reales vs proyectados</p>
+</div>
+<div class="flex gap-2">
+<button class="px-4 py-2 rounded-lg bg-surface-variant/50 text-primary font-label-sm border border-white/5">Semana</button>
+<button class="px-4 py-2 rounded-lg text-on-surface-variant font-label-sm hover:bg-white/5 transition-colors">Mes</button>
+</div>
+</div>
+<!-- Visual Placeholder for Chart -->
+<div class="flex-1 flex items-end gap-4 px-4 pb-4">
+<div class="flex-1 bg-gradient-to-t from-secondary/20 to-secondary/40 rounded-t-lg h-[40%] relative group transition-all duration-500 hover:h-[45%]"></div>
+<div class="flex-1 bg-gradient-to-t from-secondary/20 to-secondary/40 rounded-t-lg h-[65%] relative group transition-all duration-500 hover:h-[70%]"></div>
+<div class="flex-1 bg-gradient-to-t from-secondary/20 to-secondary/40 rounded-t-lg h-[50%] relative group transition-all duration-500 hover:h-[55%]"></div>
+<div class="flex-1 bg-gradient-to-t from-primary/20 to-primary/40 rounded-t-lg h-[85%] relative group transition-all duration-500 hover:h-[90%] shadow-[0_0_30px_rgba(255,255,255,0.1)]"></div>
+<div class="flex-1 bg-gradient-to-t from-secondary/20 to-secondary/40 rounded-t-lg h-[60%] relative group transition-all duration-500 hover:h-[65%]"></div>
+<div class="flex-1 bg-gradient-to-t from-secondary/20 to-secondary/40 rounded-t-lg h-[75%] relative group transition-all duration-500 hover:h-[80%]"></div>
+<div class="flex-1 bg-gradient-to-t from-secondary/20 to-secondary/40 rounded-t-lg h-[45%] relative group transition-all duration-500 hover:h-[50%]"></div>
+</div>
+<div class="flex justify-between text-on-surface-variant font-label-sm mt-4 px-4 border-t border-white/5 pt-4">
+<span class="">LUN</span><span class="">MAR</span><span class="">MIE</span><span class="">JUE</span><span class="">VIE</span><span class="">SAB</span><span class="">DOM</span>
+</div>
+</div>
+<!-- Distribution / Insights -->
+<div class="bento-card rounded-xl p-panel-padding">
+<h4 class="font-headline-md text-primary mb-6">Categorías Top</h4>
+<div class="space-y-6">
+<div class="space-y-2">
+<div class="flex justify-between font-label-sm">
+<span class="text-on-surface">Electrónica</span>
+<span class="text-secondary">42%</span>
+</div>
+<div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[42%] shadow-[0_0_15px_rgba(173,198,255,0.5)]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between font-label-sm">
+<span class="text-on-surface">Hogar</span>
+<span class="text-primary">28%</span>
+</div>
+<div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[28%]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between font-label-sm">
+<span class="text-on-surface">Moda</span>
+<span class="text-outline">18%</span>
+</div>
+<div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+<div class="h-full bg-outline w-[18%]"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between font-label-sm">
+<span class="text-on-surface">Otros</span>
+<span class="text-on-surface-variant">12%</span>
+</div>
+<div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+<div class="h-full bg-surface-variant w-[12%]"></div>
+</div>
+</div>
+</div>
+<div class="mt-10 p-4 rounded-xl bg-secondary/5 border border-secondary/10">
+<p class="font-label-sm text-secondary flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">auto_awesome</span> 
+                        Insight de IA
+                    </p>
+<p class="text-body-md text-on-surface-variant mt-2 text-sm leading-relaxed">
+                        Los productos de Electrónica han subido un 15% este fin de semana. Recomendamos aumentar stock.
+                    </p>
+</div>
+</div>
+</section>
+<!-- Bottom Feed Section -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-bento-gap">
+<!-- Recent Activity -->
+<div class="bento-card rounded-xl p-panel-padding overflow-hidden">
+<div class="flex justify-between items-center mb-6">
+<h4 class="font-headline-md text-primary">Actividad Reciente</h4>
+<button class="text-secondary font-label-sm hover:underline">Ver todo</button>
+</div>
+<div class="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+<!-- Activity Item -->
+<div class="flex items-center gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
+<div class="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-500">add_shopping_cart</span>
+</div>
+<div class="flex-1">
+<p class="font-body-md text-on-surface">Venta Completada #8492</p>
+<p class="font-label-sm text-on-surface-variant opacity-60">Hace 2 minutos • Terminal A</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-primary">€124.00</p>
+</div>
+</div>
+<!-- Activity Item -->
+<div class="flex items-center gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
+<div class="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-amber-500">warning</span>
+</div>
+<div class="flex-1">
+<p class="font-body-md text-on-surface">Stock Bajo: MacBook Air M2</p>
+<p class="font-label-sm text-on-surface-variant opacity-60">Hace 15 minutos • Inventario</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-amber-500">2 rest.</p>
+</div>
+</div>
+<!-- Activity Item -->
+<div class="flex items-center gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
+<div class="w-10 h-10 rounded-full bg-sky-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-sky-500">person_add</span>
+</div>
+<div class="flex-1">
+<p class="font-body-md text-on-surface">Nuevo Cliente Registrado</p>
+<p class="font-label-sm text-on-surface-variant opacity-60">Hace 45 minutos • POS Mobile</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-sky-500">Gold</p>
+</div>
+</div>
+<!-- Activity Item -->
+<div class="flex items-center gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
+<div class="w-10 h-10 rounded-full bg-rose-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-rose-500">block</span>
+</div>
+<div class="flex-1">
+<p class="font-body-md text-on-surface">Pago Rechazado #8489</p>
+<p class="font-label-sm text-on-surface-variant opacity-60">Hace 1 hora • Terminal B</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-rose-500">€45.90</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Top Selling Products -->
+<div class="bento-card rounded-xl p-panel-padding overflow-hidden">
+<div class="flex justify-between items-center mb-6">
+<h4 class="font-headline-md text-primary">Productos Estrella</h4>
+<button class="text-secondary font-label-sm hover:underline">Inventario</button>
+</div>
+<div class="space-y-5">
+<div class="flex items-center gap-4 group">
+<div class="w-14 h-14 rounded-xl overflow-hidden glass-panel shrink-0">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="A minimalist and sleek high-end laptop with a brushed titanium finish, shown in a clean, brightly lit product photography style. The image has a futuristic and premium tech aesthetic with soft shadows and sharp details against a dark neutral background, reflecting the professional SaaS design system." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPNTvO_vuX122l2jFQm315FnKditHifrv7ZK8ozwa4dxpZvKpVRrZGMTMo80BoltAg5SklR-rVM4IfsQ4PyKoGytu5g7YTOqlsVidJJHdWJABTgpwIdiXTnsxbmZv8-8ItzqfJWjygmx2gJ_P_DO2yOLB1kIkTLwxnjaN7Ju5zxHkE7HpfrQZxh5cLKpUN8S6Y7RFTQFTmdqcdD_VxzcVIuCwkc_CZCAYLAs5PtrZKr-YiXXAWjcQxkQ">
+</div>
+<div class="flex-1 border-b border-white/5 pb-4">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-body-md text-primary font-medium">Aether Laptop Pro</p>
+<p class="font-label-sm text-on-surface-variant">€1,499.00 • 12 vendidos hoy</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-secondary">€17,988</p>
+<p class="text-[10px] text-outline">TOTAL VENTAS</p>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4 group">
+<div class="w-14 h-14 rounded-xl overflow-hidden glass-panel shrink-0">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Sophisticated wireless noise-cancelling headphones featuring a matte graphite texture and chrome accents. The product is presented in a high-key studio setting with dramatic side lighting that highlights the ergonomic design and luxury materials, fitting a high-end electronic lifestyle brand aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4QP4wN3N4uQ1dY08ERMdBh1gFqnnvNk3kGdBN91_EfTyoKC2hjVgFD60j6O9nIiTfc2kvv7_OBDzkguLnchVzWoESf-ljYyp2ftGBhNHZzz_HHxUNRcwRdG9dhAjDujy0K-lIuEIOH2s_dqit97B_kZ2ddPNbSBtEzY3DwUfcDoGiu-eD1Xq0rsT1HZhIGKBUTmCFfGYQ8pSA7YtP4SpD_Cc3Azo63lSz1Lx4AEfWxn87d4v48Vcm4A">
+</div>
+<div class="flex-1 border-b border-white/5 pb-4">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-body-md text-primary font-medium">Aether Pods Max</p>
+<p class="font-label-sm text-on-surface-variant">€349.00 • 34 vendidos hoy</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-secondary">€11,866</p>
+<p class="text-[10px] text-outline">TOTAL VENTAS</p>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4 group">
+<div class="w-14 h-14 rounded-xl overflow-hidden glass-panel shrink-0">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="A modern minimalist smartwatch with a vibrant OLED display showing data visualizations. The watch has a sleek black silicone strap and a stainless steel case. The photography is crisp, emphasizing the glass curvature and professional tech craftsmanship with a cool-toned atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuACbH02p6ZaZWEmGODCh3f2u4o8mOKPkeeMk2chI5eAp9AfRNGpp3wzAHahM5RZ3XzumIak8DolZVXEJjXI4fC_vmh5izgp81HUk__tp6UNYS0lScAQOyO4T9_hDOyy4ds9RFbyN0tgy-1rxITC7ZUS0wrVfHYwa9pV3NLG3_ttLNsrN_UsJpJ_3YELyFkMIfeOxRxqqd35WjmJc3fVXDLY28EgFPfqNr3K0KUSa_m7AkPRLHCC_zSzgQ">
+</div>
+<div class="flex-1 pb-4">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-body-md text-primary font-medium">Aether Watch Gen 2</p>
+<p class="font-label-sm text-on-surface-variant">€299.00 • 28 vendidos hoy</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-secondary">€8,372</p>
+<p class="text-[10px] text-outline">TOTAL VENTAS</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Nav for Mobile -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-4 bg-background/60 backdrop-blur-xl border-t border-white/10 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+<a class="flex flex-col items-center justify-center text-primary active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1;">dashboard</span>
+<span class="font-label-sm">POS</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline hover:bg-white/5 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-label-sm">Orders</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline hover:bg-white/5 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">list_alt</span>
+<span class="font-label-sm">Items</span>
+</a>
+<a class="flex flex-col items-center justify-center text-outline hover:bg-white/5 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">more_horiz</span>
+<span class="font-label-sm">More</span>
+</a>
+</nav>
+<script>
+        // Micro-interactions and Theme Toggle logic
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+        
+        themeToggle.addEventListener('click', () => {
+            html.classList.toggle('dark');
+            const icon = themeToggle.querySelector('span');
+            if (html.classList.contains('dark')) {
+                icon.textContent = 'dark_mode';
+            } else {
+                icon.textContent = 'light_mode';
+            }
+        });
+
+        // Hover effect for bento cards to add a mouse-following spotlight
+        document.querySelectorAll('.bento-card').forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                card.style.setProperty('--mouse-x', `${x}px`);
+                card.style.setProperty('--mouse-y', `${y}px`);
+            });
+        });
+    </script>
+
+
+
+
+
+
+
+
+</body></html>
