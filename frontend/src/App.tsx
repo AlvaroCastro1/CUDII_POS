@@ -8,6 +8,8 @@ import { useThemeStore } from './store/useThemeStore';
 import LoginView from './views/LoginView';
 import DashboardView from './views/DashboardView';
 import PosView from './views/PosView';
+import OnboardingView from './views/OnboardingView';
+import MainLayout from './components/layout/MainLayout';
 
 // Componente para proteger rutas privadas
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -22,20 +24,26 @@ const router = createBrowserRouter([
     element: <LoginView />,
   },
   {
+    path: '/onboarding',
+    element: <OnboardingView />,
+  },
+  {
     path: '/',
     element: (
       <PrivateRoute>
-        <DashboardView />
+        <MainLayout />
       </PrivateRoute>
     ),
-  },
-  {
-    path: '/pos',
-    element: (
-      <PrivateRoute>
-        <PosView />
-      </PrivateRoute>
-    ),
+    children: [
+      {
+        index: true,
+        element: <DashboardView />,
+      },
+      {
+        path: 'pos',
+        element: <PosView />,
+      }
+    ]
   },
 ]);
 

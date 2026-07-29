@@ -1,55 +1,128 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: var(--primary);
-  --color-secondary: var(--secondary);
   --color-background: var(--background);
   --color-surface: var(--surface);
-  --color-text-primary: var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-link: var(--link);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-danger: var(--danger);
+  --color-surface-variant: var(--surface-variant);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-on-background: var(--on-background);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-error: var(--error);
+  --color-on-error: var(--on-error);
 
-  --font-dongle: "Dongle", sans-serif;
-  --font-jakarta: "Plus Jakarta Sans", sans-serif;
+  --radius: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
+
+  --spacing-bento-gap: 24px;
+  --spacing-touch-target-min: 48px;
+  --spacing-unit: 4px;
+  --spacing-panel-padding: 32px;
+  --spacing-container-margin: 40px;
+
+  --font-body-md: "Geist";
+  --font-label-sm: "JetBrains Mono";
+  --font-display-lg: "Geist";
+  --font-display-lg-mobile: "Geist";
+  --font-headline-md: "Geist";
+  --font-body-lg: "Geist";
 }
 
 @layer base {
   :root {
-    --primary: #2563EB;
-    --secondary: #0F172A;
-    --background: #F8FAFC;
-    --surface: #FFFFFF;
-    --text-primary: #0F172A;
-    --text-secondary: #64748B;
-    --link: #2563EB;
-    --success: #16A34A;
-    --warning: #D97706;
-    --danger: #DC2626;
+    /* MODO CLARO (MD3 Light) */
+    --background: #fdfcff;
+    --surface: #fdfcff;
+    --surface-variant: #e1e2e4;
+    --surface-container-lowest: #ffffff;
+    --surface-container-low: #f7f6f8;
+    --surface-container: #f1f0f3;
+    --surface-container-high: #ebeaed;
+    --surface-container-highest: #e6e4e7;
+    --on-background: #1a1c1e;
+    --on-surface: #1a1c1e;
+    --on-surface-variant: #454749;
+    --primary: #000000;
+    --on-primary: #ffffff;
+    --outline: #747779;
+    --outline-variant: #c4c6c8;
+    --error: #ba1a1a;
+    --on-error: #ffffff;
   }
 
   .dark {
-    --primary: #3B82F6;
-    --secondary: #F8FAFC;
-    --background: #0F172A;
-    --surface: #1E293B;
-    --text-primary: #F8FAFC;
-    --text-secondary: #94A3B8;
-    --link: #60A5FA;
+    /* MODO OSCURO (MD3 Dark - Stitch) */
+    --background: #131313;
+    --surface: #131313;
+    --surface-variant: #353534;
+    --surface-container-lowest: #0e0e0e;
+    --surface-container-low: #1c1b1b;
+    --surface-container: #201f1f;
+    --surface-container-high: #2a2a2a;
+    --surface-container-highest: #353534;
+    --on-background: #e5e2e1;
+    --on-surface: #e5e2e1;
+    --on-surface-variant: #c4c7c8;
+    --primary: #ffffff;
+    --on-primary: #2f3131;
+    --outline: #8e9192;
+    --outline-variant: #444748;
+    --error: #ffb4ab;
+    --on-error: #690005;
   }
-}
 
-@layer base {
   body {
     background-color: var(--background);
-    color: var(--text-primary);
-    font-family: var(--font-jakarta);
+    color: var(--on-background);
+    transition: background-color 0.5s ease, color 0.5s ease;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+
+  /* Utilidades Globales de Animación Premium */
+  .animate-hover {
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  .animate-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.1);
+  }
+  .dark .animate-hover:hover {
+    box-shadow: 0 10px 30px -10px rgba(255,255,255,0.08);
   }
   
-  /* Utilidades para los Headings según DESIGN_SYSTEM.md */
-  h1, h2 {
-    font-family: var(--font-dongle);
+  .animate-press {
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .animate-press:active {
+    transform: scale(0.96);
+  }
+
+  /* Scrollbar estético */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--surface-variant);
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--outline);
   }
 }
