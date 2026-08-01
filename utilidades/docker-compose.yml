@@ -1,0 +1,12 @@
+services:
+  dataset-generator:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: cudii-dataset-generator
+    volumes:
+      # Mapeamos la carpeta actual al contenedor para que el SQLite y CSV generados se guarden en nuestra máquina Host.
+      - ./dataset_generator:/app
+    restart: unless-stopped
+    # Al reiniciar a menos que se detenga manualmente, 
+    # nos aseguramos de que si el contenedor crashea por un error de red severo, Docker lo vuelva a levantar

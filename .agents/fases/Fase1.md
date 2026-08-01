@@ -37,10 +37,11 @@ Este documento detalla las tareas secuenciales para completar la Fase 1 del proy
   - **Criterios de validación:** La interfaz final debe sentirse fluida, premium, con micro-interacciones excelentes y una identidad de vanguardia.
 
 ## 4. Flujos Core (Lógica de Negocio)
-- [ ] **Tarea 4.1:** Implementar Onboarding Asistido (Día 0).
+- [x] **Tarea 4.1:** Implementar Onboarding Asistido (Día 0).
   - **Descripción:** Flujo que precarga una sucursal, caja, catálogo demo y usuario inicial para asegurar operación en menos de 15 minutos.
   - **Criterios de validación:** Al ejecutar el onboarding, se crean todos los registros necesarios de forma atómica.
   - **Verificación manual:** Ejecutar el wizard desde la UI y validar en BD que la Empresa, Sucursal, Caja, Usuario y Productos demo fueron generados.
+  - **Nota de Mejora Futura:** Refinar la extracción masiva de Open Food Facts e implementar un inyector/importador de CSV nativo para catálogos iniciales gigantes.
 - [ ] **Tarea 4.2:** Flujo de Venta y Cobro.
   - **Descripción:** Interfaz del Cajero para buscar productos, agregarlos al ticket (calculando por unidad de medida) y registrar el pago (efectivo/tarjeta).
   - **Criterios de validación:** Ventas registradas correctamente en BD con método de pago, vinculadas a la caja y usuario.
