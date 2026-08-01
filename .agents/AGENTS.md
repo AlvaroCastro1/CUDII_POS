@@ -142,6 +142,11 @@ hotfix/*      ← Correcciones urgentes en producción
 | 6 | `DESIGN_SYSTEM.md` | [/CUDII_POS/.agents/DESIGN_SYSTEM.md](/CUDII_POS/.agents/DESIGN_SYSTEM.md) | Reglas visuales, de interfaz y arquitectura Whitelabel. |
 | 7 | `PERIPHERALS_SPEC.md` | [/CUDII_POS/.agents/PERIPHERALS_SPEC.md](/CUDII_POS/.agents/PERIPHERALS_SPEC.md) | Especificación de integración con hardware local. |
 | 8 | `REGLAS_NEGOCIO.md` | [/CUDII_POS/.agents/REGLAS_NEGOCIO.md](/CUDII_POS/.agents/REGLAS_NEGOCIO.md) | Lógica de ventas, impuestos, inventario y facturación. |
-| 9 | `PLAN_DESARROLLO.md` | [/CUDII_POS/.agents/PLAN_DESARROLLO.md](/CUDII_POS/.agents/PLAN_DESARROLLO.md) | Fases de desarrollo, dependencias y entregables. |
-| 10 | `Fase1.md` | [/CUDII_POS/.agents/fases/Fase1.md](/CUDII_POS/.agents/fases/Fase1.md) | Plan detallado y checklist secuencial de la Fase 1 (MVP). |
-| 11 | `TODO.md` | [/CUDII_POS/TODO.md](/CUDII_POS/TODO.md) | Control de pendientes general y tareas del proyecto. |
+| 9 | `PLAN_DESARROLLO.md` | [/CUDII_POS/.agents/PLAN_DESARROLLO.md](/CUDII_POS/.agents/PLAN_DESARROLLO.md) | Índice maestro: fases, dependencias, entregables y roadmap. |
+| 10 | `Fase1.md` | [/CUDII_POS/.agents/fases/Fase1.md](/CUDII_POS/.agents/fases/Fase1.md) | Fase 1: Fundación e Infraestructura (✅ Completada). |
+| 11 | `Fase2.md` | [/CUDII_POS/.agents/fases/Fase2.md](/CUDII_POS/.agents/fases/Fase2.md) | Fase 2: Catálogo y Gestión de Inventario. |
+| 12 | `Fase3.md` | [/CUDII_POS/.agents/fases/Fase3.md](/CUDII_POS/.agents/fases/Fase3.md) | Fase 3: Terminal POS y Ciclo de Venta Completo. |
+| 13 | `Fase4.md` | [/CUDII_POS/.agents/fases/Fase4.md](/CUDII_POS/.agents/fases/Fase4.md) | Fase 4: Clientes, Crédito, Reportes y Dashboard. |
+| 14 | `Fase5.md` | [/CUDII_POS/.agents/fases/Fase5.md](/CUDII_POS/.agents/fases/Fase5.md) | Fase 5: Módulos Avanzados — IA, Compras, Migración (V2.0). |
+| 15 | `Fase6.md` | [/CUDII_POS/.agents/fases/Fase6.md](/CUDII_POS/.agents/fases/Fase6.md) | Fase 6: Especialización — CFDI, Restaurantes, Periféricos (V3.0). |
+| 16 | `TODO.md` | [/CUDII_POS/TODO.md](/CUDII_POS/TODO.md) | Control de pendientes general y tareas del proyecto. |
