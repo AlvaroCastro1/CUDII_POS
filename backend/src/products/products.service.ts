@@ -37,17 +37,50 @@ export class ProductsService {
     });
   }
 
-  async findAll(empresaId: string) {
-    return this.prisma.producto.findMany({
-      where: {
-        empresaId,
-        estaActivo: true,
+  async findAll(empresaId: string, page = 1, limit = 20, search = '', categoriaId = '') {
+    const where: any = { empresaId, estaActivo: true };
+    
+    if (search) {
+      where.OR = [
+        { nombre: { contains: search, mode: 'insensitive' as const } },
+        { codigoBarras: { contains: search, mode: 'insensitive' as const } },
+        { codigoInterno: { contains: search, mode: 'insensitive' as const } },
+      ];
+    }
+    
+    if (categoriaId) {
+      where.categorias = {
+        some: { id: categoriaId }
+      };
+    }
+
+    const limitSafe = Math.min(limit, 100);
+    const skip = (page - 1) * limitSafe;
+
+    const [total, data] = await Promise.all([
+      this.prisma.producto.count({ where }),
+      this.prisma.producto.findMany({
+        where,
+        include: { categorias: true },
+        orderBy: { nombre: 'asc' },
+        skip,
+        take: limitSafe,
+      }),
+    ]);
+
+    const totalPages = Math.ceil(total / limitSafe);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit: limitSafe,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
       },
-      include: {
-        categorias: true,
-      },
-      orderBy: { nombre: 'asc' },
-    });
+    };
   }
 
   /**

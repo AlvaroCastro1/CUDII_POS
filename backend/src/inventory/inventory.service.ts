@@ -1,16 +1,17 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TipoMovimientoInventario } from '@prisma/client';
 
 @Injectable()
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getStock(sucursalId: string, empresaId: string) {
+  async getStock(sucursalId: string, empresaId: string, page = 1, limit = 20, search = '') {
     let whereClause: any = { sucursalId };
     
     if (sucursalId === 'all') {
       const sucursales = await this.prisma.sucursal.findMany({ where: { empresaId } });
-      if (sucursales.length === 0) return [];
+      if (sucursales.length === 0) return { data: [], meta: { total: 0, page: 1, limit, totalPages: 0, hasNextPage: false, hasPrevPage: false } };
       whereClause = { sucursalId: { in: sucursales.map(s => s.id) } };
     } else {
       const sucursal = await this.prisma.sucursal.findFirst({
@@ -21,13 +22,45 @@ export class InventoryService {
       }
     }
 
-    return this.prisma.inventarioSucursal.findMany({
-      where: whereClause,
-      include: {
-        producto: true,
-        sucursal: true,
+    if (search) {
+      whereClause.producto = {
+        OR: [
+          { nombre: { contains: search, mode: 'insensitive' as const } },
+          { codigoBarras: { contains: search, mode: 'insensitive' as const } },
+          { codigoInterno: { contains: search, mode: 'insensitive' as const } }
+        ]
+      };
+    }
+
+    const limitSafe = Math.min(limit, 100);
+    const skip = (page - 1) * limitSafe;
+
+    const [total, data] = await Promise.all([
+      this.prisma.inventarioSucursal.count({ where: whereClause }),
+      this.prisma.inventarioSucursal.findMany({
+        where: whereClause,
+        include: {
+          producto: true,
+          sucursal: true,
+        },
+        skip,
+        take: limitSafe,
+      })
+    ]);
+
+    const totalPages = Math.ceil(total / limitSafe);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit: limitSafe,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
       },
-    });
+    };
   }
 
   async adjustStock(
@@ -94,7 +127,9 @@ export class InventoryService {
         });
       }
 
-      const tipoMovimiento = cantidad > 0 ? 'ajuste_positivo' : 'ajuste_negativo';
+      const tipoMovimiento = cantidad > 0 
+        ? TipoMovimientoInventario.ajuste_positivo 
+        : TipoMovimientoInventario.ajuste_negativo;
 
       await tx.movimientoInventario.create({
         data: {

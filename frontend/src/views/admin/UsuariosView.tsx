@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -10,11 +10,15 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff } from 'lucide-react';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import { PaginacionControles } from '@/components/ui/PaginacionControles';
 
 const ROLES_OPTIONS = [
-  { valor: 'CAJERO', nombre: 'Cajero', desc: 'Ventas y caja', icon: 'point_of_sale', colorClass: 'border-blue-500 bg-blue-500/5', textClass: 'text-blue-600' },
-  { valor: 'GERENTE', nombre: 'Gerente', desc: 'Inventario y reportes', icon: 'manage_accounts', colorClass: 'border-purple-500 bg-purple-500/5', textClass: 'text-purple-600' },
-  { valor: 'ADMIN', nombre: 'Administrador', desc: 'Acceso total', icon: 'admin_panel_settings', colorClass: 'border-red-500 bg-red-500/5', textClass: 'text-red-600' }
+  { valor: 'CAJERO', nombre: 'Cajero', desc: 'Atención en caja y cobros', icon: 'point_of_sale', colorClass: 'border-blue-500 bg-blue-500/5', textClass: 'text-blue-600' },
+  { valor: 'ALMACEN', nombre: 'Almacén', desc: 'Gestión de inventario y stock', icon: 'warehouse', colorClass: 'border-orange-500 bg-orange-500/5', textClass: 'text-orange-600' },
+  { valor: 'CONTADOR', nombre: 'Contador', desc: 'Acceso a reportes y finanzas', icon: 'calculate', colorClass: 'border-teal-500 bg-teal-500/5', textClass: 'text-teal-600' },
+  { valor: 'GERENTE', nombre: 'Gerente', desc: 'Inventario, reportes y catálogo', icon: 'manage_accounts', colorClass: 'border-purple-500 bg-purple-500/5', textClass: 'text-purple-600' },
+  { valor: 'ADMIN', nombre: 'Administrador', desc: 'Acceso total a la empresa', icon: 'admin_panel_settings', colorClass: 'border-red-500 bg-red-500/5', textClass: 'text-red-600' },
 ];
 
 export default function UsuariosView() {
@@ -22,6 +26,7 @@ export default function UsuariosView() {
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(20);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -78,17 +83,22 @@ export default function UsuariosView() {
     setShowConfirmPassword(true);
   };
 
-  const fetchUsuarios = async () => {
+  const fetchUsuarios = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get('/users');
+      const res = await api.get(`/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
       setUsuarios(res.data.data || res.data);
+      if (res.data.meta) setMeta(res.data.meta);
     } catch (error: any) {
       toast.error('Error al cargar usuarios');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, search, setMeta]);
+
+  useEffect(() => {
+    fetchUsuarios();
+  }, [fetchUsuarios]);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,6 +140,9 @@ export default function UsuariosView() {
       setIsSubmitting(false);
     }
   };
+
+  // La búsqueda ya se filtra en el backend
+  const usuariosFiltrados = usuarios;
 
   const handleOpenEdit = (user: any) => {
     setEditingUserId(user.id);
@@ -339,10 +352,13 @@ export default function UsuariosView() {
       <div className="bg-surface rounded-xl border border-on-surface/10 p-4 mb-6">
         <div className="flex gap-4 mb-4">
           <Input 
-            placeholder="Buscar usuario por nombre o email..." 
+            placeholder="Buscar por nombre o email..." 
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="max-w-md"
+            onChange={(e) => {
+              setSearch(e.target.value);
+              reiniciar();
+            }}
+            className="max-w-md w-full"
           />
         </div>
 
@@ -407,6 +423,7 @@ export default function UsuariosView() {
             )}
           </TableBody>
         </Table>
+        {meta && <PaginacionControles meta={meta} onPageChange={irAPagina} />}
       </div>
     </div>
   );

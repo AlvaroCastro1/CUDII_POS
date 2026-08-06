@@ -21,7 +21,7 @@ export class ProductsController {
   }
 
   @Get('search')
-  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.ALMACEN)
+  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.ALMACEN, Rol.CONTADOR)
   search(
     @Query('q') q: string = '',
     @Query('limit') limit: string = '10',
@@ -31,13 +31,19 @@ export class ProductsController {
   }
 
   @Get()
-  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.ALMACEN)
-  findAll(@CurrentUser() user: CurrentUserPayload) {
-    return this.productsService.findAll(user.empresaId);
+  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.ALMACEN, Rol.CONTADOR)
+  findAll(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+    @Query('search') search: string = '',
+    @Query('categoriaId') categoriaId: string = '',
+    @CurrentUser() user: CurrentUserPayload
+  ) {
+    return this.productsService.findAll(user.empresaId, parseInt(page, 10), parseInt(limit, 10), search, categoriaId);
   }
 
   @Get(':id')
-  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.ALMACEN)
+  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.ALMACEN, Rol.CONTADOR)
   findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.productsService.findOne(id, user.empresaId);
   }

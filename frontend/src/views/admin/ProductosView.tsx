@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Pencil, Trash2 } from 'lucide-react';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import { PaginacionControles } from '@/components/ui/PaginacionControles';
 
 // ============================================================
 // Catálogo de unidades con descripción contextual para el usuario
@@ -59,10 +61,13 @@ export default function ProductosView() {
   const [searchCategoria, setSearchCategoria] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [loading, setLoading] = useState(true);
+  const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(20);
 
   // Control del modal multi-paso
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [paso, setPaso] = useState(1);
+  // Estado para saber si estamos editando un producto existente
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
   const initialForm = {
     nombre: '',
@@ -81,36 +86,31 @@ export default function ProductosView() {
   const unidadSeleccionada = UNIDADES.find((u) => u.valor === formData.unidadMedida);
   const esGranelAuto = ['KILO', 'LITRO', 'METRO'].includes(formData.unidadMedida);
 
-  // Filtrado local en tiempo real
-  const productosFiltrados = productos.filter((p: any) => {
-    const matchesSearch = p.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-      p.codigoBarras?.includes(search) ||
-      (p.codigoInterno ?? '').toLowerCase().includes(search.toLowerCase());
-    
-    const matchesCategoria = filtroCategoria === '' || 
-      (p.categorias && p.categorias.some((c: any) => c.id === filtroCategoria));
-
-    return matchesSearch && matchesCategoria;
-  });
+  // La búsqueda y filtro de categoría se envían al backend — no se filtra localmente
+  // Los productos ya vienen paginados y filtrados desde el servidor
+  const productosFiltrados = productos;
 
   // ----------------------------------------------------------------
-  // Cargar lista de productos desde la API
+  // Cargar lista de productos desde la API (paginado)
   // ----------------------------------------------------------------
-  const fetchProductos = async () => {
+  const fetchProductos = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get('/products');
-      setProductos(res.data.data || res.data);
+      const res = await api.get(`/products?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&categoriaId=${filtroCategoria}`);
+      const body = res.data;
+      setProductos(body.data || []);
+      if (body.meta) setMeta(body.meta);
     } catch (error: any) {
       toast.error('Error al cargar productos');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, search, filtroCategoria, setMeta]);
 
   const fetchCategorias = async () => {
     try {
-      const res = await api.get('/categories');
+      // Cargamos todas las categorias para el selector (sin paginación porque suelen ser pocas)
+      const res = await api.get('/categories?limit=100');
       setCategorias(res.data.data || res.data);
     } catch (error: any) {
       console.error('Error al cargar categorías', error);
@@ -118,13 +118,13 @@ export default function ProductosView() {
   };
 
   // ----------------------------------------------------------------
-  // Enviar nuevo producto a la API
+  // Enviar producto a la API (crear o editar)
   // ----------------------------------------------------------------
-  const handleCreateProduct = async (e: React.FormEvent) => {
+  const handleSubmitProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setIsSubmitting(true);
-      await api.post('/products', {
+      const payload = {
         nombre: formData.nombre,
         codigoBarras: formData.codigoBarras,
         codigoInterno: formData.codigoInterno || undefined,
@@ -134,26 +134,58 @@ export default function ProductosView() {
         precioVentaBase: parseFloat(formData.precioVentaBase),
         precioCompra: parseFloat(formData.precioCompra) || 0,
         esGranel: esGranelAuto,
-      });
-      toast.success('Producto registrado exitosamente');
+      };
+
+      if (editingProductId) {
+        // Al editar, no enviamos unidadMedida ni esGranel (bloqueados)
+        const { unidadMedida, esGranel, ...editPayload } = payload as any;
+        await api.patch(`/products/${editingProductId}`, editPayload);
+        toast.success('¡Producto actualizado exitosamente!');
+      } else {
+        await api.post('/products', payload);
+        toast.success('Producto registrado exitosamente');
+      }
+
       handleCerrarModal();
       fetchProductos();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al crear producto');
+      toast.error(error.response?.data?.message || 'Error al guardar producto');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Abrir modal en modo edición pre-llenando el formulario
+  const handleOpenEdit = (prod: any) => {
+    setEditingProductId(prod.id);
+    setFormData({
+      nombre: prod.nombre || '',
+      codigoBarras: prod.codigoBarras || '',
+      codigoInterno: prod.codigoInterno || '',
+      descripcion: prod.descripcion || '',
+      categoriasIds: prod.categorias?.map((c: any) => c.id) || [],
+      unidadMedida: prod.unidadMedida || '',
+      precioCompra: prod.precioCompra?.toString() || '',
+      precioVentaBase: prod.precioVentaBase?.toString() || '',
+    });
+    // En edición vamos directo al paso 2 (identificación), paso 1 es solo-lectura
+    setPaso(1);
+    setIsModalOpen(true);
   };
 
   // Resetear y cerrar el modal
   const handleCerrarModal = () => {
     setIsModalOpen(false);
     setPaso(1);
+    setEditingProductId(null);
     setFormData(initialForm);
   };
 
   useEffect(() => {
     fetchProductos();
+  }, [fetchProductos]);
+
+  useEffect(() => {
     fetchCategorias();
   }, []);
 
@@ -182,12 +214,19 @@ export default function ProductosView() {
           </DialogTrigger>
 
           <DialogContent className="sm:max-w-[520px]">
-            <form onSubmit={handleCreateProduct} className="flex flex-col flex-1 min-h-0">
+            <form onSubmit={handleSubmitProduct} className="flex flex-col flex-1 min-h-0">
 
               {/* ---- Encabezado fijo ---- */}
               <div className="px-6 pt-6 pb-4 border-b border-outline/10 flex-shrink-0">
                 <DialogHeader>
-                  <DialogTitle>Registrar Producto</DialogTitle>
+                  <DialogTitle>
+                    {editingProductId ? (
+                      <span className="flex items-center gap-2">
+                        <span className="material-symbols-outlined !text-[20px] text-primary">edit</span>
+                        Editar Producto
+                      </span>
+                    ) : 'Registrar Producto'}
+                  </DialogTitle>
                   <p className="text-sm text-on-surface-variant mt-1">
                     Paso {paso} de 3 —{' '}
                     {paso === 1 ? 'Tipo de venta' : paso === 2 ? 'Identificación' : 'Precios'}
@@ -211,47 +250,82 @@ export default function ProductosView() {
               {/* =================== PASO 1: TIPO DE UNIDAD =================== */}
               {paso === 1 && (
                 <div className="py-4 space-y-3">
-                  <p className="text-sm text-on-surface-variant leading-relaxed">
-                    ¿Cómo se{' '}
-                    <span className="font-semibold text-on-surface">mide y se cobra</span> este
-                    producto? Esto determina cómo CUDII controlará tu inventario y permitirá el
-                    cobro en caja.
-                  </p>
-                  <div className="grid gap-2 max-h-80 overflow-y-auto pr-1">
-                    {UNIDADES.map((u) => (
-                      <button
-                        key={u.valor}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, unidadMedida: u.valor })}
-                        className={`w-full text-left p-3 rounded-xl border-2 transition-all duration-150 flex items-start gap-3 ${
-                          formData.unidadMedida === u.valor
-                            ? 'border-primary bg-primary/5'
-                            : 'border-outline/30 hover:border-outline hover:bg-surface-variant/50'
-                        }`}
-                      >
-                        <span
-                          className={`material-symbols-outlined !text-[22px] mt-0.5 flex-shrink-0 ${
-                            formData.unidadMedida === u.valor
-                              ? 'text-primary'
-                              : 'text-on-surface-variant'
-                          }`}
-                        >
-                          {u.icono}
-                        </span>
+                  {editingProductId ? (
+                    // En modo edición: mostrar unidad actual bloqueada con explicación
+                    <div className="space-y-4">
+                      <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-3">
+                        <span className="material-symbols-outlined !text-[22px] text-amber-500 flex-shrink-0 mt-0.5">info</span>
                         <div>
-                          <p
-                            className={`font-semibold text-sm ${
-                              formData.unidadMedida === u.valor ? 'text-primary' : 'text-on-surface'
+                          <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">La unidad de medida no puede cambiarse</p>
+                          <p className="text-xs text-amber-600/80 dark:text-amber-500/80 mt-1">
+                            Modificar la unidad de un producto con inventario existente generaría inconsistencias en el historial de ventas y stock.
+                            Si necesitas un cambio de unidad, desactiva este producto y crea uno nuevo.
+                          </p>
+                        </div>
+                      </div>
+                      {(() => {
+                        const u = UNIDADES.find(u => u.valor === formData.unidadMedida);
+                        return u ? (
+                          <div className="p-3 rounded-xl border-2 border-primary bg-primary/5 flex items-start gap-3">
+                            <span className="material-symbols-outlined !text-[22px] mt-0.5 flex-shrink-0 text-primary">{u.icono}</span>
+                            <div>
+                              <p className="font-semibold text-sm text-primary">{u.titulo}</p>
+                              <p className="text-xs text-on-surface-variant mt-0.5">{u.desc}</p>
+                            </div>
+                            <span className="ml-auto flex items-center gap-1 text-xs font-medium text-on-surface-variant bg-surface-variant px-2 py-1 rounded-lg">
+                              <span className="material-symbols-outlined !text-[14px]">lock</span>
+                              Bloqueado
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  ) : (
+                    // En modo creación: selector normal de unidades
+                    <>
+                      <p className="text-sm text-on-surface-variant leading-relaxed">
+                        ¿Cómo se{' '}
+                        <span className="font-semibold text-on-surface">mide y se cobra</span> este
+                        producto? Esto determina cómo CUDII controlará tu inventario y permitirá el
+                        cobro en caja.
+                      </p>
+                      <div className="grid gap-2 max-h-80 overflow-y-auto pr-1">
+                        {UNIDADES.map((u) => (
+                          <button
+                            key={u.valor}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, unidadMedida: u.valor })}
+                            className={`w-full text-left p-3 rounded-xl border-2 transition-all duration-150 flex items-start gap-3 ${
+                              formData.unidadMedida === u.valor
+                                ? 'border-primary bg-primary/5'
+                                : 'border-outline/30 hover:border-outline hover:bg-surface-variant/50'
                             }`}
                           >
-                            {u.titulo}
-                          </p>
-                          <p className="text-xs text-on-surface-variant mt-0.5">{u.desc}</p>
-                          <p className="text-xs text-on-surface/50 mt-1">Ej: {u.ejemplo}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                            <span
+                              className={`material-symbols-outlined !text-[22px] mt-0.5 flex-shrink-0 ${
+                                formData.unidadMedida === u.valor
+                                  ? 'text-primary'
+                                  : 'text-on-surface-variant'
+                              }`}
+                            >
+                              {u.icono}
+                            </span>
+                            <div>
+                              <p
+                                className={`font-semibold text-sm ${
+                                  formData.unidadMedida === u.valor ? 'text-primary' : 'text-on-surface'
+                                }`}
+                              >
+                                {u.titulo}
+                              </p>
+                              <p className="text-xs text-on-surface-variant mt-0.5">{u.desc}</p>
+                              <p className="text-xs text-on-surface/50 mt-1">Ej: {u.ejemplo}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -503,9 +577,9 @@ export default function ProductosView() {
                   >
                     Siguiente →
                   </Button>
-                ) : (
+                                ) : (
                   <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Guardando...' : 'Registrar Producto'}
+                    {isSubmitting ? 'Guardando...' : editingProductId ? 'Actualizar Producto' : 'Registrar Producto'}
                   </Button>
                 )}
               </div>
@@ -520,12 +594,18 @@ export default function ProductosView() {
           <Input
             placeholder="Buscar por nombre, código de barras o SKU..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              reiniciar();
+            }}
             className="max-w-md w-full"
           />
           <select
             value={filtroCategoria}
-            onChange={(e) => setFiltroCategoria(e.target.value)}
+            onChange={(e) => {
+              setFiltroCategoria(e.target.value);
+              reiniciar();
+            }}
             className="h-11 bg-surface border border-outline/20 rounded-xl px-4 text-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all text-on-surface outline-none appearance-none max-w-[250px] w-full"
           >
             <option value="">Todas las categorías</option>
@@ -604,7 +684,7 @@ export default function ProductosView() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="sm" title="Editar producto" onClick={() => toast.info('La edición de productos se implementará en la siguiente actualización.')}>
+                      <Button variant="ghost" size="sm" title="Editar producto" onClick={() => handleOpenEdit(prod)}>
                         <Pencil className="w-4 h-4 text-on-surface-variant" />
                       </Button>
                       <Button variant="ghost" size="sm" title="Eliminar producto" onClick={() => toast.error('No se puede eliminar este producto porque afectaría el historial. Próximamente se habilitará la opción de desactivarlo.')}>
@@ -617,6 +697,7 @@ export default function ProductosView() {
             )}
           </TableBody>
         </Table>
+        {meta && <PaginacionControles meta={meta} onPageChange={irAPagina} />}
       </div>
     </div>
   );

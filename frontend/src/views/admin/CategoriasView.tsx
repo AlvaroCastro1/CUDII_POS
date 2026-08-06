@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Pencil, Trash2 } from 'lucide-react';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import { PaginacionControles } from '@/components/ui/PaginacionControles';
 
 const ICONOS_COMUNES = [
   'category', 'fastfood', 'local_cafe', 'liquor', 'local_pizza', 
@@ -19,6 +21,7 @@ export default function CategoriasView() {
   const [categorias, setCategorias] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(20);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -32,21 +35,22 @@ export default function CategoriasView() {
   const [formData, setFormData] = useState(initialForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchCategorias = async () => {
+  const fetchCategorias = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get('/categories');
+      const res = await api.get(`/categories?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
       setCategorias(res.data.data || res.data);
+      if (res.data.meta) setMeta(res.data.meta);
     } catch (error: any) {
       toast.error('Error al cargar categorías');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, search, setMeta]);
 
   useEffect(() => {
     fetchCategorias();
-  }, []);
+  }, [fetchCategorias]);
 
   const handleCerrarModal = () => {
     setIsModalOpen(false);
@@ -103,10 +107,8 @@ export default function CategoriasView() {
     }
   };
 
-  const categoriasFiltradas = categorias.filter((c: any) =>
-    c.nombre.toLowerCase().includes(search.toLowerCase()) || 
-    (c.descripcion || '').toLowerCase().includes(search.toLowerCase())
-  );
+  // La búsqueda ya se filtra en el backend.
+  const categoriasFiltradas = categorias;
 
   return (
     <div className="p-6">
@@ -213,10 +215,13 @@ export default function CategoriasView() {
       <div className="bg-surface rounded-xl border border-on-surface/10 p-4 mb-6">
         <div className="flex gap-4 mb-4">
           <Input 
-            placeholder="Buscar categoría..." 
+            placeholder="Buscar por nombre o descripción..." 
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="max-w-md"
+            onChange={(e) => {
+              setSearch(e.target.value);
+              reiniciar();
+            }}
+            className="max-w-md w-full"
           />
         </div>
 
@@ -270,6 +275,7 @@ export default function CategoriasView() {
             )}
           </TableBody>
         </Table>
+        {meta && <PaginacionControles meta={meta} onPageChange={irAPagina} />}
       </div>
     </div>
   );

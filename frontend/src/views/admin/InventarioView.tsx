@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TrendingUp, TrendingDown, SlidersHorizontal } from 'lucide-react';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import { PaginacionControles } from '@/components/ui/PaginacionControles';
 
 // ============================================================
 // Catálogo de motivos de ajuste pre-definidos para el usuario
@@ -32,6 +34,7 @@ export default function InventarioView() {
   const [sucursales, setSucursales] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(20);
 
   // Control del modal de ajuste
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -95,21 +98,18 @@ export default function InventarioView() {
   // Limpiar timer al desmontar
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
-  // Filtrado local de la tabla de inventario
-  const inventarioFiltrado = inventario.filter((inv: any) =>
-    inv.producto?.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-    inv.producto?.codigoBarras?.includes(search) ||
-    (inv.producto?.codigoInterno ?? '').toLowerCase().includes(search.toLowerCase())
-  );
+  // Filtrado local no necesario ya que se hace en backend
+  const inventarioFiltrado = inventario;
 
   // ----------------------------------------------------------------
   // Carga de datos iniciales (solo inventario, NO el catálogo completo)
   // ----------------------------------------------------------------
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const resInv = await api.get('/inventory/stock/all');
+      const resInv = await api.get(`/inventory/stock/all?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
       setInventario(resInv.data.data || resInv.data);
+      if (resInv.data.meta) setMeta(resInv.data.meta);
 
       // Intentar cargar sucursales (puede fallar si el endpoint no existe aún)
       try {
@@ -123,7 +123,7 @@ export default function InventarioView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, search, setMeta]);
 
   // ----------------------------------------------------------------
   // Enviar ajuste de stock a la API
@@ -181,7 +181,7 @@ export default function InventarioView() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const motivosActuales = tipoAjuste === 'entrada' ? MOTIVOS_ENTRADA : MOTIVOS_SALIDA;
 
@@ -556,8 +556,11 @@ export default function InventarioView() {
           <Input
             placeholder="Buscar producto por nombre, código de barras o SKU..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="max-w-md"
+            onChange={(e) => {
+              setSearch(e.target.value);
+              reiniciar();
+            }}
+            className="w-full sm:max-w-xs bg-surface border border-outline/20"
           />
         </div>
 
@@ -636,6 +639,7 @@ export default function InventarioView() {
             )}
           </TableBody>
         </Table>
+        {meta && <PaginacionControles meta={meta} onPageChange={irAPagina} />}
       </div>
     </div>
   );

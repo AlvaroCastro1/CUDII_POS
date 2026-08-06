@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -21,9 +21,14 @@ export class CategoriesController {
   }
 
   @Get()
-  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.ALMACEN)
-  findAll(@CurrentUser() user: CurrentUserPayload) {
-    return this.categoriesService.findAll(user.empresaId);
+  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.ALMACEN, Rol.CONTADOR)
+  findAll(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+    @Query('search') search: string = '',
+    @CurrentUser() user: CurrentUserPayload
+  ) {
+    return this.categoriesService.findAll(user.empresaId, parseInt(page, 10), parseInt(limit, 10), search);
   }
 
   @Get(':id')

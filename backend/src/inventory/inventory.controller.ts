@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, UseGuards, Query } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -13,9 +13,21 @@ export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
   @Get('stock/:sucursalId')
-  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.ALMACEN)
-  getStock(@Param('sucursalId') sucursalId: string, @CurrentUser() user: CurrentUserPayload) {
-    return this.inventoryService.getStock(sucursalId, user.empresaId);
+  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.ALMACEN, Rol.CONTADOR)
+  getStock(
+    @Param('sucursalId') sucursalId: string, 
+    @CurrentUser() user: CurrentUserPayload,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+    @Query('search') search: string = ''
+  ) {
+    return this.inventoryService.getStock(
+      sucursalId, 
+      user.empresaId, 
+      parseInt(page, 10) || 1, 
+      parseInt(limit, 10) || 20, 
+      search
+    );
   }
 
   @Post('adjust')

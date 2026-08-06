@@ -16,14 +16,22 @@ export class CategoriesService {
     });
   }
 
-  async findAll(empresaId: string) {
-    return this.prisma.categoria.findMany({
-      where: {
-        empresaId,
-        estaActivo: true,
-      },
-      orderBy: { nombre: 'asc' },
-    });
+  async findAll(empresaId: string, page = 1, limit = 20, search = '') {
+    const where: any = { empresaId, estaActivo: true };
+    if (search) {
+      where.nombre = { contains: search, mode: 'insensitive' as const };
+    }
+    const limitSafe = Math.min(limit, 100);
+    const skip = (page - 1) * limitSafe;
+    const [total, data] = await Promise.all([
+      this.prisma.categoria.count({ where }),
+      this.prisma.categoria.findMany({ where, orderBy: { nombre: 'asc' }, skip, take: limitSafe }),
+    ]);
+    const totalPages = Math.ceil(total / limitSafe);
+    return {
+      data,
+      meta: { total, page, limit: limitSafe, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 },
+    };
   }
 
   async findOne(id: string, empresaId: string) {

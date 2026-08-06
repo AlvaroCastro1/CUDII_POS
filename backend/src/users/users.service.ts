@@ -38,20 +38,26 @@ export class UsersService {
     });
   }
 
-  async findAll(empresaId: string) {
-    return this.prisma.usuario.findMany({
-      where: { empresaId },
-      select: {
-        id: true,
-        nombre: true,
-        email: true,
-        rol: true,
-        estaActivo: true,
-
-        creadoEn: true,
-      },
-      orderBy: { nombre: 'asc' },
-    });
+  async findAll(empresaId: string, page = 1, limit = 20, search = '') {
+    const where: any = { empresaId };
+    if (search) {
+      where.OR = [
+        { nombre: { contains: search, mode: 'insensitive' as const } },
+        { email: { contains: search, mode: 'insensitive' as const } },
+      ];
+    }
+    const limitSafe = Math.min(limit, 100);
+    const skip = (page - 1) * limitSafe;
+    const selectFields = { id: true, nombre: true, email: true, rol: true, estaActivo: true, creadoEn: true };
+    const [total, data] = await Promise.all([
+      this.prisma.usuario.count({ where }),
+      this.prisma.usuario.findMany({ where, select: selectFields, orderBy: { nombre: 'asc' }, skip, take: limitSafe }),
+    ]);
+    const totalPages = Math.ceil(total / limitSafe);
+    return {
+      data,
+      meta: { total, page, limit: limitSafe, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 },
+    };
   }
 
   async findOne(id: string, empresaId: string) {

@@ -102,65 +102,76 @@ export default function MainLayout() {
           </div>
 
           {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN' || user?.rol === 'GERENTE') && (
-            <>
-              <div className="px-4">
-                <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
-                  Catálogo
-                </h3>
-                <div className="space-y-1">
-                  <button
-                    onClick={() => { navigate('/admin/categorias'); setIsMobileMenuOpen(false); }}
-                    className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/admin/categorias' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
-                    title={!isSidebarOpen ? 'Categorías' : ''}
-                  >
-                    <span className="material-symbols-outlined !text-xl shrink-0">category</span>
-                    <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
-                      Categorías
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => { navigate('/admin/productos'); setIsMobileMenuOpen(false); }}
-                    className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/admin/productos' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
-                    title={!isSidebarOpen ? 'Productos' : ''}
-                  >
-                    <span className="material-symbols-outlined !text-xl shrink-0">inventory_2</span>
-                    <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
-                      Productos
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => { navigate('/admin/inventario'); setIsMobileMenuOpen(false); }}
-                    className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/admin/inventario' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
-                    title={!isSidebarOpen ? 'Inventario' : ''}
-                  >
-                    <span className="material-symbols-outlined !text-xl shrink-0">warehouse</span>
-                    <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
-                      Inventario
-                    </span>
-                  </button>
-                </div>
+            <div className="px-4">
+              <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
+                Catálogo
+              </h3>
+              <div className="space-y-1">
+                <button
+                  onClick={() => { navigate('/admin/categorias'); setIsMobileMenuOpen(false); }}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/admin/categorias' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  title={!isSidebarOpen ? 'Categorías' : ''}
+                >
+                  <span className="material-symbols-outlined !text-xl shrink-0">category</span>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                    Categorías
+                  </span>
+                </button>
+                <button
+                  onClick={() => { navigate('/admin/productos'); setIsMobileMenuOpen(false); }}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/admin/productos' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  title={!isSidebarOpen ? 'Productos' : ''}
+                >
+                  <span className="material-symbols-outlined !text-xl shrink-0">inventory_2</span>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                    Productos
+                  </span>
+                </button>
               </div>
+            </div>
+          )}
 
-              <div className="px-4">
-                <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
-                  Administración
-                </h3>
-                <div className="space-y-1">
-                  <button
-                    onClick={() => { navigate('/admin/usuarios'); setIsMobileMenuOpen(false); }}
-                    className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/admin/usuarios' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
-                    title={!isSidebarOpen ? 'Usuarios' : ''}
-                  >
-                    <span className="material-symbols-outlined !text-xl shrink-0">group</span>
-                    <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
-                      Usuarios
-                    </span>
-                  </button>
-                </div>
+          {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN' || user?.rol === 'GERENTE' || user?.rol === 'ALMACEN') && (
+            <div className="px-4">
+              <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
+                Inventario
+              </h3>
+              <div className="space-y-1">
+                <button
+                  onClick={() => { navigate('/admin/inventario'); setIsMobileMenuOpen(false); }}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/admin/inventario' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  title={!isSidebarOpen ? 'Inventario' : ''}
+                >
+                  <span className="material-symbols-outlined !text-xl shrink-0">warehouse</span>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                    Inventario
+                  </span>
+                </button>
               </div>
-            </>
+            </div>
+          )}
+
+          {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN') && (
+            <div className="px-4">
+              <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
+                Administración
+              </h3>
+              <div className="space-y-1">
+                <button
+                  onClick={() => { navigate('/admin/usuarios'); setIsMobileMenuOpen(false); }}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/admin/usuarios' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  title={!isSidebarOpen ? 'Usuarios' : ''}
+                >
+                  <span className="material-symbols-outlined !text-xl shrink-0">group</span>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                    Usuarios
+                  </span>
+                </button>
+              </div>
+            </div>
           )}
         </nav>
+
 
         {/* Botón Colapsar — solo en desktop */}
         <div className="p-4 border-t border-on-surface/10 mt-auto hidden md:flex justify-center">
@@ -273,7 +284,7 @@ export default function MainLayout() {
         </header>
 
         {/* Contenido inyectado por React Router */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
           <Outlet />
         </div>
       </main>
