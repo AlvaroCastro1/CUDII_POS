@@ -9,8 +9,9 @@ Este documento establece las reglas y convenciones arquitectónicas para el desa
 - **Framework Core:** React 19+ (Functional Components).
 - **Bundler:** Vite.
 - **Estilos:** Tailwind CSS (Uso exclusivo de utilidades; prohibido escribir CSS personalizado a menos que sea estrictamente necesario para animaciones complejas, en cuyo caso va en `index.css`).
+- **Librería de Componentes:** Shadcn UI (OBLIGATORIO para modales, tablas de datos interactivos, selectores y componentes complejos de UI).
 - **Estado Global:** Zustand (preferible sobre Redux/Context por rendimiento en la caja).
-- **Enrutamiento:** React Router DOM (v6+).
+- **Enrutamiento:** React Router DOM (v6+). Las rutas de administración deben estar agrupadas (ej. bajo `/admin/*`).
 
 ## 2. Arquitectura de Carpetas (Sugerida)
 

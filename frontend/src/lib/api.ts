@@ -27,6 +27,7 @@ api.interceptors.response.use((response) => response, (error) => {
     // el AuthStore se encargará de esto a través de listeners o llamadas directas.
     localStorage.removeItem('cudii_token');
     localStorage.removeItem('cudii_user');
+    window.location.href = '/login';
   }
   return Promise.reject(error);
 });

@@ -11,6 +11,13 @@ import PosView from './views/PosView';
 import OnboardingView from './views/OnboardingView';
 import MainLayout from './components/layout/MainLayout';
 
+// Vistas Admin
+import ProductosView from './views/admin/ProductosView';
+import CategoriasView from './views/admin/CategoriasView';
+import InventarioView from './views/admin/InventarioView';
+import UsuariosView from './views/admin/UsuariosView';
+import MiPerfilView from './views/admin/MiPerfilView';
+
 // Componente para proteger rutas privadas
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -42,6 +49,16 @@ const router = createBrowserRouter([
       {
         path: 'pos',
         element: <PosView />,
+      },
+      {
+        path: 'admin',
+        children: [
+          { path: 'categorias', element: <CategoriasView /> },
+          { path: 'productos', element: <ProductosView /> },
+          { path: 'inventario', element: <InventarioView /> },
+          { path: 'usuarios', element: <UsuariosView /> },
+          { path: 'perfil', element: <MiPerfilView /> },
+        ]
       }
     ]
   },
