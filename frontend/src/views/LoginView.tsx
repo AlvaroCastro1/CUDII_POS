@@ -33,10 +33,11 @@ export default function LoginView() {
       } else {
         navigate('/');
       }
-    } catch (error: any) {
-      toast.error(
-        error.response?.data?.message || 'Error al iniciar sesión, verifica tus credenciales'
-      );
+    } catch (error) {
+      const axiosError = error as { response?: { data?: { message?: string | string[] } } };
+      const apiMsg = axiosError.response?.data?.message;
+      const errorMessage = Array.isArray(apiMsg) ? apiMsg[0] : (apiMsg || 'Error al iniciar sesión, verifica tus credenciales');
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

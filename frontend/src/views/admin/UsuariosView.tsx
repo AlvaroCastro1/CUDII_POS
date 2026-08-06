@@ -18,7 +18,7 @@ const ROLES_OPTIONS = [
   { valor: 'ALMACEN', nombre: 'Almacén', desc: 'Gestión de inventario y stock', icon: 'warehouse', colorClass: 'border-orange-500 bg-orange-500/5', textClass: 'text-orange-600' },
   { valor: 'CONTADOR', nombre: 'Contador', desc: 'Acceso a reportes y finanzas', icon: 'calculate', colorClass: 'border-teal-500 bg-teal-500/5', textClass: 'text-teal-600' },
   { valor: 'GERENTE', nombre: 'Gerente', desc: 'Inventario, reportes y catálogo', icon: 'manage_accounts', colorClass: 'border-purple-500 bg-purple-500/5', textClass: 'text-purple-600' },
-  { valor: 'ADMIN', nombre: 'Administrador', desc: 'Acceso total a la empresa', icon: 'admin_panel_settings', colorClass: 'border-red-500 bg-red-500/5', textClass: 'text-red-600' },
+  { valor: 'ADMIN', nombre: 'Administrador', desc: 'Acceso total a la sucursal', icon: 'admin_panel_settings', colorClass: 'border-red-500 bg-red-500/5', textClass: 'text-red-600' },
 ];
 
 export default function UsuariosView() {
@@ -184,7 +184,7 @@ export default function UsuariosView() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold font-display-lg text-on-background">Gestión de Usuarios</h1>
-        {currentUser?.rol === 'ADMIN' && (
+        {['ADMIN', 'SUPER_ADMIN'].includes(currentUser?.rol || '') && (
           <Dialog open={isModalOpen} onOpenChange={(open) => !open ? handleCerrarModal() : setIsModalOpen(true)}>
             <DialogTrigger asChild>
               <Button onClick={() => {
@@ -369,7 +369,7 @@ export default function UsuariosView() {
               <TableHead>Email</TableHead>
               <TableHead>Rol</TableHead>
               <TableHead>Estado</TableHead>
-              {currentUser?.rol === 'ADMIN' && (
+              {['ADMIN', 'SUPER_ADMIN'].includes(currentUser?.rol || '') && (
                 <TableHead className="text-right">Acciones</TableHead>
               )}
             </TableRow>
@@ -402,7 +402,7 @@ export default function UsuariosView() {
                       <Badge variant="secondary">Inactivo</Badge>
                     )}
                   </TableCell>
-                  {currentUser?.rol === 'ADMIN' && (
+                  {['ADMIN', 'SUPER_ADMIN'].includes(currentUser?.rol || '') && (
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         {currentUser?.id !== usr.id && (

@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -9,6 +9,10 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto, empresaId: string) {
+    if (createUserDto.rol === 'SUPER_ADMIN') {
+      throw new ForbiddenException('No está permitido crear usuarios con rol SUPER_ADMIN desde esta interfaz.');
+    }
+
     const usuarioExistente = await this.prisma.usuario.findUnique({
       where: { email: createUserDto.email },
     });
@@ -82,6 +86,10 @@ export class UsersService {
 
   async update(id: string, updateUserDto: UpdateUserDto, empresaId: string) {
     await this.findOne(id, empresaId);
+
+    if (updateUserDto.rol === 'SUPER_ADMIN') {
+      throw new ForbiddenException('No está permitido asignar el rol SUPER_ADMIN.');
+    }
 
     const updateData: any = { ...updateUserDto };
 
