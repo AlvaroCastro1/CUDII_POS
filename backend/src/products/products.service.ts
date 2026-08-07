@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,6 +9,14 @@ export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createProductDto: CreateProductDto, empresaId: string, usuarioId: string) {
+    // Validar código de barras único
+    const existe = await this.prisma.producto.findFirst({
+      where: { empresaId, codigoBarras: createProductDto.codigoBarras, estaActivo: true },
+    });
+    if (existe) {
+      throw new ConflictException('Ya existe un producto activo con este código de barras');
+    }
+
     const { categoriasIds, ...rest } = createProductDto;
     
     return this.prisma.$transaction(async (tx) => {
@@ -33,12 +42,30 @@ export class ProductsService {
         },
       });
 
+      // Inicializar stock en 0 para todas las sucursales de la empresa
+      const sucursales = await tx.sucursal.findMany({ where: { empresaId } });
+      if (sucursales.length > 0) {
+        await tx.inventarioSucursal.createMany({
+          data: sucursales.map(s => ({
+            productoId: producto.id,
+            sucursalId: s.id,
+            stockActual: 0,
+            stockMaximo: 0,
+            stockMinimo: 0,
+          }))
+        });
+      }
+
       return producto;
     });
   }
 
-  async findAll(empresaId: string, page = 1, limit = 20, search = '', categoriaId = '') {
-    const where: any = { empresaId, estaActivo: true };
+  async findAll(empresaId: string, page = 1, limit = 20, search = '', categoriaId = '', incluirInactivos = false) {
+    const where: Prisma.ProductoWhereInput = { empresaId };
+    
+    if (!incluirInactivos) {
+      where.estaActivo = true;
+    }
     
     if (search) {
       where.OR = [
@@ -69,6 +96,8 @@ export class ProductsService {
     ]);
 
     const totalPages = Math.ceil(total / limitSafe);
+
+    console.log(`[findAll] incluirInactivos: ${incluirInactivos}, count: ${data.length}`);
 
     return {
       data,
@@ -124,9 +153,14 @@ export class ProductsService {
   }
 
 
-  async findOne(id: string, empresaId: string) {
+  async findOne(id: string, empresaId: string, incluirInactivos = false) {
+    const where: Prisma.ProductoWhereInput = { id, empresaId };
+    if (!incluirInactivos) {
+      where.estaActivo = true;
+    }
+
     const producto = await this.prisma.producto.findFirst({
-      where: { id, empresaId, estaActivo: true },
+      where,
       include: {
         categorias: true,
         historialPrecios: {
@@ -144,7 +178,16 @@ export class ProductsService {
   }
 
   async update(id: string, updateProductDto: UpdateProductDto, empresaId: string, usuarioId: string) {
-    const productoAnterior = await this.findOne(id, empresaId);
+    const productoAnterior = await this.findOne(id, empresaId, true);
+
+    if (updateProductDto.codigoBarras && updateProductDto.codigoBarras !== productoAnterior.codigoBarras) {
+      const existe = await this.prisma.producto.findFirst({
+        where: { empresaId, codigoBarras: updateProductDto.codigoBarras, estaActivo: true },
+      });
+      if (existe) {
+        throw new ConflictException('Ya existe un producto activo con este código de barras');
+      }
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const productoEditado = await tx.producto.update({
@@ -171,7 +214,7 @@ export class ProductsService {
   }
 
   async remove(id: string, empresaId: string) {
-    await this.findOne(id, empresaId);
+    await this.findOne(id, empresaId, true);
 
     // Soft delete
     return this.prisma.producto.update({

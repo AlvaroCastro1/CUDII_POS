@@ -26,9 +26,16 @@ export class UsersController {
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '20',
     @Query('search') search: string = '',
+    @Query('incluirInactivos') incluirInactivos: string = 'false',
     @CurrentUser() user: CurrentUserPayload
   ) {
-    return this.usersService.findAll(user.empresaId, parseInt(page, 10), parseInt(limit, 10), search);
+    return this.usersService.findAll(
+      user.empresaId, 
+      parseInt(page, 10), 
+      parseInt(limit, 10), 
+      search,
+      incluirInactivos === 'true'
+    );
   }
 
   @Get(':id')

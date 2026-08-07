@@ -19,14 +19,16 @@ export class InventoryController {
     @CurrentUser() user: CurrentUserPayload,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '20',
-    @Query('search') search: string = ''
+    @Query('search') search: string = '',
+    @Query('incluirInactivos') incluirInactivos: string = 'false'
   ) {
     return this.inventoryService.getStock(
       sucursalId, 
       user.empresaId, 
       parseInt(page, 10) || 1, 
       parseInt(limit, 10) || 20, 
-      search
+      search,
+      incluirInactivos === 'true'
     );
   }
 

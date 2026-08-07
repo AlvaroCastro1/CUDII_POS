@@ -1,14 +1,38 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import axios from 'axios';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, PowerOff } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
+
+interface Categoria {
+  id: string;
+  nombre: string;
+  icono?: string;
+  colorHex?: string;
+}
+
+interface Producto {
+  id: string;
+  nombre: string;
+  codigoBarras: string;
+  codigoInterno: string;
+  descripcion: string;
+  precioVentaBase: number;
+  precioCompra: number;
+  unidadMedida: string;
+  esGranel: boolean;
+  estaActivo: boolean;
+  categorias: Categoria[];
+}
 
 // ============================================================
 // Catálogo de unidades con descripción contextual para el usuario
@@ -55,11 +79,12 @@ const UNIDADES = [
 // Vista principal: Catálogo de Productos
 // ============================================================
 export default function ProductosView() {
-  const [productos, setProductos] = useState<any[]>([]);
-  const [categorias, setCategorias] = useState<any[]>([]);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [search, setSearch] = useState('');
   const [searchCategoria, setSearchCategoria] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
+  const [incluirInactivos, setIncluirInactivos] = useState(false);
   const [loading, setLoading] = useState(true);
   const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(20);
 
@@ -96,23 +121,25 @@ export default function ProductosView() {
   const fetchProductos = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/products?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&categoriaId=${filtroCategoria}`);
+      const res = await api.get(`/products?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&categoriaId=${filtroCategoria}&incluirInactivos=${incluirInactivos}`);
       const body = res.data;
       setProductos(body.data || []);
       if (body.meta) setMeta(body.meta);
-    } catch (error: any) {
-      toast.error('Error al cargar productos');
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast.error('Error al cargar productos');
+      }
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, filtroCategoria, setMeta]);
+  }, [page, limit, search, filtroCategoria, incluirInactivos, setMeta]);
 
   const fetchCategorias = async () => {
     try {
       // Cargamos todas las categorias para el selector (sin paginación porque suelen ser pocas)
       const res = await api.get('/categories?limit=100');
       setCategorias(res.data.data || res.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error al cargar categorías', error);
     }
   };
@@ -138,7 +165,9 @@ export default function ProductosView() {
 
       if (editingProductId) {
         // Al editar, no enviamos unidadMedida ni esGranel (bloqueados)
-        const { unidadMedida, esGranel, ...editPayload } = payload as any;
+        const editPayload: Record<string, unknown> = { ...payload };
+        delete editPayload.unidadMedida;
+        delete editPayload.esGranel;
         await api.patch(`/products/${editingProductId}`, editPayload);
         toast.success('¡Producto actualizado exitosamente!');
       } else {
@@ -148,22 +177,56 @@ export default function ProductosView() {
 
       handleCerrarModal();
       fetchProductos();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al guardar producto');
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message || 'Error al guardar producto');
+      } else {
+        toast.error('Error al guardar producto');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const [productToToggle, setProductToToggle] = useState<Producto | null>(null);
+  const [isToggling, setIsToggling] = useState(false);
+
+  const handleToggleClick = (prod: Producto) => {
+    setProductToToggle(prod);
+  };
+
+  const confirmToggle = async () => {
+    if (!productToToggle) return;
+    
+    try {
+      setIsToggling(true);
+      if (productToToggle.estaActivo) {
+        // Desactivar usando el endpoint DELETE (que internamente hace soft-delete)
+        await api.delete(`/products/${productToToggle.id}`);
+        toast.success('Producto ocultado exitosamente');
+      } else {
+        // Reactivar usando PATCH
+        await api.patch(`/products/${productToToggle.id}`, { estaActivo: true });
+        toast.success('Producto reactivado exitosamente');
+      }
+      fetchProductos();
+    } catch (error: unknown) {
+      toast.error('Error al cambiar el estado del producto');
+    } finally {
+      setIsToggling(false);
+      setProductToToggle(null);
+    }
+  };
+
   // Abrir modal en modo edición pre-llenando el formulario
-  const handleOpenEdit = (prod: any) => {
+  const handleOpenEdit = (prod: Producto) => {
     setEditingProductId(prod.id);
     setFormData({
       nombre: prod.nombre || '',
       codigoBarras: prod.codigoBarras || '',
       codigoInterno: prod.codigoInterno || '',
       descripcion: prod.descripcion || '',
-      categoriasIds: prod.categorias?.map((c: any) => c.id) || [],
+      categoriasIds: prod.categorias?.map((c: Categoria) => c.id) || [],
       unidadMedida: prod.unidadMedida || '',
       precioCompra: prod.precioCompra?.toString() || '',
       precioVentaBase: prod.precioVentaBase?.toString() || '',
@@ -613,6 +676,18 @@ export default function ProductosView() {
               <option key={cat.id} value={cat.id}>{cat.nombre}</option>
             ))}
           </select>
+          <label className="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer">
+            <input 
+              type="checkbox" 
+              checked={incluirInactivos}
+              onChange={(e) => {
+                setIncluirInactivos(e.target.checked);
+                reiniciar();
+              }}
+              className="w-4 h-4 rounded border-outline/30 text-primary focus:ring-primary/20 accent-primary"
+            />
+            Mostrar ocultos/inactivos
+          </label>
         </div>
 
         <Table>
@@ -650,13 +725,18 @@ export default function ProductosView() {
                 </TableCell>
               </TableRow>
             ) : (
-              productosFiltrados.map((prod: any) => (
-                <TableRow key={prod.id}>
-                  <TableCell className="font-medium">{prod.nombre}</TableCell>
+              productosFiltrados.map((prod: Producto) => (
+                <TableRow key={prod.id} className={!prod.estaActivo ? "opacity-50" : ""}>
+                  <TableCell className="font-medium">
+                    {prod.nombre}
+                    {!prod.estaActivo && (
+                      <Badge variant="secondary" className="ml-2 text-[10px]">Inactivo</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {prod.categorias && prod.categorias.length > 0 ? (
                       <div className="flex gap-1 flex-wrap">
-                        {prod.categorias.slice(0, 2).map((c: any) => (
+                        {prod.categorias.slice(0, 2).map((c: Categoria) => (
                           <span key={c.id} className="px-2 py-1 bg-surface-variant text-on-surface text-xs rounded-lg font-medium border border-outline/10 flex items-center gap-1">
                             <span className="material-symbols-outlined !text-[12px]">{c.icono || 'category'}</span>
                             {c.nombre}
@@ -684,12 +764,23 @@ export default function ProductosView() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="sm" title="Editar producto" onClick={() => handleOpenEdit(prod)}>
-                        <Pencil className="w-4 h-4 text-on-surface-variant" />
-                      </Button>
-                      <Button variant="ghost" size="sm" title="Eliminar producto" onClick={() => toast.error('No se puede eliminar este producto porque afectaría el historial. Próximamente se habilitará la opción de desactivarlo.')}>
-                        <Trash2 className="w-4 h-4 text-red-500/70 hover:text-red-600" />
-                      </Button>
+                      {prod.estaActivo ? (
+                        <>
+                          <Button variant="ghost" size="sm" title="Editar producto" onClick={() => handleOpenEdit(prod)}>
+                            <Pencil className="w-4 h-4 text-on-surface-variant" />
+                          </Button>
+                          <Button variant="ghost" size="sm" title="Ocultar / Desactivar producto" onClick={() => handleToggleClick(prod)}>
+                            <PowerOff className="w-4 h-4 text-amber-500/70 hover:text-amber-600" />
+                          </Button>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-on-surface-variant font-medium">Oculto</span>
+                          <Button variant="ghost" size="sm" title="Reactivar producto" onClick={() => handleToggleClick(prod)}>
+                            <span className="material-symbols-outlined !text-[18px] text-blue-500/70 hover:text-blue-600">settings_backup_restore</span>
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -699,6 +790,23 @@ export default function ProductosView() {
         </Table>
         {meta && <PaginacionControles meta={meta} onPageChange={irAPagina} />}
       </div>
+
+      {/* Modal de confirmación para Desactivar / Reactivar producto */}
+      <ConfirmDialog
+        isOpen={!!productToToggle}
+        onClose={() => setProductToToggle(null)}
+        onConfirm={confirmToggle}
+        title={productToToggle?.estaActivo ? "Ocultar / Desactivar Producto" : "Reactivar Producto"}
+        description={
+          productToToggle?.estaActivo
+            ? "¿Estás seguro de que deseas desactivar este producto? Ya no aparecerá en el punto de venta ni en búsquedas predeterminadas. Tu historial y reportes no se verán afectados."
+            : "¿Estás seguro de que deseas reactivar este producto? Volverá a estar disponible para la venta."
+        }
+        confirmText={productToToggle?.estaActivo ? "Sí, desactivar" : "Sí, activar"}
+        cancelText="Cancelar"
+        variant={productToToggle?.estaActivo ? "warning" : "info"}
+        isLoading={isToggling}
+      />
     </div>
   );
 }

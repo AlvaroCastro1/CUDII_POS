@@ -50,6 +50,10 @@ src/
 - **Estado Local vs Global:** Usar Zustand solo cuando el estado deba compartirse entre vistas sin relación directa (ej. Carrito de compras, Configuración del Tenant). Para formularios locales, usar estado local (`useState`) o React Hook Form.
 - **Llamadas a API:** Centralizar en `lib/api.ts` utilizando instancias preconfiguradas con interceptores para inyectar el JWT Token.
 
+## 6. Componentes Reusables Clave
+
+- **Confirmaciones Destructivas:** Está ESTRICTAMENTE PROHIBIDO utilizar `window.confirm()`, `alert()`, o `prompt()` nativos del navegador por temas estéticos. Siempre debe utilizarse el componente estandarizado `ConfirmDialog` ubicado en `src/components/ui/confirm-dialog.tsx`. Este provee estética premium, control de carga (`isLoading`), y diferentes variantes (`danger`, `warning`, `info`).
+
 ## Documentos de Referencia (Orden Arquitectónico)
 
 | Nivel | Documento | Ruta Absoluta | Descripción |

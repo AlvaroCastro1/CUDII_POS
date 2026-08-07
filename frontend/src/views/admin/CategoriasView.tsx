@@ -2,13 +2,24 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
+import axios from 'axios';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Label } from '@/components/ui/label';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, PowerOff } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
+
+interface Categoria {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  colorHex: string;
+  icono: string;
+  productosCount?: number;
+}
 
 const ICONOS_COMUNES = [
   'category', 'fastfood', 'local_cafe', 'liquor', 'local_pizza', 
@@ -18,13 +29,15 @@ const ICONOS_COMUNES = [
 ];
 
 export default function CategoriasView() {
-  const [categorias, setCategorias] = useState<any[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(20);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [categoriaToDelete, setCategoriaToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const initialForm = {
     nombre: '',
@@ -41,8 +54,10 @@ export default function CategoriasView() {
       const res = await api.get(`/categories?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
       setCategorias(res.data.data || res.data);
       if (res.data.meta) setMeta(res.data.meta);
-    } catch (error: any) {
-      toast.error('Error al cargar categorías');
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast.error('Error al cargar categorías');
+      }
     } finally {
       setLoading(false);
     }
@@ -58,7 +73,7 @@ export default function CategoriasView() {
     setFormData(initialForm);
   };
 
-  const handleOpenEdit = (cat: any) => {
+  const handleOpenEdit = (cat: Categoria) => {
     setEditingId(cat.id);
     setFormData({
       nombre: cat.nombre,
@@ -89,21 +104,37 @@ export default function CategoriasView() {
       }
       handleCerrarModal();
       fetchCategorias();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al guardar la categoría');
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message || 'Error al guardar la categoría');
+      } else {
+        toast.error('Error al guardar la categoría');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar esta categoría? Si tiene productos asociados podría fallar.')) return;
+  const handleDeleteClick = (id: string) => {
+    setCategoriaToDelete(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!categoriaToDelete) return;
     try {
-      await api.delete(`/categories/${id}`);
+      setIsDeleting(true);
+      await api.delete(`/categories/${categoriaToDelete}`);
       toast.success('Categoría eliminada');
       fetchCategorias();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al eliminar. Verifique que no tenga productos asociados.');
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message || 'Error al eliminar. Verifique que no tenga productos asociados.');
+      } else {
+        toast.error('Error al eliminar. Verifique que no tenga productos asociados.');
+      }
+    } finally {
+      setIsDeleting(false);
+      setCategoriaToDelete(null);
     }
   };
 
@@ -248,7 +279,7 @@ export default function CategoriasView() {
                  </TableCell>
                </TableRow>
             ) : (
-              categoriasFiltradas.map((cat: any) => (
+              categoriasFiltradas.map((cat: Categoria) => (
                 <TableRow key={cat.id}>
                   <TableCell>
                     <div 
@@ -262,12 +293,12 @@ export default function CategoriasView() {
                   <TableCell className="text-on-surface-variant">{cat.descripcion || '-'}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="sm" title="Editar" onClick={() => handleOpenEdit(cat)}>
-                        <Pencil className="w-4 h-4 text-on-surface-variant" />
-                      </Button>
-                      <Button variant="ghost" size="sm" title="Eliminar" onClick={() => handleDelete(cat.id)}>
-                        <Trash2 className="w-4 h-4 text-red-500/70 hover:text-red-600" />
-                      </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(cat)} title="Editar categoría">
+                          <Pencil className="w-4 h-4 text-on-surface-variant" />
+                        </Button>
+                        <Button variant="ghost" size="sm" title="Ocultar / Desactivar categoría" onClick={() => handleDeleteClick(cat.id)}>
+                          <PowerOff className="w-4 h-4 text-amber-500/70 hover:text-amber-600" />
+                        </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -277,6 +308,18 @@ export default function CategoriasView() {
         </Table>
         {meta && <PaginacionControles meta={meta} onPageChange={irAPagina} />}
       </div>
+
+      <ConfirmDialog
+        isOpen={!!categoriaToDelete}
+        onClose={() => setCategoriaToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Ocultar / Desactivar Categoría"
+        description="¿Estás seguro de que deseas desactivar esta categoría? No podrá desactivarse si existen productos activos asociados a ella."
+        confirmText="Sí, desactivar"
+        cancelText="Cancelar"
+        variant="warning"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

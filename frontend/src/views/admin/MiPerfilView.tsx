@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import axios from 'axios';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -38,7 +39,7 @@ export default function MiPerfilView() {
     
     try {
       setIsSubmitting(true);
-      const payload: any = {
+      const payload: { nombre: string; email: string; password?: string } = {
         nombre: formData.nombre,
         email: formData.email,
       };
@@ -51,8 +52,12 @@ export default function MiPerfilView() {
       setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
       setShowPassword(false);
       setShowConfirmPassword(false);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al actualizar el perfil');
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message || 'Error al actualizar el perfil');
+      } else {
+        toast.error('Error al actualizar el perfil');
+      }
     } finally {
       setIsSubmitting(false);
     }

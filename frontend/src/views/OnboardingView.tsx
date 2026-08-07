@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import axios from 'axios';
 import { toast } from 'sonner';
 import { useAuthStore } from '../store/useAuthStore';
 
 export default function OnboardingView() {
   const navigate = useNavigate();
-  const setAuth = useAuthStore(state => state.setAuth);
+  const login = useAuthStore(state => state.login);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +48,7 @@ export default function OnboardingView() {
     setIsLoading(true);
     try {
       // POST al nuevo endpoint de Onboarding Atómico
-      const { data } = await api.post('/onboarding', formData);
+      await api.post('/onboarding', formData);
       
       setShowSuccess(true);
       
@@ -58,12 +59,16 @@ export default function OnboardingView() {
       });
       
       setTimeout(() => {
-        setAuth(loginRes.data.access_token, loginRes.data.user);
-        navigate('/');
+        login(loginRes.data.access_token, loginRes.data.user);
+        navigate('/admin/dashboard');
       }, 3000);
       
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Error al crear el ecosistema CUDII");
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message || "Error al crear el ecosistema CUDII");
+      } else {
+        toast.error("Error al crear el ecosistema CUDII");
+      }
     } finally {
       setIsLoading(false);
     }

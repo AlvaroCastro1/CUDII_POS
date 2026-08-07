@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
+import axios from 'axios';
 import { toast } from 'sonner';
 import { Pencil, PowerOff } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -21,9 +23,18 @@ const ROLES_OPTIONS = [
   { valor: 'ADMIN', nombre: 'Administrador', desc: 'Acceso total a la sucursal', icon: 'admin_panel_settings', colorClass: 'border-red-500 bg-red-500/5', textClass: 'text-red-600' },
 ];
 
+interface Usuario {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: string;
+  estaActivo: boolean;
+  creadoEn: string;
+}
+
 export default function UsuariosView() {
   const { user: currentUser } = useAuthStore();
-  const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(20);
@@ -34,6 +45,10 @@ export default function UsuariosView() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  const [incluirInactivos, setIncluirInactivos] = useState(false);
+  const [userToToggle, setUserToToggle] = useState<Usuario | null>(null);
+  const [isToggling, setIsToggling] = useState(false);
 
   // Helper para calcular fuerza de contraseña
   const calcularFuerza = (pass: string) => {
@@ -86,15 +101,17 @@ export default function UsuariosView() {
   const fetchUsuarios = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+      const res = await api.get(`/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&incluirInactivos=${incluirInactivos}`);
       setUsuarios(res.data.data || res.data);
       if (res.data.meta) setMeta(res.data.meta);
-    } catch (error: any) {
-      toast.error('Error al cargar usuarios');
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast.error('Error al cargar los usuarios');
+      }
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, setMeta]);
+  }, [page, limit, search, incluirInactivos, setMeta]);
 
   useEffect(() => {
     fetchUsuarios();
@@ -117,11 +134,15 @@ export default function UsuariosView() {
 
     try {
       setIsSubmitting(true);
-      const { confirmPassword, ...payload } = formData;
+      const payload: { nombre: string; email: string; rol: string; password?: string } = {
+        nombre: formData.nombre,
+        email: formData.email,
+        rol: formData.rol,
+      };
       
-      // Si estamos editando y no cambiaron el password, removerlo del payload
-      if (editingUserId && !payload.password) {
-        delete (payload as any).password;
+      // Añadir la contraseña solo si se proporciona (en creación siempre se provee, en edición es opcional)
+      if (formData.password) {
+        payload.password = formData.password;
       }
 
       if (editingUserId) {
@@ -134,17 +155,19 @@ export default function UsuariosView() {
       
       handleCerrarModal();
       fetchUsuarios();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || (editingUserId ? 'Error al actualizar usuario' : 'Error al crear usuario'));
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message || (editingUserId ? 'Error al actualizar usuario' : 'Error al crear usuario'));
+      } else {
+        toast.error(editingUserId ? 'Error al actualizar usuario' : 'Error al crear usuario');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // La búsqueda ya se filtra en el backend
-  const usuariosFiltrados = usuarios;
 
-  const handleOpenEdit = (user: any) => {
+  const handleOpenEdit = (user: Usuario) => {
     setEditingUserId(user.id);
     setFormData({
       nombre: user.nombre,
@@ -166,13 +189,22 @@ export default function UsuariosView() {
     setShowConfirmPassword(false);
   };
 
-  const handleToggleStatus = async (user: any) => {
+  const handleToggleClick = (user: Usuario) => {
+    setUserToToggle(user);
+  };
+
+  const confirmToggleStatus = async () => {
+    if (!userToToggle) return;
     try {
-      await api.patch(`/users/${user.id}`, { estaActivo: !user.estaActivo });
-      toast.success(`Usuario ${user.estaActivo ? 'desactivado' : 'activado'} correctamente`);
+      setIsToggling(true);
+      await api.patch(`/users/${userToToggle.id}`, { estaActivo: !userToToggle.estaActivo });
+      toast.success(`Usuario ${userToToggle.estaActivo ? 'desactivado' : 'activado'} correctamente`);
       fetchUsuarios();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Error al cambiar el estado del usuario');
+    } finally {
+      setIsToggling(false);
+      setUserToToggle(null);
     }
   };
 
@@ -360,6 +392,18 @@ export default function UsuariosView() {
             }}
             className="max-w-md w-full"
           />
+          <label className="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer">
+            <input 
+              type="checkbox" 
+              checked={incluirInactivos}
+              onChange={(e) => {
+                setIncluirInactivos(e.target.checked);
+                reiniciar();
+              }}
+              className="w-4 h-4 rounded border-outline/30 text-primary focus:ring-primary/20 accent-primary"
+            />
+            Mostrar inactivos
+          </label>
         </div>
 
         <Table>
@@ -388,15 +432,15 @@ export default function UsuariosView() {
                 </TableCell>
               </TableRow>
             ) : (
-              usuarios.map((usr: any) => (
-                <TableRow key={usr.id}>
-                  <TableCell className="font-medium">{usr.nombre}</TableCell>
-                  <TableCell>{usr.email}</TableCell>
+              usuarios.map((user: Usuario) => (
+                <TableRow key={user.id} className={!user.estaActivo ? "opacity-50" : ""}>
+                  <TableCell className="font-medium">{user.nombre}</TableCell>
+                  <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{usr.rol}</Badge>
+                    <Badge variant="outline">{user.rol}</Badge>
                   </TableCell>
                   <TableCell>
-                    {usr.estaActivo ? (
+                    {user.estaActivo ? (
                       <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">Activo</Badge>
                     ) : (
                       <Badge variant="secondary">Inactivo</Badge>
@@ -405,14 +449,14 @@ export default function UsuariosView() {
                   {['ADMIN', 'SUPER_ADMIN'].includes(currentUser?.rol || '') && (
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        {currentUser?.id !== usr.id && (
-                          <Button variant="ghost" size="sm" title="Editar" onClick={() => handleOpenEdit(usr)}>
+                        {currentUser?.id !== user.id && (
+                          <Button variant="ghost" size="sm" title="Editar" onClick={() => handleOpenEdit(user)}>
                             <Pencil className="w-4 h-4 text-on-surface-variant" />
                           </Button>
                         )}
-                        {currentUser?.id !== usr.id && (
-                          <Button variant="ghost" size="sm" title={usr.estaActivo ? "Desactivar" : "Activar"} onClick={() => handleToggleStatus(usr)}>
-                            <PowerOff className={`w-4 h-4 ${usr.estaActivo ? 'text-red-500' : 'text-green-500'}`} />
+                        {currentUser?.id !== user.id && (
+                          <Button variant="ghost" size="sm" title={user.estaActivo ? "Desactivar" : "Activar"} onClick={() => handleToggleClick(user)}>
+                            <PowerOff className={`w-4 h-4 ${user.estaActivo ? 'text-red-500' : 'text-green-500'}`} />
                           </Button>
                         )}
                       </div>
@@ -425,6 +469,20 @@ export default function UsuariosView() {
         </Table>
         {meta && <PaginacionControles meta={meta} onPageChange={irAPagina} />}
       </div>
+
+      <ConfirmDialog
+        isOpen={!!userToToggle}
+        onClose={() => setUserToToggle(null)}
+        onConfirm={confirmToggleStatus}
+        title={userToToggle?.estaActivo ? "Desactivar Usuario" : "Activar Usuario"}
+        description={userToToggle?.estaActivo 
+          ? "¿Estás seguro de que deseas desactivar a este usuario? Ya no podrá iniciar sesión en el sistema." 
+          : "¿Estás seguro de que deseas reactivar a este usuario? Podrá volver a acceder al sistema."}
+        confirmText={userToToggle?.estaActivo ? "Sí, desactivar" : "Sí, activar"}
+        cancelText="Cancelar"
+        variant={userToToggle?.estaActivo ? "warning" : "info"}
+        isLoading={isToggling}
+      />
     </div>
   );
 }

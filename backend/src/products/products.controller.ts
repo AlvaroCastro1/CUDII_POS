@@ -37,9 +37,17 @@ export class ProductsController {
     @Query('limit') limit: string = '20',
     @Query('search') search: string = '',
     @Query('categoriaId') categoriaId: string = '',
+    @Query('incluirInactivos') incluirInactivos: string = 'false',
     @CurrentUser() user: CurrentUserPayload
   ) {
-    return this.productsService.findAll(user.empresaId, parseInt(page, 10), parseInt(limit, 10), search, categoriaId);
+    return this.productsService.findAll(
+      user.empresaId, 
+      parseInt(page, 10), 
+      parseInt(limit, 10), 
+      search, 
+      categoriaId,
+      incluirInactivos === 'true'
+    );
   }
 
   @Get(':id')

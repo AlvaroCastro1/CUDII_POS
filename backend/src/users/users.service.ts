@@ -1,4 +1,5 @@
 import { Injectable, ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -42,8 +43,14 @@ export class UsersService {
     });
   }
 
-  async findAll(empresaId: string, page = 1, limit = 20, search = '') {
-    const where: any = { empresaId };
+  async findAll(empresaId: string, page = 1, limit = 20, search = '', incluirInactivos = false) {
+    const where: Prisma.UsuarioWhereInput = { empresaId };
+    
+    // Por defecto ocultamos inactivos, a menos que el usuario los pida
+    if (!incluirInactivos) {
+      where.estaActivo = true;
+    }
+
     if (search) {
       where.OR = [
         { nombre: { contains: search, mode: 'insensitive' as const } },
@@ -85,17 +92,21 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto, empresaId: string) {
-    await this.findOne(id, empresaId);
+    const usuario = await this.findOne(id, empresaId);
+
+    if (usuario.rol === 'SUPER_ADMIN') {
+      throw new ForbiddenException('No estás autorizado para modificar a un SUPER_ADMIN.');
+    }
 
     if (updateUserDto.rol === 'SUPER_ADMIN') {
       throw new ForbiddenException('No está permitido asignar el rol SUPER_ADMIN.');
     }
 
-    const updateData: any = { ...updateUserDto };
+    const updateData: Prisma.UsuarioUpdateInput = { ...updateUserDto };
 
     if (updateUserDto.password) {
       updateData.passwordHash = await argon2.hash(updateUserDto.password);
-      delete updateData.password;
+      delete (updateData as any).password;
     }
 
     if (updateUserDto.email) {
@@ -122,7 +133,11 @@ export class UsersService {
   }
 
   async remove(id: string, empresaId: string) {
-    await this.findOne(id, empresaId);
+    const usuario = await this.findOne(id, empresaId);
+
+    if (usuario.rol === 'SUPER_ADMIN') {
+      throw new ForbiddenException('No estás autorizado para desactivar a un SUPER_ADMIN.');
+    }
 
     return this.prisma.usuario.update({
       where: { id },

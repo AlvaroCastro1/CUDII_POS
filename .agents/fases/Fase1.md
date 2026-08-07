@@ -245,7 +245,31 @@ La Fase 1 está **terminada** cuando:
 - [x] `POST /auth/login` devuelve JWT válido.
 - [x] El wizard de Onboarding crea todos los registros en la BD de forma atómica.
 - [x] El frontend carga correctamente con diseño premium.
-- [x] No hay errores de TypeScript en el proyecto.
+  - [x] No hay errores de TypeScript en el proyecto.
+
+---
+
+## Pruebas y Desarrollo (E2E & Seed)
+
+Para garantizar la estabilidad de la Fase 1 y facilitar el desarrollo, el sistema cuenta con:
+
+### 1. Gestión de Datos Demo (Seed)
+Para facilitar las pruebas sin ensuciar la lógica de negocio de producción, todo el catálogo demo (usuarios, productos, categorías e inventario inicial) ha sido consolidado en el archivo `backend/prisma/seed.ts`.
+- **Uso en Desarrollo:** Para cargar estos datos en la base de datos de Docker, ejecuta:
+  ```bash
+  docker exec cudii_api npx prisma db seed
+  ```
+- **Advertencia:** Este comando **NO debe ejecutarse en producción** a menos que se desee reiniciar el catálogo demostrativo, ya que inyecta usuarios genéricos y productos de muestra.
+
+### 2. Pruebas End-to-End (E2E)
+Se construyeron suites de pruebas que validan el comportamiento real de los endpoints (levantando la BD) enfocadas en la seguridad (RBAC) y el CRUD:
+- **Ejecución:**
+  ```bash
+  docker exec cudii_api npm run test:e2e
+  ```
+- **Cobertura Principal:**
+  - `roles.e2e-spec.ts`: Verifica que los Cajeros no puedan acceder a listas restringidas, que los Administradores tengan acceso, y que nadie pueda mutar (editar/borrar) a un `SUPER_ADMIN`.
+  - `crud.e2e-spec.ts`: Valida que los endpoints POST y GET de `/categories` y `/products` respondan exitosamente y persistan datos.
 
 ---
 

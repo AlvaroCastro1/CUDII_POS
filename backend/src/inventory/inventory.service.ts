@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma, TipoMovimientoInventario } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { TipoMovimientoInventario } from '@prisma/client';
 
 @Injectable()
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getStock(sucursalId: string, empresaId: string, page = 1, limit = 20, search = '') {
-    let whereClause: any = { sucursalId };
+  async getStock(sucursalId: string, empresaId: string, page = 1, limit = 20, search = '', incluirInactivos = false) {
+    let whereClause: Prisma.InventarioSucursalWhereInput = { sucursalId };
     
     if (sucursalId === 'all') {
       const sucursales = await this.prisma.sucursal.findMany({ where: { empresaId } });
@@ -30,6 +30,11 @@ export class InventoryService {
           { codigoInterno: { contains: search, mode: 'insensitive' as const } }
         ]
       };
+      if (!incluirInactivos) {
+        whereClause.producto.estaActivo = true;
+      }
+    } else {
+      whereClause.producto = incluirInactivos ? {} : { estaActivo: true };
     }
 
     const limitSafe = Math.min(limit, 100);

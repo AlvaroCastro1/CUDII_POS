@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import axios from 'axios';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -34,7 +35,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     
     try {
       setIsSubmitting(true);
-      const payload: any = {
+      const payload: { nombre: string; email: string; password?: string } = {
         nombre: formData.nombre,
         email: formData.email,
       };
@@ -45,8 +46,12 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       await api.patch('/users/profile/me', payload);
       toast.success('Perfil actualizado correctamente. Los cambios se verán al recargar o volver a iniciar sesión.');
       onClose();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al actualizar el perfil');
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message || 'Error al actualizar el perfil');
+      } else {
+        toast.error('Error al actualizar el perfil');
+      }
     } finally {
       setIsSubmitting(false);
     }

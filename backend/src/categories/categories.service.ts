@@ -1,4 +1,5 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,7 +18,7 @@ export class CategoriesService {
   }
 
   async findAll(empresaId: string, page = 1, limit = 20, search = '') {
-    const where: any = { empresaId, estaActivo: true };
+    const where: Prisma.CategoriaWhereInput = { empresaId, estaActivo: true };
     if (search) {
       where.nombre = { contains: search, mode: 'insensitive' as const };
     }

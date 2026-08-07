@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
+import axios from 'axios';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TrendingUp, TrendingDown, SlidersHorizontal } from 'lucide-react';
@@ -20,20 +21,47 @@ const MOTIVOS_ENTRADA = [
   { valor: 'Corrección de inventario', icono: 'rule', desc: 'Corrección tras conteo físico' },
 ];
 const MOTIVOS_SALIDA = [
-  { valor: 'Merma o caducidad', icono: 'delete_forever', desc: 'Producto dañado, vencido o inutilizable' },
-  { valor: 'Robo o pérdida', icono: 'report', desc: 'Mercancía faltante sin explicación' },
+  { valor: 'Merma o daño', icono: 'broken_image', desc: 'Producto dañado o expirado' },
+  { valor: 'Consumo interno', icono: 'coffee', desc: 'Material utilizado por el equipo' },
   { valor: 'Corrección de inventario', icono: 'rule', desc: 'Corrección tras conteo físico' },
   { valor: 'Uso interno', icono: 'storefront', desc: 'Consumido por la empresa internamente' },
 ];
+
+interface Sucursal {
+  id: string;
+  nombre: string;
+}
+
+interface ProductoBusqueda {
+  id: string;
+  nombre: string;
+  codigoBarras: string;
+  codigoInterno?: string;
+  unidadMedida: string;
+  esGranel: boolean;
+  estaActivo?: boolean;
+}
+
+interface InventarioItem {
+  id: string;
+  productoId: string;
+  sucursalId: string;
+  stockActual: number;
+  stockMinimo: number;
+  stockMaximo: number;
+  producto: ProductoBusqueda;
+  sucursal: Sucursal;
+}
 
 // ============================================================
 // Vista principal: Control de Inventario
 // ============================================================
 export default function InventarioView() {
-  const [inventario, setInventario] = useState<any[]>([]);
-  const [sucursales, setSucursales] = useState<any[]>([]);
+  const [inventario, setInventario] = useState<InventarioItem[]>([]);
+  const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [incluirInactivos, setIncluirInactivos] = useState(false);
   const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(20);
 
   // Control del modal de ajuste
@@ -43,7 +71,7 @@ export default function InventarioView() {
 
   // Estado de búsqueda del modal — lazy, no carga todo el catálogo
   const [busquedaProducto, setBusquedaProducto] = useState('');
-  const [resultadosBusqueda, setResultadosBusqueda] = useState<any[]>([]);
+  const [resultadosBusqueda, setResultadosBusqueda] = useState<ProductoBusqueda[]>([]);
   const [buscando, setBuscando] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -59,13 +87,13 @@ export default function InventarioView() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Derivados
-  const productoSeleccionado = resultadosBusqueda.find((p: any) => p.id === formData.productoId)
-    // Si viene preseleccionado desde la tabla, buscarlo en el inventario
-    || inventario.find((inv: any) => inv.productoId === formData.productoId)?.producto;
-  const registroActual = inventario.find(
-    (inv: any) => inv.productoId === formData.productoId
-  );
-  const stockActual = registroActual?.stockActual ?? 0;
+  const productoSeleccionado = resultadosBusqueda.find((p: ProductoBusqueda) => p.id === formData.productoId) 
+    || inventario.find((inv: InventarioItem) => inv.productoId === formData.productoId)?.producto;
+  
+  const stockActual = inventario.find(
+    (inv: InventarioItem) => inv.productoId === formData.productoId && inv.sucursalId === formData.sucursalId
+  )?.stockActual ?? 0;
+  
   const cantidadNum = parseFloat(formData.cantidad) || 0;
   const stockProyectado = tipoAjuste === 'entrada' ? stockActual + cantidadNum : stockActual - cantidadNum;
 
@@ -107,7 +135,7 @@ export default function InventarioView() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const resInv = await api.get(`/inventory/stock/all?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+      const resInv = await api.get(`/inventory/stock/all?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&incluirInactivos=${incluirInactivos}`);
       setInventario(resInv.data.data || resInv.data);
       if (resInv.data.meta) setMeta(resInv.data.meta);
 
@@ -148,15 +176,19 @@ export default function InventarioView() {
       toast.success(`Stock ${tipoAjuste === 'entrada' ? 'ingresado' : 'retirado'} exitosamente`);
       handleCerrarModal();
       fetchData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al registrar ajuste');
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message || 'Error al registrar ajuste');
+      } else {
+        toast.error('Error al registrar ajuste');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   // Abrir modal preseleccionando un producto/sucursal desde la tabla
-  const openAdjustModal = (inv?: any) => {
+  const openAdjustModal = (inv?: InventarioItem) => {
     if (inv) {
       setFormData({ ...initialForm, productoId: inv.productoId, sucursalId: inv.sucursalId });
       // Si viene preseleccionado, no necesitamos resultados de búsqueda
@@ -314,10 +346,8 @@ export default function InventarioView() {
                           <div key={n} className="h-14 rounded-xl bg-on-surface/5 animate-pulse" />
                         ))}
                       </div>
-                    ) : resultadosBusqueda.length === 0 ? (
-                      <p className="text-sm text-on-surface-variant text-center py-4">Sin resultados</p>
-                    ) : (
-                      resultadosBusqueda.map((prod: any) => (
+                    ) : resultadosBusqueda.length > 0 ? (
+                      resultadosBusqueda.map((prod: ProductoBusqueda) => (
                         <button
                           key={prod.id}
                           type="button"
@@ -341,6 +371,8 @@ export default function InventarioView() {
                           </span>
                         </button>
                       ))
+                    ) : (
+                      <p className="text-sm text-on-surface-variant text-center py-4">Sin resultados</p>
                     )}
                   </div>
 
@@ -356,7 +388,7 @@ export default function InventarioView() {
                           <SelectValue placeholder="Selecciona la sucursal..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {sucursales.map((suc: any) => (
+                          {sucursales.map((suc: Sucursal) => (
                             <SelectItem key={suc.id} value={suc.id}>{suc.nombre}</SelectItem>
                           ))}
                         </SelectContent>
@@ -562,6 +594,18 @@ export default function InventarioView() {
             }}
             className="w-full sm:max-w-xs bg-surface border border-outline/20"
           />
+          <label className="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer ml-auto">
+            <input 
+              type="checkbox" 
+              checked={incluirInactivos}
+              onChange={(e) => {
+                setIncluirInactivos(e.target.checked);
+                reiniciar();
+              }}
+              className="w-4 h-4 rounded border-outline/30 text-primary focus:ring-primary/20 accent-primary"
+            />
+            Mostrar ocultos/inactivos
+          </label>
         </div>
 
         <Table>
@@ -598,12 +642,17 @@ export default function InventarioView() {
                 </TableCell>
               </TableRow>
             ) : (
-              inventarioFiltrado.map((inv: any) => {
+              inventarioFiltrado.map((inv: InventarioItem) => {
                 const stockBajo = inv.stockActual > 0 && inv.stockActual <= 5;
                 const sinStock = inv.stockActual === 0;
                 return (
-                  <TableRow key={inv.id}>
-                    <TableCell className="font-medium">{inv.producto?.nombre}</TableCell>
+                  <TableRow key={inv.id} className={inv.producto && !inv.producto.estaActivo ? "opacity-50" : ""}>
+                    <TableCell className="font-medium">
+                      {inv.producto?.nombre}
+                      {inv.producto && !inv.producto.estaActivo && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded-md bg-secondary/20 text-on-secondary-container text-[10px] font-semibold tracking-wide uppercase">Inactivo</span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-mono text-sm text-on-surface-variant">
                       {inv.producto?.codigoBarras || inv.producto?.codigoInterno || '—'}
                     </TableCell>
@@ -624,14 +673,18 @@ export default function InventarioView() {
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openAdjustModal(inv)}
-                        title="Ajustar stock"
-                      >
-                        <SlidersHorizontal className="w-4 h-4 text-on-surface-variant" />
-                      </Button>
+                      {inv.producto && inv.producto.estaActivo ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openAdjustModal(inv)}
+                          title="Ajustar stock"
+                        >
+                          <SlidersHorizontal className="w-4 h-4 text-on-surface-variant" />
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-on-surface-variant font-medium">Oculto</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
