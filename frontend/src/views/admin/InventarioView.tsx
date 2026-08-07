@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TrendingUp, TrendingDown, SlidersHorizontal } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
+import { Switch } from '@/components/ui/switch';
 
 // ============================================================
 // Catálogo de motivos de ajuste pre-definidos para el usuario
@@ -594,18 +595,19 @@ export default function InventarioView() {
             }}
             className="w-full sm:max-w-xs bg-surface border border-outline/20"
           />
-          <label className="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer ml-auto">
-            <input 
-              type="checkbox" 
+          <div className="flex items-center gap-2 ml-auto">
+            <Switch
+              id="switch-inactivos"
               checked={incluirInactivos}
-              onChange={(e) => {
-                setIncluirInactivos(e.target.checked);
+              onCheckedChange={(checked: boolean) => {
+                setIncluirInactivos(checked);
                 reiniciar();
               }}
-              className="w-4 h-4 rounded border-outline/30 text-primary focus:ring-primary/20 accent-primary"
             />
-            Mostrar ocultos/inactivos
-          </label>
+            <Label htmlFor="switch-inactivos" className="text-sm text-on-surface-variant cursor-pointer">
+              Mostrar ocultos/inactivos
+            </Label>
+          </div>
         </div>
 
         <Table>

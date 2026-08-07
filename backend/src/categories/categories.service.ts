@@ -17,8 +17,11 @@ export class CategoriesService {
     });
   }
 
-  async findAll(empresaId: string, page = 1, limit = 20, search = '') {
-    const where: Prisma.CategoriaWhereInput = { empresaId, estaActivo: true };
+  async findAll(empresaId: string, page = 1, limit = 20, search = '', incluirInactivos = false) {
+    const where: Prisma.CategoriaWhereInput = { empresaId };
+    if (!incluirInactivos) {
+      where.estaActivo = true;
+    }
     if (search) {
       where.nombre = { contains: search, mode: 'insensitive' as const };
     }
@@ -26,7 +29,17 @@ export class CategoriesService {
     const skip = (page - 1) * limitSafe;
     const [total, data] = await Promise.all([
       this.prisma.categoria.count({ where }),
-      this.prisma.categoria.findMany({ where, orderBy: { nombre: 'asc' }, skip, take: limitSafe }),
+      this.prisma.categoria.findMany({ 
+        where, 
+        orderBy: { nombre: 'asc' }, 
+        skip, 
+        take: limitSafe,
+        include: {
+          _count: {
+            select: { productos: true }
+          }
+        }
+      }),
     ]);
     const totalPages = Math.ceil(total / limitSafe);
     return {

@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Eye, EyeOff } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
+import { Switch } from '@/components/ui/switch';
 
 const ROLES_OPTIONS = [
   { valor: 'CAJERO', nombre: 'Cajero', desc: 'Atención en caja y cobros', icon: 'point_of_sale', colorClass: 'border-blue-500 bg-blue-500/5', textClass: 'text-blue-600' },
@@ -382,7 +383,7 @@ export default function UsuariosView() {
       </div>
 
       <div className="bg-surface rounded-xl border border-on-surface/10 p-4 mb-6">
-        <div className="flex gap-4 mb-4">
+        <div className="flex gap-4 mb-4 justify-between items-center">
           <Input 
             placeholder="Buscar por nombre o email..." 
             value={search}
@@ -392,18 +393,19 @@ export default function UsuariosView() {
             }}
             className="max-w-md w-full"
           />
-          <label className="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer">
-            <input 
-              type="checkbox" 
+          <div className="flex items-center gap-2">
+            <Switch
+              id="switch-inactivos"
               checked={incluirInactivos}
-              onChange={(e) => {
-                setIncluirInactivos(e.target.checked);
+              onCheckedChange={(checked: boolean) => {
+                setIncluirInactivos(checked);
                 reiniciar();
               }}
-              className="w-4 h-4 rounded border-outline/30 text-primary focus:ring-primary/20 accent-primary"
             />
-            Mostrar inactivos
-          </label>
+            <Label htmlFor="switch-inactivos" className="text-sm text-on-surface-variant cursor-pointer">
+              Mostrar inactivos
+            </Label>
+          </div>
         </div>
 
         <Table>

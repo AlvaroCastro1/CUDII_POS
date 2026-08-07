@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Pencil, PowerOff } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
+import { Switch } from '@/components/ui/switch';
 
 interface Categoria {
   id: string;
@@ -676,18 +677,19 @@ export default function ProductosView() {
               <option key={cat.id} value={cat.id}>{cat.nombre}</option>
             ))}
           </select>
-          <label className="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer">
-            <input 
-              type="checkbox" 
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <Switch
+              id="switch-inactivos"
               checked={incluirInactivos}
-              onChange={(e) => {
-                setIncluirInactivos(e.target.checked);
+              onCheckedChange={(checked: boolean) => {
+                setIncluirInactivos(checked);
                 reiniciar();
               }}
-              className="w-4 h-4 rounded border-outline/30 text-primary focus:ring-primary/20 accent-primary"
             />
-            Mostrar ocultos/inactivos
-          </label>
+            <Label htmlFor="switch-inactivos" className="text-sm text-on-surface-variant cursor-pointer">
+              Mostrar ocultos/inactivos
+            </Label>
+          </div>
         </div>
 
         <Table>

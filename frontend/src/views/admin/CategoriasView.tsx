@@ -8,9 +8,10 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Label } from '@/components/ui/label';
-import { Pencil, PowerOff } from 'lucide-react';
+import { Pencil, PowerOff, RotateCcw } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
+import { Switch } from '@/components/ui/switch';
 
 interface Categoria {
   id: string;
@@ -18,7 +19,10 @@ interface Categoria {
   descripcion: string;
   colorHex: string;
   icono: string;
-  productosCount?: number;
+  estaActivo?: boolean;
+  _count?: {
+    productos: number;
+  };
 }
 
 const ICONOS_COMUNES = [
@@ -32,6 +36,7 @@ export default function CategoriasView() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [incluirInactivos, setIncluirInactivos] = useState(false);
   const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(20);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,7 +56,7 @@ export default function CategoriasView() {
   const fetchCategorias = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/categories?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+      const res = await api.get(`/categories?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&incluirInactivos=${incluirInactivos}`);
       setCategorias(res.data.data || res.data);
       if (res.data.meta) setMeta(res.data.meta);
     } catch (error: unknown) {
@@ -61,7 +66,7 @@ export default function CategoriasView() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, setMeta]);
+  }, [page, limit, search, setMeta, incluirInactivos]);
 
   useEffect(() => {
     fetchCategorias();
@@ -135,6 +140,16 @@ export default function CategoriasView() {
     } finally {
       setIsDeleting(false);
       setCategoriaToDelete(null);
+    }
+  };
+
+  const handleToggleReactivate = async (id: string) => {
+    try {
+      await api.patch(`/categories/${id}`, { estaActivo: true });
+      toast.success('Categoría reactivada');
+      fetchCategorias();
+    } catch (error: unknown) {
+      toast.error('Error al reactivar categoría');
     }
   };
 
@@ -244,7 +259,7 @@ export default function CategoriasView() {
       </div>
 
       <div className="bg-surface rounded-xl border border-on-surface/10 p-4 mb-6">
-        <div className="flex gap-4 mb-4">
+        <div className="flex gap-4 mb-4 justify-between items-center">
           <Input 
             placeholder="Buscar por nombre o descripción..." 
             value={search}
@@ -254,6 +269,19 @@ export default function CategoriasView() {
             }}
             className="max-w-md w-full"
           />
+          <div className="flex items-center gap-2">
+            <Switch 
+              checked={incluirInactivos}
+              onCheckedChange={(checked: boolean) => {
+                setIncluirInactivos(checked);
+                reiniciar();
+              }}
+              id="switch-inactivos"
+            />
+            <Label htmlFor="switch-inactivos" className="text-sm text-on-surface-variant cursor-pointer">
+              Mostrar ocultos/inactivos
+            </Label>
+          </div>
         </div>
 
         <Table>
@@ -262,6 +290,7 @@ export default function CategoriasView() {
               <TableHead className="w-16">Visual</TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead>Descripción</TableHead>
+              <TableHead className="text-center">Productos</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -280,10 +309,10 @@ export default function CategoriasView() {
                </TableRow>
             ) : (
               categoriasFiltradas.map((cat: Categoria) => (
-                <TableRow key={cat.id}>
+                <TableRow key={cat.id} className={cat.estaActivo === false ? "opacity-50 bg-surface-variant/30" : ""}>
                   <TableCell>
                     <div 
-                      className="w-10 h-10 rounded-lg flex items-center justify-center text-white" 
+                      className="w-10 h-10 rounded-lg flex items-center justify-center text-white opacity-90" 
                       style={{ backgroundColor: cat.colorHex || '#3b82f6' }}
                     >
                       <span className="material-symbols-outlined !text-[20px]">{cat.icono || 'category'}</span>
@@ -291,14 +320,27 @@ export default function CategoriasView() {
                   </TableCell>
                   <TableCell className="font-semibold">{cat.nombre}</TableCell>
                   <TableCell className="text-on-surface-variant">{cat.descripcion || '-'}</TableCell>
+                  <TableCell className="text-center font-medium">
+                    <span className="bg-primary/10 text-primary px-2 py-1 rounded-full text-xs">
+                      {cat._count?.productos || 0}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(cat)} title="Editar categoría">
-                          <Pencil className="w-4 h-4 text-on-surface-variant" />
+                      {cat.estaActivo !== false ? (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(cat)} title="Editar categoría">
+                            <Pencil className="w-4 h-4 text-on-surface-variant" />
+                          </Button>
+                          <Button variant="ghost" size="sm" title="Ocultar / Desactivar categoría" onClick={() => handleDeleteClick(cat.id)}>
+                            <PowerOff className="w-4 h-4 text-amber-500/70 hover:text-amber-600" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button variant="ghost" size="sm" title="Volver a activar" onClick={() => handleToggleReactivate(cat.id)}>
+                          <RotateCcw className="w-4 h-4 text-primary" />
                         </Button>
-                        <Button variant="ghost" size="sm" title="Ocultar / Desactivar categoría" onClick={() => handleDeleteClick(cat.id)}>
-                          <PowerOff className="w-4 h-4 text-amber-500/70 hover:text-amber-600" />
-                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
