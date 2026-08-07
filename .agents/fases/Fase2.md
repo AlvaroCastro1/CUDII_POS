@@ -1,6 +1,6 @@
 # Fase 2 — Catálogo y Gestión de Inventario
 
-> **Estado:** 🔴 PENDIENTE  
+> **Estado:** ✅ Completada  
 > **Versión objetivo:** MVP Pre-Caja  
 > **Dependencia de:** Fase 1 (completada)  
 > **Produce para:** Fase 3
@@ -25,16 +25,39 @@ Al finalizar, el sistema tendrá pantallas funcionales de:
 - Modelo `Categoria` en Prisma y su CRUD completo
 - Modelo `HistorialPrecioProducto` en Prisma (auditoría inmutable de cambios de precio)
 - CRUD completo de Productos: crear, listar, editar, desactivar (soft delete)
-- Configuración de múltiples `PrecioPorUnidad` por producto
+- Configuración de múltiples `PrecioPorUnidad` por producto (secciones colapsables con margen en tiempo real)
+- **Múltiples categorías por producto**: relación M:N implícita manejada por Prisma. Un producto puede pertenecer a 0 o más categorías simultáneamente. La UI permite seleccionar varias categorías con chips de color.
 - Módulo de Inventario: consulta de stock por sucursal, ajustes manuales con motivo
 - CRUD completo de Usuarios: crear, listar, editar rol, desactivar (soft delete)
 - Panel de administración en el frontend con rutas protegidas por rol
+- **Vista de detalle de producto** (`/admin/productos/:id`): muestra KPIs de stock y precio, precios por volumen, stock por sucursal, historial de precios (con usuario que lo modificó) y movimientos de inventario.
 
 **No incluido:**
 - Lotes y caducidades (Fase 3+)
 - Traspasos entre sucursales (Fase 3+)
 - Importación masiva CSV/Excel (Fase 5)
 - Proveedores y órdenes de compra (Fase 5)
+- `factorConversion` en PrecioPorUnidad (no necesario según modelo definitivo — ver decisión abajo)
+
+---
+
+## Decisiones de Diseño — Modelo de Precios y Unidades
+
+> **Referencia completa:** [MODELO_PRECIOS_UNIDADES.md](/CUDII_POS/.agents/MODELO_PRECIOS_UNIDADES.md)
+
+### Regla de Oro implementada en esta Fase
+
+Cada producto tiene **una única unidad de inventario** (PIEZA, KILOGRAMO, LITRO, METRO o SERVICIO). Los `PrecioPorUnidad` son **presentaciones de venta** de esa misma unidad — nunca unidades distintas. El stock siempre se decrementa en la unidad base.
+
+### La regla de los dos productos
+
+Si un negocio necesita vender el mismo artículo físico de dos formas de naturaleza diferente (ej: bolsas de plástico que se compran *por kilo* y se venden también *por pieza*), se registran **dos productos separados** en el catálogo. Esta decisión es la práctica estándar de toda la industria POS (SAP, Aspel, CONTPAQi) y garantiza que el inventario no se descuadre. **Esta regla se comunica activamente al usuario en el formulario de alta de productos.**
+
+### ¿Por qué no existe `factorConversion`?
+
+Al adoptar la regla de un producto por unidad, `factorConversion` se vuelve innecesario. No hay que convertir entre unidades porque siempre son la misma. Las presentaciones `PrecioPorUnidad` solo necesitan `cantidadMinima` (cuántas unidades base incluye la presentación) y `precio`.
+
+
 
 ---
 

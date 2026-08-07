@@ -17,7 +17,7 @@ export class ProductsService {
       throw new ConflictException('Ya existe un producto activo con este código de barras');
     }
 
-    const { categoriasIds, ...rest } = createProductDto;
+    const { categoriasIds, preciosAdicionales, ...rest } = createProductDto;
     
     return this.prisma.$transaction(async (tx) => {
       const producto = await tx.producto.create({
@@ -37,10 +37,17 @@ export class ProductsService {
           usuarioId: usuarioId,
           precioAnterior: 0,
           precioNuevo: producto.precioVentaBase,
-          tipoPrecio: 'base',
+          tipoPrecio: 'precioVentaBase',
           motivo: 'Creación de producto',
         },
       });
+
+      // Crear precios adicionales por unidad si se proporcionan
+      if (preciosAdicionales && preciosAdicionales.length > 0) {
+        await tx.precioPorUnidad.createMany({
+          data: preciosAdicionales.map(pp => ({ ...pp, productoId: producto.id })),
+        });
+      }
 
       // Inicializar stock en 0 para todas las sucursales de la empresa
       const sucursales = await tx.sucursal.findMany({ where: { empresaId } });
@@ -88,7 +95,10 @@ export class ProductsService {
       this.prisma.producto.count({ where }),
       this.prisma.producto.findMany({
         where,
-        include: { categorias: true },
+        include: { 
+          categorias: true,
+          preciosPorUnidad: { orderBy: { precio: 'asc' } },
+        },
         orderBy: { nombre: 'asc' },
         skip,
         take: limitSafe,
@@ -163,10 +173,19 @@ export class ProductsService {
       where,
       include: {
         categorias: true,
+        preciosPorUnidad: { orderBy: { precio: 'asc' } },
         historialPrecios: {
           orderBy: { fechaHora: 'desc' },
-          take: 5,
-        }
+          include: { usuario: { select: { id: true, nombre: true, email: true } } },
+        },
+        inventario: {
+          include: { sucursal: { select: { id: true, nombre: true } } },
+        },
+        movimientos: {
+          orderBy: { fechaHora: 'desc' },
+          take: 50,
+          include: { usuario: { select: { id: true, nombre: true } } },
+        },
       },
     });
 
@@ -189,24 +208,64 @@ export class ProductsService {
       }
     }
 
+    // Desestructuramos los campos de relación para no pasarlos directamente a Prisma
+    const { categoriasIds, preciosAdicionales, ...camposProducto } = updateProductDto;
+
     return this.prisma.$transaction(async (tx) => {
+      // Actualizar campos del producto (sin relaciones)
       const productoEditado = await tx.producto.update({
         where: { id },
-        data: updateProductDto,
+        data: {
+          ...camposProducto,
+          // Si vienen categorías, reemplazar el set completo
+          ...(categoriasIds !== undefined && {
+            categorias: { set: categoriasIds.map((cid) => ({ id: cid })) },
+          }),
+        },
       });
 
-      // Si el precio cambió, registrar en el historial
-      if (updateProductDto.precioVentaBase !== undefined && updateProductDto.precioVentaBase !== productoAnterior.precioVentaBase) {
+      // Registrar historial si cambió precioVentaBase
+      if (
+        camposProducto.precioVentaBase !== undefined &&
+        camposProducto.precioVentaBase !== productoAnterior.precioVentaBase
+      ) {
         await tx.historialPrecioProducto.create({
           data: {
             productoId: productoEditado.id,
-            usuarioId: usuarioId,
+            usuarioId,
             precioAnterior: productoAnterior.precioVentaBase,
-            precioNuevo: updateProductDto.precioVentaBase,
-            tipoPrecio: 'base',
-            motivo: 'Actualización de producto',
+            precioNuevo: camposProducto.precioVentaBase,
+            tipoPrecio: 'precioVentaBase',
+            motivo: 'Actualización de precio de venta',
           },
         });
+      }
+
+      // Registrar historial si cambió precioCompra
+      if (
+        camposProducto.precioCompra !== undefined &&
+        camposProducto.precioCompra !== productoAnterior.precioCompra
+      ) {
+        await tx.historialPrecioProducto.create({
+          data: {
+            productoId: productoEditado.id,
+            usuarioId,
+            precioAnterior: productoAnterior.precioCompra,
+            precioNuevo: camposProducto.precioCompra,
+            tipoPrecio: 'precioCompra',
+            motivo: 'Actualización de precio de compra',
+          },
+        });
+      }
+
+      // Si vienen precios adicionales por unidad, reemplazar todos
+      if (preciosAdicionales !== undefined) {
+        await tx.precioPorUnidad.deleteMany({ where: { productoId: id } });
+        if (preciosAdicionales.length > 0) {
+          await tx.precioPorUnidad.createMany({
+            data: preciosAdicionales.map((pp) => ({ ...pp, productoId: id })),
+          });
+        }
       }
 
       return productoEditado;
@@ -216,7 +275,7 @@ export class ProductsService {
   async remove(id: string, empresaId: string) {
     await this.findOne(id, empresaId, true);
 
-    // Soft delete
+    // Soft delete — nunca se elimina físicamente
     return this.prisma.producto.update({
       where: { id },
       data: { estaActivo: false },

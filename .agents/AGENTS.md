@@ -150,3 +150,4 @@ hotfix/*      ← Correcciones urgentes en producción
 | 14 | `Fase5.md` | [/CUDII_POS/.agents/fases/Fase5.md](/CUDII_POS/.agents/fases/Fase5.md) | Fase 5: Módulos Avanzados — IA, Compras, Migración (V2.0). |
 | 15 | `Fase6.md` | [/CUDII_POS/.agents/fases/Fase6.md](/CUDII_POS/.agents/fases/Fase6.md) | Fase 6: Especialización — CFDI, Restaurantes, Periféricos (V3.0). |
 | 16 | `TODO.md` | [/CUDII_POS/TODO.md](/CUDII_POS/TODO.md) | Control de pendientes general y tareas del proyecto. |
+| 17 | `MODELO_PRECIOS_UNIDADES.md` | [/CUDII_POS/.agents/MODELO_PRECIOS_UNIDADES.md](/CUDII_POS/.agents/MODELO_PRECIOS_UNIDADES.md) | Decisión arquitectónica: modelo definitivo de unidades de inventario y precios escalonados. Regla de los dos productos. |

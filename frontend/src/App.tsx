@@ -13,6 +13,7 @@ import MainLayout from './components/layout/MainLayout';
 
 // Vistas Admin
 import ProductosView from './views/admin/ProductosView';
+import ProductoDetalleView from './views/admin/ProductoDetalleView';
 import CategoriasView from './views/admin/CategoriasView';
 import InventarioView from './views/admin/InventarioView';
 import UsuariosView from './views/admin/UsuariosView';
@@ -55,6 +56,7 @@ const router = createBrowserRouter([
         children: [
           { path: 'categorias', element: <CategoriasView /> },
           { path: 'productos', element: <ProductosView /> },
+          { path: 'productos/:id', element: <ProductoDetalleView /> },
           { path: 'inventario', element: <InventarioView /> },
           { path: 'usuarios', element: <UsuariosView /> },
           { path: 'perfil', element: <MiPerfilView /> },

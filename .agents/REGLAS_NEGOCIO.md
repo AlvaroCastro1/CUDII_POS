@@ -40,66 +40,73 @@ interface Producto {
 }
 ```
 
-### 1.2 Unidades de Venta Configurables por Negocio
+### 1.2 Unidades de Inventario (Regla Definitiva)
 
-Cada negocio define qué unidades de venta soporta. CUDII se adapta al giro del comercio y provee múltiples unidades, permitiendo que un mismo producto se venda en diferentes presentaciones (por ejemplo: por pieza, por caja o por pallet):
+**Regla de Oro:** Cada producto tiene **una única unidad de inventario**. Todo descuento de stock, toda presentación de venta y todo precio adicional operan sobre esa misma unidad. Las unidades **nunca se mezclan** en el mismo producto.
 
-| Unidad | Ejemplo | Configurable por |
-|---|---|---|
-| **Unidad (pieza)** | 1 playera, 1 lata de refresco | Todo negocio |
-| **Peso (granel)** | 1.250 kg de tomate, 500g de jamón | Tiendas de abarrotes, carnicerías |
-| **Caja/Cajas** | 1 caja de 24 latas de refresco | Mayoreo, distribuidores, abarrotes |
-| **Paquete** | 6 piezas en pack (Six-pack) | Promociones, combos, minisúper |
-| **Litro/Metro** | 1 litro de aceite, 2m de tela | Papelerías, ferreterías |
-| **Docena** | 1 docena de rosas, docena de huevos | Florerías, mercados |
-| **Costal/Bulto** | 1 costal de azúcar (50kg), bulto de cemento | Abarrotes, ferreterías, materiales |
-| **Pallet/Tarima** | 1 pallet de papel higiénico | Mayoristas, bodegas |
-| **Servicio** | 1 corte de pelo, 1 reparación | Salones, talleres |
+| Unidad Base | Acepta decimales | Descuento por venta | Giro típico |
+|---|---|---|---|
+| **PIEZA** | ❌ Solo enteros | N piezas exactas | Abarrotes, ropa, electrónica |
+| **KILOGRAMO** | ✅ Hasta 3 decimales | N.NNN kg exactos | Carnicería, deli, granel |
+| **LITRO** | ✅ Hasta 3 decimales | N.NNN litros exactos | Grasas, pinturas, líquidos |
+| **METRO** | ✅ Hasta 3 decimales | N.NNN metros exactos | Telas, ferreterías, materiales |
+| **SERVICIO** | No aplica | No descuenta stock | Salones, talleres, consultoría |
 
-**Ejemplo de Producto Multimedida:** 
-Un mismo producto (ej. "Refresco de Cola") puede tener asociadas varias unidades de medida a través de sus `preciosPorUnidad`. Si el cajero escanea el código de barras principal, el sistema puede preguntar si está vendiendo 1 Pieza ($15), 1 Paquete de 6 ($85) o 1 Caja de 24 ($320), descontando la cantidad correspondiente del stock base de piezas (o stockeando por cajas directamente según configuración).
+**Regla de los dos productos:** Si un negocio necesita vender el *mismo artículo físico* de dos formas de naturaleza diferente (ej: bolsas de plástico que se compran *por kilo* y se venden también *por pieza*), se registran **dos productos separados** en el catálogo, cada uno con su propia unidad base. Esto garantiza que el inventario no se descuadre. Esta regla aplica en toda la industria POS (SAP, Aspel, CONTPAQi).
 
-**Regla de negocio:**
-- El administrador selecciona las unidades habilitadas en **Configuración > Unidades de Venta**.
-- Cada producto puede tener múltiples `preciosPorUnidad` con precio diferenciado.
-- Al agregar un producto al carrito, el sistema muestra las unidades disponibles para ese producto.
+**Las cajas, paquetes y precios de mayoreo NO son unidades distintas.** Son presentaciones (precios escalonados) de la misma unidad base, configuradas en `PrecioPorUnidad`. Siempre descuentan la `cantidadMinima` correspondiente de la unidad base.
 
-### 1.3 Precios por Unidad y Escala (Mayoreo / Minorista)
+### 1.3 Precios por Unidad y Escala (Presentaciones de Venta)
+
+Cada producto puede tener múltiples `PrecioPorUnidad`, que representan distintas **presentaciones de venta** dentro de la misma unidad base:
 
 ```typescript
 interface PrecioPorUnidad {
   uuid: string;
   productoId: string;
-  unidad: 'pieza' | 'kilogramo' | 'gramo' | 'litro' | 'caja' | 'paquete' | 'metro';
-  nombreAlternativo?: string; // ej: "Media caja", "Paquete de 6"
-  cantidadMinima: number; // Cantidad mínima para aplicar este precio
-  cantidadMaxima?: number; // null = sin límite superior
-  precio: number;
+  // Tipo de presentación — siempre se descuenta en la unidad base del producto
+  unidad: 'CAJA' | 'MAYOREO' | 'MEDIO' | 'PAQUETE' | 'PERSONALIZADO';
+  nombreAlternativo: string; // ej: "Caja de 24", "Medio kilo", "Six-pack"
+  cantidadMinima: number; // Cuántas unidades base incluye esta presentación
+  cantidadMaxima?: number; // null = sin límite superior para mayoreo
+  precio: number;          // Precio total de ESTA presentación
   esDefault: boolean;
 }
 ```
 
 **Reglas de precios escalonados:**
-1. **_MINORISTA (Default):** 1 pieza a precio base.
-2. **MAYOREO:** Aplica automático al superar `cantidadMinima` (ej: ≥12 piezas).
-3. **CAJA COMPLETA:** Precio especial al comprar caja cerrada (ej: 24 piezas).
-4. **GRANEL:** Precio por kilogramo/gramo calculado en tiempo real desde báscula.
+1. **MINORISTA (precio base):** Cualquier cantidad menor a la primera presentación adicional. Usa `precioVentaBase`.
+2. **PRESENTACIÓN AGRUPADA:** Precio fijo por N unidades base (ej: caja 24 piezas = $380).
+3. **MAYOREO:** Precio por unidad más bajo al superar `cantidadMinima` (ej: ≥12 piezas = $15/u).
+4. **GRANEL / FRACCIÓN:** `cantidadMinima` puede ser decimal (ej: 0.500 kg = "medio kilo" a precio fijo).
 
-**Algoritmo de selección de precio:**
+**Algoritmo de selección de precio en el POS:**
 ```
-1. Obtener todas las PrecioPorUnidad del producto habilitadas para la sucursal.
-2. Filtrar por unidad seleccionada por el cajero.
-3. Dentro de la misma unidad, buscar el rango donde cantidadMinima <= cantidad <= cantidadMaxima.
-4. Si hay múltiples rangos, aplicar el de mayor cantidadMinima que cumpla.
-5. Si no hay precio especial, usar precioVentaBase * cantidad.
+1. Obtener todas las PrecioPorUnidad activas del producto.
+2. Filtrar por las que su cantidadMinima <= cantidad solicitada.
+3. De las que califican, aplicar la de mayor cantidadMinima (precio más específico).
+4. Si ninguna califica, usar precioVentaBase * cantidad.
 ```
 
-### 1.4 Producto Granel (Venta por Peso)
+**Ejemplos por unidad base:**
 
-- El precio se calcula en tiempo real: `pesoKg * precioPorKilo`.
+*Producto: Refresco de Cola (unidad base: PIEZA)*
+- 1–5 piezas → $18.00 c/u (precio base)
+- 6 piezas → $100.00 (Paquete / Six-pack, descuenta 6 piezas)
+- 24 piezas → $380.00 (Caja, descuenta 24 piezas)
+- 48+ piezas → $15.50 c/u (Mayoreo, descuenta N piezas)
+
+*Producto: Jamón Serrano (unidad base: KILOGRAMO)*
+- 0.001–9.999 kg → $89.00/kg (precio base, granel exacto)
+- 0.500 kg → $42.00 fijo ("Medio kilo", descuenta 0.500 kg)
+- 10+ kg → $75.00/kg (Mayoreo, descuenta N kg)
+
+### 1.4 Producto Granel (Venta por Peso/Volumen/Longitud)
+
+- El precio se calcula en tiempo real: `cantidad * precioVentaBase`.
 - La báscula envía el peso cada 200ms via WebSocket al carrito (ver [PERIPHERALS_SPEC.md](/CUDII_POS/.agents/PERIPHERALS_SPEC.md#2-integracion-de-basculas-digitales-rs232--usb--serie)).
-- El cajero puede capturar peso manualmente si la báscula no está conectada.
-- Redondeo: 2 decimales para kg, 0 decimales para gramos.
+- El cajero puede capturar cantidad manualmente si el periférico no está conectado.
+- Redondeo: 3 decimales para kg/litro/metro, 0 decimales para piezas.
 
 ---
 

@@ -15,12 +15,12 @@ export default function MainLayout() {
   const toggleDarkMode = useThemeStore(state => state.toggleDarkMode);
 
   return (
-    <div className="bg-background text-on-background min-h-screen font-body-md selection:bg-primary selection:text-on-primary transition-colors duration-300 ease-in-out flex h-screen overflow-hidden">
+    <div className="bg-background text-on-background min-h-screen font-body-md selection:bg-primary selection:text-on-primary flex h-screen overflow-hidden">
 
       {/* Mobile Backdrop: visible solo en móvil cuando el menú está abierto */}
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-black/60 z-40 md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
@@ -38,7 +38,7 @@ export default function MainLayout() {
         bg-surface border-r border-on-surface/10
         z-50 md:z-auto
         flex flex-col
-        transition-all duration-300 ease-in-out
+        transition-[width] duration-300 ease-in-out
         ${isSidebarOpen ? 'w-72' : 'w-72 md:w-20'}
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
@@ -48,7 +48,7 @@ export default function MainLayout() {
           <div className="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center font-bold shrink-0">
             <span className="material-symbols-outlined !text-xl">auto_awesome</span>
           </div>
-          <span className={`font-display-lg text-2xl tracking-tight text-on-surface whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+          <span className={`font-display-lg text-2xl tracking-tight text-on-surface whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
             Cudii
           </span>
         </div>
@@ -56,17 +56,17 @@ export default function MainLayout() {
         {/* Navegación */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden mt-4 scrollbar-hide flex flex-col gap-6">
           <div className="px-4">
-            <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
+            <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
               Panel de Control
             </h3>
             <div className="space-y-1">
               <button
                 onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }}
-                className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
                 title={!isSidebarOpen ? 'Dashboard' : ''}
               >
                 <span className="material-symbols-outlined !text-xl shrink-0">dashboard</span>
-                <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
                   Dashboard
                 </span>
               </button>
@@ -74,27 +74,27 @@ export default function MainLayout() {
           </div>
 
           <div className="px-4">
-            <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
+            <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
               Operaciones
             </h3>
             <div className="space-y-1">
               <button
                 onClick={() => { navigate('/pos'); setIsMobileMenuOpen(false); }}
-                className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/pos' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/pos' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
                 title={!isSidebarOpen ? 'Ventas (POS)' : ''}
               >
                 <span className="material-symbols-outlined !text-xl shrink-0">point_of_sale</span>
-                <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
                   Ventas (POS)
                 </span>
               </button>
               <button
-                className="nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 text-on-surface-variant hover:bg-on-surface/5 animate-hover animate-press pl-[14px]"
+                className="nav-link w-full flex items-center h-11 rounded-xl transition-colors text-on-surface-variant hover:bg-on-surface/5 animate-hover animate-press pl-[14px]"
                 title={!isSidebarOpen ? 'Pedidos' : ''}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <span className="material-symbols-outlined !text-xl shrink-0">receipt_long</span>
-                <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
                   Pedidos
                 </span>
               </button>
@@ -103,27 +103,27 @@ export default function MainLayout() {
 
           {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN' || user?.rol === 'GERENTE') && (
             <div className="px-4">
-              <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
+              <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
                 Catálogo
               </h3>
               <div className="space-y-1">
                 <button
                   onClick={() => { navigate('/admin/categorias'); setIsMobileMenuOpen(false); }}
-                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/admin/categorias' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/admin/categorias' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
                   title={!isSidebarOpen ? 'Categorías' : ''}
                 >
                   <span className="material-symbols-outlined !text-xl shrink-0">category</span>
-                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
                     Categorías
                   </span>
                 </button>
                 <button
                   onClick={() => { navigate('/admin/productos'); setIsMobileMenuOpen(false); }}
-                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/admin/productos' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/admin/productos' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
                   title={!isSidebarOpen ? 'Productos' : ''}
                 >
                   <span className="material-symbols-outlined !text-xl shrink-0">inventory_2</span>
-                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
                     Productos
                   </span>
                 </button>
@@ -133,17 +133,17 @@ export default function MainLayout() {
 
           {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN' || user?.rol === 'GERENTE' || user?.rol === 'ALMACEN') && (
             <div className="px-4">
-              <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
+              <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
                 Inventario
               </h3>
               <div className="space-y-1">
                 <button
                   onClick={() => { navigate('/admin/inventario'); setIsMobileMenuOpen(false); }}
-                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/admin/inventario' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/admin/inventario' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
                   title={!isSidebarOpen ? 'Inventario' : ''}
                 >
                   <span className="material-symbols-outlined !text-xl shrink-0">warehouse</span>
-                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
                     Inventario
                   </span>
                 </button>
@@ -153,17 +153,17 @@ export default function MainLayout() {
 
           {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN') && (
             <div className="px-4">
-              <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
+              <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
                 Administración
               </h3>
               <div className="space-y-1">
                 <button
                   onClick={() => { navigate('/admin/usuarios'); setIsMobileMenuOpen(false); }}
-                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-all duration-300 animate-hover animate-press pl-[14px] ${location.pathname === '/admin/usuarios' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/admin/usuarios' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
                   title={!isSidebarOpen ? 'Usuarios' : ''}
                 >
                   <span className="material-symbols-outlined !text-xl shrink-0">group</span>
-                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
                     Usuarios
                   </span>
                 </button>
@@ -177,7 +177,7 @@ export default function MainLayout() {
         <div className="p-4 border-t border-on-surface/10 mt-auto hidden md:flex justify-center">
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 transition-all"
+            className="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 transition-colors"
             title={isSidebarOpen ? 'Colapsar Menú' : 'Expandir Menú'}
           >
             <span
@@ -191,10 +191,10 @@ export default function MainLayout() {
       </aside>
 
       {/* MAIN — ocupa el espacio restante, sin margin-left manual */}
-      <main className="flex-1 h-screen flex flex-col overflow-hidden relative transition-all duration-300 ease-in-out min-w-0">
+      <main className="flex-1 h-screen flex flex-col overflow-hidden relative min-w-0">
 
         {/* Header */}
-        <header className="h-24 border-b border-on-surface/10 flex items-center justify-between px-4 md:px-8 shrink-0 bg-background z-30 transition-colors duration-300 ease-in-out">
+        <header className="h-24 border-b border-on-surface/10 flex items-center justify-between px-4 md:px-8 shrink-0 bg-background z-30">
           <div className="flex items-center gap-3 md:gap-6 flex-1 max-w-2xl">
             {/* Hamburger — solo en móvil */}
             <button
@@ -209,7 +209,7 @@ export default function MainLayout() {
               <input
                 type="text"
                 placeholder="Buscar en Cudii..."
-                className="w-full bg-on-surface/5 border border-transparent rounded-full py-3 pl-12 pr-4 text-sm focus:border-on-surface/20 focus:bg-on-surface/10 transition-all text-on-surface outline-none"
+                className="w-full bg-on-surface/5 border border-transparent rounded-full py-3 pl-12 pr-4 text-sm focus:border-on-surface/20 focus:bg-on-surface/10 transition-colors text-on-surface outline-none"
               />
             </div>
           </div>
@@ -224,7 +224,7 @@ export default function MainLayout() {
             <button
               onClick={toggleDarkMode}
               className="relative w-16 h-8 rounded-full bg-on-surface/5 border border-on-surface/10 overflow-hidden flex items-center px-1 animate-hover animate-press"
-              style={{ transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}
+              style={{ transition: 'background-color 0.3s ease' }}
             >
               <div
                 className="absolute left-1 w-6 h-6 rounded-full bg-on-surface flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.2)] z-10"
@@ -283,8 +283,8 @@ export default function MainLayout() {
           </div>
         </header>
 
-        {/* Contenido inyectado por React Router */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Contenido inyectado por React Router — con GPU compositing para scroll fluido */}
+        <div className="flex-1 overflow-y-auto" style={{ willChange: 'transform' }}>
           <Outlet />
         </div>
       </main>
