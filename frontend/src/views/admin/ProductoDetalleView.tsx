@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // ============================================================
 // Interfaces para la respuesta del backend
@@ -220,9 +221,30 @@ export default function ProductoDetalleView() {
             {margen !== null ? `${margen.toFixed(1)}%` : 'N/A'}
           </p>
           {margen !== null && (
-            <p className="text-xs text-on-surface-variant mt-1">
-              ganancia: ${(producto.precioVentaBase - producto.precioCompra).toFixed(2)} / unidad
-            </p>
+            <div className="mt-1">
+              <p className="text-xs text-on-surface-variant">
+                ganancia: ${(producto.precioVentaBase - producto.precioCompra).toFixed(2)} / unidad
+              </p>
+              <TooltipProvider>
+                <Tooltip delayDuration={300}>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-on-surface-variant/80 border-b border-dashed border-on-surface-variant/40">
+                      <span className="material-symbols-outlined !text-[14px]">info</span>
+                      ¿Cómo se calcula?
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[250px] p-3 space-y-2">
+                    <p className="font-semibold text-sm">Margen sobre el Costo (Markup)</p>
+                    <p className="text-xs text-on-surface-variant leading-relaxed">
+                      Representa qué porcentaje del costo has añadido como ganancia.
+                    </p>
+                    <div className="bg-surface-variant/30 p-2 rounded text-xs font-mono text-center">
+                      ((Venta - Costo) / Costo) × 100
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           )}
         </div>
       </div>
@@ -236,8 +258,9 @@ export default function ProductoDetalleView() {
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {producto.preciosPorUnidad.map(pp => {
-              const margenPP = producto.precioCompra > 0
-                ? ((pp.precio - producto.precioCompra) / producto.precioCompra) * 100
+              const costoTotalPP = producto.precioCompra * pp.cantidadMinima;
+              const margenPP = costoTotalPP > 0
+                ? ((pp.precio - costoTotalPP) / costoTotalPP) * 100
                 : null;
               return (
                 <div key={pp.id} className="rounded-xl p-3 border border-on-surface/10 bg-surface-variant/30 space-y-1">
@@ -246,9 +269,29 @@ export default function ProductoDetalleView() {
                   {pp.nombreAlternativo && <p className="text-xs text-on-surface-variant">{pp.nombreAlternativo}</p>}
                   <p className="text-xs text-on-surface-variant">Desde {pp.cantidadMinima} unidades</p>
                   {margenPP !== null && (
-                    <p className={`text-xs font-semibold ${margenPP >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      Margen: {margenPP.toFixed(1)}%
-                    </p>
+                    <div className="pt-1 mt-1 border-t border-on-surface/5">
+                      <p className={`text-xs font-semibold ${margenPP >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        Margen: {margenPP.toFixed(1)}%
+                      </p>
+                      <TooltipProvider>
+                        <Tooltip delayDuration={300}>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help inline-flex items-center gap-1 mt-0.5 text-[10px] font-medium text-on-surface-variant/70 border-b border-dashed border-on-surface-variant/30">
+                              <span className="material-symbols-outlined !text-[12px]">info</span>
+                              Fórmula
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[220px] p-2 space-y-1.5">
+                            <p className="text-xs">
+                              Calculado sobre el <strong>Costo Total</strong> del paquete ({pp.cantidadMinima} unidades × Costo Unitario).
+                            </p>
+                            <div className="bg-surface-variant/30 p-1.5 rounded text-[10px] font-mono text-center">
+                              ((Venta - Costo) / Costo) × 100
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   )}
                 </div>
               );

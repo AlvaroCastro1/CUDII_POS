@@ -271,15 +271,15 @@ src/modules/products/
 
 ## Entregables
 
-- [ ] Migración Prisma `add_categoria_historial_precio` aplicada
-- [ ] `backend/src/modules/categories/` — módulo completo con CRUD
-- [ ] `backend/src/modules/products/` — módulo completo con historial de precios
-- [ ] `backend/src/modules/inventory/` — módulo con ajustes y movimientos
-- [ ] `backend/src/modules/users/` — módulo completo con CRUD
-- [ ] `frontend/src/views/ProductosView.tsx` — gestión de catálogo
-- [ ] `frontend/src/views/InventarioView.tsx` — gestión de stock
-- [ ] `frontend/src/views/UsuariosView.tsx` — gestión de usuarios
-- [ ] Rutas protegidas por rol en el router del frontend
+- [x] Migración Prisma `add_categoria_historial_precio` aplicada
+- [x] `backend/src/modules/categories/` — módulo completo con CRUD
+- [x] `backend/src/modules/products/` — módulo completo con historial de precios
+- [x] `backend/src/modules/inventory/` — módulo con ajustes y movimientos
+- [x] `backend/src/modules/users/` — módulo completo con CRUD
+- [x] `frontend/src/views/ProductosView.tsx` — gestión de catálogo
+- [x] `frontend/src/views/InventarioView.tsx` — gestión de stock
+- [x] `frontend/src/views/UsuariosView.tsx` — gestión de usuarios
+- [x] Rutas protegidas por rol en el router del frontend
 
 ---
 
@@ -306,12 +306,12 @@ src/modules/products/
 
 La Fase 2 está **terminada** cuando:
 
-- [ ] Las migraciones de Prisma están aplicadas y `migrate status` está limpio.
-- [ ] Los módulos `categories`, `products`, `inventory` y `users` tienen endpoints funcionales y documentados.
-- [ ] Un Admin puede gestionar el catálogo completo desde el frontend sin errores.
-- [ ] El cambio de precio genera historial auditable.
-- [ ] Los ajustes de inventario generan `MovimientoInventario` atómicamente.
-- [ ] Las rutas del panel admin rechazan acceso a roles no autorizados (retornan 403).
+- [x] Las migraciones de Prisma están aplicadas y `migrate status` está limpio.
+- [x] Los módulos `categories`, `products`, `inventory` y `users` tienen endpoints funcionales y documentados.
+- [x] Un Admin puede gestionar el catálogo completo desde el frontend sin errores.
+- [x] El cambio de precio genera historial auditable.
+- [x] Los ajustes de inventario generan `MovimientoInventario` atómicamente.
+- [x] Las rutas del panel admin rechazan acceso a roles no autorizados (retornan 403).
 
 ---
 

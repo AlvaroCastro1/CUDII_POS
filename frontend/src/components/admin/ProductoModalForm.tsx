@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -225,11 +226,15 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
   }, [categorias, searchCategoria]);
 
   const calcularMargenPrecio = useCallback(
-    (precio: string) => {
-      const compra = parseFloat(formData.precioCompra);
+    (precio: string, cantidad: string | number = 1) => {
+      const compraUnitaria = parseFloat(formData.precioCompra);
       const venta = parseFloat(precio);
-      if (!compra || compra <= 0 || !venta || venta <= 0) return null;
-      return ((venta - compra) / compra) * 100;
+      const cant = parseFloat(String(cantidad)) || 1;
+      
+      const compraTotal = compraUnitaria * cant;
+      
+      if (!compraTotal || compraTotal <= 0 || !venta || venta <= 0) return null;
+      return ((venta - compraTotal) / compraTotal) * 100;
     },
     [formData.precioCompra]
   );
@@ -243,9 +248,20 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
   const puedeAvanzarPaso2 = formData.nombre.trim().length >= 2 && formData.codigoBarras.trim().length >= 3;
   const puedeGuardar = puedeAvanzarPaso2 && parseFloat(formData.precioVentaBase) > 0;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!puedeGuardar) return;
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    // Evitar salto múltiple de pasos o envío masivo si mantienen apretado Enter
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.repeat) return; 
+
+      if (paso === 1 && puedeAvanzarPaso1) setPaso(2);
+      else if (paso === 2 && puedeAvanzarPaso2) setPaso(3);
+      else if (paso === 3 && puedeGuardar) ejecutarGuardado();
+    }
+  };
+
+  const ejecutarGuardado = async () => {
+    if (!puedeGuardar || isSubmitting) return;
 
     try {
       setIsSubmitting(true);
@@ -297,7 +313,7 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="sm:max-w-[520px]">
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+        <form onKeyDown={handleKeyDown} className="flex flex-col flex-1 min-h-0">
           {/* ---- Encabezado fijo ---- */}
           <div className="px-6 pt-6 pb-4 border-b border-outline/10 flex-shrink-0">
             <DialogHeader>
@@ -606,19 +622,40 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                     </div>
                   </div>
                   {margen !== null && (
-                    <div
-                      className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium ${
-                        margen >= 0 ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'
-                      }`}
-                    >
-                      <span>
-                        Ganancia de $
-                        {(
-                          parseFloat(formData.precioVentaBase || '0') - parseFloat(formData.precioCompra || '0')
-                        ).toFixed(2)}{' '}
-                        por unidad
-                      </span>
-                      <span className="font-bold">Margen: {margen.toFixed(1)}%</span>
+                    <div className="flex flex-col gap-1 mt-2">
+                      <div
+                        className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium ${
+                          margen >= 0 ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'
+                        }`}
+                      >
+                        <span>
+                          Ganancia de $
+                          {(
+                            parseFloat(formData.precioVentaBase || '0') - parseFloat(formData.precioCompra || '0')
+                          ).toFixed(2)}{' '}
+                          por unidad
+                        </span>
+                        <span className="font-bold">Margen: {margen.toFixed(1)}%</span>
+                      </div>
+                      <TooltipProvider>
+                        <Tooltip delayDuration={300}>
+                          <TooltipTrigger asChild>
+                            <p className="text-[11px] text-on-surface-variant/80 text-right px-1 mt-0.5 cursor-help inline-flex items-center justify-end gap-1 w-full">
+                              <span className="border-b border-dashed border-on-surface-variant/40">¿Cómo se calcula el margen?</span>
+                              <span className="material-symbols-outlined !text-[14px]">info</span>
+                            </p>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-[250px] p-3 space-y-2">
+                            <p className="font-semibold text-sm">Margen sobre el Costo (Markup)</p>
+                            <p className="text-xs text-on-surface-variant leading-relaxed">
+                              Representa qué porcentaje del costo has añadido como ganancia.
+                            </p>
+                            <div className="bg-surface-variant/30 p-2 rounded text-xs font-mono text-center">
+                              ((Venta - Costo) / Costo) × 100
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   )}
                   {esGranelAuto && (
@@ -640,7 +677,7 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                   {tiposPrecioDisponibles.map((tipo) => {
                     const precioExistente = preciosAdicionales.find((p) => p.tipo === tipo.valor);
                     const estaActivo = precioExistente?.activo || false;
-                    const margenAd = precioExistente ? calcularMargenPrecio(precioExistente.precio) : null;
+                    const margenAd = precioExistente ? calcularMargenPrecio(precioExistente.precio, precioExistente.cantidadMinima) : null;
                     return (
                       <div
                         key={tipo.valor}
@@ -755,21 +792,41 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                               </div>
                             </div>
                             {margenAd !== null && (
-                              <div
-                                className="flex items-center justify-between text-xs px-3 py-1.5 rounded-lg font-medium"
-                                style={{
-                                  backgroundColor: margenAd >= 0 ? '#10b98115' : '#ef444415',
-                                  color: margenAd >= 0 ? '#059669' : '#dc2626',
-                                }}
-                              >
-                                <span>
-                                  Ganancia de $
-                                  {(
-                                    parseFloat(precioExistente.precio || '0') - parseFloat(formData.precioCompra || '0')
-                                  ).toFixed(2)}{' '}
-                                  vs costo unitario
-                                </span>
-                                <span className="font-bold">Margen: {margenAd.toFixed(1)}%</span>
+                              <div className="flex flex-col gap-1 mt-3">
+                                <div
+                                  className="flex items-center justify-between text-xs px-3 py-1.5 rounded-lg font-medium"
+                                  style={{
+                                    backgroundColor: margenAd >= 0 ? '#10b98115' : '#ef444415',
+                                    color: margenAd >= 0 ? '#059669' : '#dc2626',
+                                  }}
+                                >
+                                  <span>
+                                    Ganancia de $
+                                    {(
+                                      parseFloat(precioExistente.precio || '0') - (parseFloat(formData.precioCompra || '0') * (parseFloat(String(precioExistente.cantidadMinima)) || 1))
+                                    ).toFixed(2)}{' '}
+                                    vs costo total
+                                  </span>
+                                  <span className="font-bold">Margen: {margenAd.toFixed(1)}%</span>
+                                </div>
+                                <TooltipProvider>
+                                  <Tooltip delayDuration={300}>
+                                    <TooltipTrigger asChild>
+                                      <p className="text-[10px] text-on-surface-variant/70 text-right px-1 cursor-help inline-flex items-center justify-end gap-1 w-full mt-1">
+                                        <span className="border-b border-dashed border-on-surface-variant/40">Fórmula</span>
+                                        <span className="material-symbols-outlined !text-[12px]">info</span>
+                                      </p>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-[220px] p-2 space-y-1.5">
+                                      <p className="text-xs">
+                                        Calculado sobre el <strong>Costo Total</strong> del paquete ({precioExistente.cantidadMinima} unidades × Costo Unitario).
+                                      </p>
+                                      <div className="bg-surface-variant/30 p-1.5 rounded text-[10px] font-mono text-center">
+                                        ((Venta - Costo) / Costo) × 100
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               </div>
                             )}
                           </div>
@@ -796,12 +853,22 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
               <Button
                 type="button"
                 disabled={paso === 1 ? !puedeAvanzarPaso1 : !puedeAvanzarPaso2}
-                onClick={() => setPaso((p) => p + 1)}
+                onClick={(e) => {
+                  if (e.detail > 1) return; // Previene doble clic que salte pasos
+                  setPaso((p) => p + 1);
+                }}
               >
                 Siguiente →
               </Button>
             ) : (
-              <Button type="submit" disabled={isSubmitting || !puedeGuardar}>
+              <Button 
+                type="button" 
+                disabled={isSubmitting || !puedeGuardar}
+                onClick={(e) => {
+                  if (e.detail > 1) return; // Previene doble clic que dispare submit múltiple
+                  ejecutarGuardado();
+                }}
+              >
                 {isSubmitting
                   ? 'Guardando...'
                   : editingProduct

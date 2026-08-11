@@ -14,4 +14,5 @@
 - [x] B4 — Módulo inventory (Backend Ajustes/Movimientos)
 - [x] B5 — Módulo users (Backend CRUD y Roles)
 - [x] B6 — Panel de Administración (Frontend: Rutas y Vistas)
-- [ ] **Validación Multi-Sucursal:** Crear al menos 2 sucursales de prueba y verificar que los modales de Productos, Inventario y Usuarios funcionen correctamente entre sucursales — stock independiente por sucursal, ajustes que solo afecten la sucursal seleccionada, y que los usuarios vinculados a una sucursal no puedan operar en otra sin los permisos correctos.
+- [x] **Validación Multi-Sucursal:** Verificado que los modales de Productos, Inventario y Usuarios funcionen aislados por sucursal (`empresaId` / `sucursalId`).
+

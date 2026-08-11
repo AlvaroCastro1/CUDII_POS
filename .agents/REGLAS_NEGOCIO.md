@@ -88,6 +88,12 @@ interface PrecioPorUnidad {
 4. Si ninguna califica, usar precioVentaBase * cantidad.
 ```
 
+**Regla de Cálculo de Margen de Ganancia (Markup):**
+En CUDII, el margen mostrado al usuario se calcula estrictamente como el **Margen sobre el Costo (Markup)**.
+- **Fórmula Base:** `((Precio Venta - Costo Total) / Costo Total) * 100`
+- **Costo Total:** Se determina multiplicando el `precioCompra` unitario del producto por la `cantidadMinima` de la presentación configurada.
+- **Nota en UI:** Toda interfaz que muestre este margen (ej. creación de producto o vista de detalle) DEBE incluir explícitamente el desglose de la ganancia neta en moneda frente al "costo total" y una pequeña nota aclaratoria de la fórmula, para evitar que el usuario asuma que se calcula sobre el precio de venta bruto (Margen Comercial) o que se usa el costo unitario en lugar del costo total del paquete.
+
 **Ejemplos por unidad base:**
 
 *Producto: Refresco de Cola (unidad base: PIEZA)*

@@ -53,6 +53,9 @@ src/
 ## 6. Componentes Reusables Clave
 
 - **Confirmaciones Destructivas:** Está ESTRICTAMENTE PROHIBIDO utilizar `window.confirm()`, `alert()`, o `prompt()` nativos del navegador por temas estéticos. Siempre debe utilizarse el componente estandarizado `ConfirmDialog` ubicado en `src/components/ui/confirm-dialog.tsx`. Este provee estética premium, control de carga (`isLoading`), y diferentes variantes (`danger`, `warning`, `info`).
+- **Explicaciones Contextuales (Tooltips):** Para explicar fórmulas de negocio (ej. cálculos de margen), significados de campos o detalles adicionales que saturen la interfaz si se muestran en texto plano, se DEBE usar el componente `Tooltip` de Shadcn (`src/components/ui/tooltip.tsx`).
+  - *Estilo:* Ya está preconfigurado para respetar las variables MD3 (`bg-surface-container-highest` y `text-on-surface`).
+  - *Uso:* Envolver el componente con `<TooltipProvider><Tooltip><TooltipTrigger>...</TooltipTrigger><TooltipContent>...</TooltipContent></Tooltip></TooltipProvider>`.
 
 ## Documentos de Referencia (Orden Arquitectónico)
 
