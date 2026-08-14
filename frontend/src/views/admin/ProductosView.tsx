@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -26,9 +26,11 @@ import type {
 // ============================================================
 export default function ProductosView() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const terminoInicial = searchParams.get('q') ?? '';
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(terminoInicial);
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [incluirInactivos, setIncluirInactivos] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -81,6 +83,12 @@ export default function ProductosView() {
   useEffect(() => {
     fetchCategorias();
   }, [fetchCategorias]);
+
+  // Sincronizar con el buscador global (?q=...) sin pisar lo que escribe el usuario
+  const terminoUrl = searchParams.get('q') ?? '';
+  useEffect(() => {
+    setSearch(terminoUrl);
+  }, [terminoUrl]);
 
   const handleOpenNuevo = () => {
     setEditingProduct(null);

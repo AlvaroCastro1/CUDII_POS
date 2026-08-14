@@ -6,7 +6,7 @@
 ## Tareas Pendientes / Mejoras Futuras (Backlog)
 - [ ] **Polishing Onboarding & Login:** Conectar enlace de registro desde el Login, probar flujo completo de Onboarding desde el navegador y normalizar diseño visual (UI/UX).
 - [ ] **Historial de Mi Perfil:** Extender la vista de `/admin/perfil` para mostrar un log/histórico de la actividad del usuario (inicios de sesión, ediciones, acciones clave en la plataforma).
-- [ ] **Campana de Notificaciones en Frontend:** Conectar la campana estática de `MainLayout` con los endpoints ya existentes del backend (`GET /notifications?soloNoLeidas`, `GET /notifications/count`, `PATCH /notifications/:id/read`, `PATCH /notifications/read-all`). Incluye: contador de no leídas, dropdown/popover con la lista, marcar como leída al abrir, acción "marcar todas como leídas" y estilos Whitelabel claro/oscuro. El backend ya está verificado 14/14.
+- [x] **Campana de Notificaciones en Frontend:** `NotificationBell.tsx` en `MainLayout` conectada al backend (`GET /notifications`, `GET /notifications/count`, `PATCH /notifications/:id/read`, `PATCH /notifications/read-all`). Contador de no leídas con polling 60s, dropdown/popover con lista paginada, filtro No leídas/Todas, marcar como leída al abrir, "marcar todas como leídas" y estilos Whitelabel claro/oscuro con la tipografía del sitio (font-headline-md / body-md / label-sm).
 
 ## Fase 2: Catálogo y Gestión de Inventario
 - [x] B1 — Extender Schema Prisma (Categoria, HistorialPrecioProducto)

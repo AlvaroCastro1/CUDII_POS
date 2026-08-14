@@ -2,6 +2,15 @@ import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useThemeStore } from '../../store/useThemeStore';
+import NotificationBell from './NotificationBell';
+import GlobalSearch from './GlobalSearch';
+import AtajosTecladoDialog, { Tecla } from './AtajosTecladoDialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export default function MainLayout() {
   const logout = useAuthStore(state => state.logout);
@@ -11,6 +20,7 @@ export default function MainLayout() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAtajosOpen, setIsAtajosOpen] = useState(false);
   const isDarkMode = useThemeStore(state => state.isDarkMode);
   const toggleDarkMode = useThemeStore(state => state.toggleDarkMode);
 
@@ -188,7 +198,7 @@ export default function MainLayout() {
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 transition-colors"
-            title={isSidebarOpen ? 'Colapsar Menú' : 'Expandir Menú'}
+            title={isSidebarOpen ? 'Colapsar Menú (Ctrl + Alt + B)' : 'Expandir Menú (Ctrl + Alt + B)'}
           >
             <span
               className="material-symbols-outlined !text-xl transition-transform duration-300"
@@ -214,25 +224,55 @@ export default function MainLayout() {
               <span className="material-symbols-outlined !text-2xl">menu</span>
             </button>
 
-            <div className="relative w-full max-w-md group hidden sm:block">
-              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline !text-xl group-focus-within:text-on-surface transition-colors">search</span>
-              <input
-                type="text"
-                placeholder="Buscar en Cudii..."
-                className="w-full bg-on-surface/5 border border-transparent rounded-full py-3 pl-12 pr-4 text-sm focus:border-on-surface/20 focus:bg-on-surface/10 transition-colors text-on-surface outline-none"
-              />
-            </div>
+            <GlobalSearch
+              onToggleSidebar={() => setIsSidebarOpen((v) => !v)}
+              onShowAtajos={() => setIsAtajosOpen(true)}
+            />
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="p-2.5 rounded-full hover:bg-on-surface/5 text-outline transition-colors relative animate-hover animate-press">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"></span>
-            </button>
+            <NotificationBell />
+
+            {/* Atajos de teclado */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setIsAtajosOpen(true)}
+                    className="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 transition-colors animate-hover animate-press"
+                  >
+                    <span className="material-symbols-outlined !text-xl">keyboard_command_key</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[260px] p-3 space-y-2">
+                  <p className="font-headline-md font-semibold text-sm">
+                    Atajos de teclado
+                  </p>
+                  <div className="space-y-1.5 text-[11px] font-label-sm text-on-surface-variant">
+                    <p className="flex items-center justify-between gap-3">
+                      <span>Buscar en Cudii</span>
+                      <span className="flex items-center gap-1"><Tecla>Ctrl</Tecla><span className="text-[9px] text-outline">+</span><Tecla>K</Tecla></span>
+                    </p>
+                    <p className="flex items-center justify-between gap-3">
+                      <span>Menú lateral</span>
+                      <span className="flex items-center gap-1"><Tecla>Ctrl</Tecla><span className="text-[9px] text-outline">+</span><Tecla>Alt</Tecla><span className="text-[9px] text-outline">+</span><Tecla>B</Tecla></span>
+                    </p>
+                    <p className="flex items-center justify-between gap-3">
+                      <span>Tema claro / oscuro</span>
+                      <span className="flex items-center gap-1"><Tecla>Alt</Tecla><span className="text-[9px] text-outline">+</span><Tecla>T</Tecla></span>
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-outline">
+                    Haz clic para ver la lista completa.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             {/* Toggle Tema "Eclipse" */}
             <button
               onClick={toggleDarkMode}
+              title={isDarkMode ? 'Cambiar a modo claro (Alt + T)' : 'Cambiar a modo oscuro (Alt + T)'}
               className="relative w-16 h-8 rounded-full bg-on-surface/5 border border-on-surface/10 overflow-hidden flex items-center px-1 animate-hover animate-press"
               style={{ transition: 'background-color 0.3s ease' }}
             >
@@ -307,6 +347,8 @@ export default function MainLayout() {
           <Outlet />
         </div>
       </main>
+
+      <AtajosTecladoDialog open={isAtajosOpen} onOpenChange={setIsAtajosOpen} />
     </div>
   );
 }
