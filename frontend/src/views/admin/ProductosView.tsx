@@ -294,7 +294,7 @@ export default function ProductosView() {
                             title="Ocultar / Desactivar producto"
                             onClick={() => handleToggleClick(prod)}
                           >
-                            <PowerOff className="w-4 h-4 text-amber-500/70 hover:text-amber-600" />
+                            <PowerOff className="w-4 h-4 text-warning/70 hover:text-warning" />
                           </Button>
                         </>
                       ) : (
@@ -306,7 +306,7 @@ export default function ProductosView() {
                             title="Reactivar producto"
                             onClick={() => handleToggleClick(prod)}
                           >
-                            <span className="material-symbols-outlined !text-[18px] text-blue-500/70 hover:text-blue-600">
+                            <span className="material-symbols-outlined !text-[18px] text-primary/70 hover:text-primary">
                               settings_backup_restore
                             </span>
                           </Button>

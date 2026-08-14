@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -15,26 +23,35 @@ export class InventoryController {
   @Get('stock/:sucursalId')
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.ALMACEN, Rol.CONTADOR)
   getStock(
-    @Param('sucursalId') sucursalId: string, 
+    @Param('sucursalId') sucursalId: string,
     @CurrentUser() user: CurrentUserPayload,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '20',
     @Query('search') search: string = '',
-    @Query('incluirInactivos') incluirInactivos: string = 'false'
+    @Query('incluirInactivos') incluirInactivos: string = 'false',
   ) {
     return this.inventoryService.getStock(
-      sucursalId, 
-      user.empresaId, 
-      parseInt(page, 10) || 1, 
-      parseInt(limit, 10) || 20, 
+      sucursalId,
+      user.empresaId,
+      parseInt(page, 10) || 1,
+      parseInt(limit, 10) || 20,
       search,
-      incluirInactivos === 'true'
+      incluirInactivos === 'true',
     );
   }
 
   @Post('adjust')
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.ALMACEN)
-  adjustStock(@Body() body: { productoId: string, sucursalId: string, cantidad: number, motivo: string }, @CurrentUser() user: CurrentUserPayload) {
+  adjustStock(
+    @Body()
+    body: {
+      productoId: string;
+      sucursalId: string;
+      cantidad: number;
+      motivo: string;
+    },
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     return this.inventoryService.adjustStock(body, user.empresaId, user.id);
   }
 }

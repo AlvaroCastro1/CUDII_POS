@@ -351,15 +351,15 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
               <div className="py-4 space-y-3">
                 {editingProduct ? (
                   <div className="space-y-4">
-                    <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-3">
-                      <span className="material-symbols-outlined !text-[22px] text-amber-500 flex-shrink-0 mt-0.5">
+                    <div className="p-4 bg-warning/10 border border-warning/30 rounded-xl flex items-start gap-3">
+                      <span className="material-symbols-outlined !text-[22px] text-warning flex-shrink-0 mt-0.5">
                         info
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                        <p className="text-sm font-semibold text-warning">
                           La unidad de medida no puede cambiarse
                         </p>
-                        <p className="text-xs text-amber-600/80 dark:text-amber-500/80 mt-1">
+                        <p className="text-xs text-warning/80 mt-1">
                           Modificar la unidad de un producto con inventario existente generaría inconsistencias en el historial de ventas y stock.
                         </p>
                       </div>
@@ -420,14 +420,14 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                     </div>
 
                     {/* ℹ️ Consejo desplegable */}
-                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 overflow-hidden transition-all duration-200 mt-2">
+                    <div className="rounded-xl border border-warning/30 bg-warning/5 overflow-hidden transition-all duration-200 mt-2">
                       <button
                         type="button"
                         onClick={() => setMostrarConsejoPaso1((prev) => !prev)}
-                        className="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                        className="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold text-warning hover:bg-warning/10 transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined !text-[18px] text-amber-500">tips_and_updates</span>
+                          <span className="material-symbols-outlined !text-[18px] text-warning">tips_and_updates</span>
                           <span>¿Mismo producto vendido por Kilo y por Pieza?</span>
                         </div>
                         <span className="material-symbols-outlined !text-[18px]">
@@ -435,7 +435,7 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                         </span>
                       </button>
                       {mostrarConsejoPaso1 && (
-                        <div className="px-3.5 pb-3 text-xs text-on-surface-variant space-y-1.5 border-t border-amber-500/20 pt-2.5">
+                        <div className="px-3.5 pb-3 text-xs text-on-surface-variant space-y-1.5 border-t border-warning/20 pt-2.5">
                           <p className="leading-relaxed">
                             Por ejemplo: bolsas de plástico que compras <em>por kilo</em> pero también vendes <em>por pieza</em>.
                             En CUDII eso son <strong>dos productos separados</strong> en el catálogo: uno con unidad <em>Kilogramo</em> y otro con unidad <em>Pieza</em>.
@@ -460,7 +460,7 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
 
                 <div className="grid gap-2">
                   <Label htmlFor="nombre">
-                    Nombre del producto <span className="text-red-500">*</span>
+                    Nombre del producto <span className="text-error">*</span>
                   </Label>
                   <Input
                     id="nombre"
@@ -477,7 +477,7 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="grid gap-2">
                     <Label htmlFor="codigoBarras">
-                      Código de Barras <span className="text-red-500">*</span>
+                      Código de Barras <span className="text-error">*</span>
                     </Label>
                     <Input
                       id="codigoBarras"
@@ -603,7 +603,7 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                     </div>
                     <div className="grid gap-1.5">
                       <Label htmlFor="precioVentaBase" className="text-xs">
-                        Precio de Venta <span className="text-red-500">*</span>
+                        Precio de Venta <span className="text-error">*</span>
                       </Label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">$</span>
@@ -625,7 +625,7 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                     <div className="flex flex-col gap-1 mt-2">
                       <div
                         className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium ${
-                          margen >= 0 ? 'bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-red-500/10 text-red-700 dark:text-red-400'
+                          margen >= 0 ? 'bg-success/10 text-success' : 'bg-error/10 text-error'
                         }`}
                       >
                         <span>
@@ -659,9 +659,9 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                     </div>
                   )}
                   {esGranelAuto && (
-                    <div className="flex items-start gap-2 bg-blue-500/5 border border-blue-500/20 rounded-lg px-3 py-2">
-                      <span className="material-symbols-outlined !text-[16px] text-blue-500 mt-0.5">info</span>
-                      <p className="text-xs text-blue-600">Se venderá a granel — el cajero podrá ingresar cantidades decimales.</p>
+                    <div className="flex items-start gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
+                      <span className="material-symbols-outlined !text-[16px] text-primary mt-0.5">info</span>
+                      <p className="text-xs text-primary">Se venderá a granel — el cajero podrá ingresar cantidades decimales.</p>
                     </div>
                   )}
                 </div>
@@ -771,7 +771,7 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                               </div>
                               <div className="grid gap-1.5">
                                 <Label className="text-xs">
-                                  Precio total <span className="text-red-500">*</span>
+                                  Precio total <span className="text-error">*</span>
                                 </Label>
                                 <div className="relative">
                                   <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-xs">$</span>

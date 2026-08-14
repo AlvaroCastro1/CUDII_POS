@@ -76,42 +76,20 @@ export default function OnboardingView() {
 
   return (
     <>
-      <style>
-        {`
-          .glass-panel {
-            background: rgba(var(--surface), 0.03);
-            backdrop-filter: blur(40px);
-            -webkit-backdrop-filter: blur(40px);
-            border: 1px solid var(--outline-variant);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-          }
-          .liquid-input {
-            background: transparent;
-            border: none;
-            border-bottom: 2px solid var(--outline-variant);
-            transition: border-color 0.3s ease, box-shadow 0.3s ease;
-          }
-          .liquid-input:focus {
-            outline: none;
-            border-bottom-color: var(--on-surface);
-            box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.1);
-          }
-          @keyframes float {
-            0% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(5deg); }
-            100% { transform: translateY(0px) rotate(0deg); }
-          }
-          .ambient-sphere {
-            animation: float 15s ease-in-out infinite;
-          }
-        `}
-      </style>
-
-      {/* Ambient Background Layer */}
+      {/* Ambient Background Layer (gradientes radiales sin filter: blur, 60fps) */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-primary/10 rounded-full blur-[120px] ambient-sphere"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-on-surface/5 rounded-full blur-[100px] ambient-sphere" style={{ animationDelay: '-5s' }}></div>
-        <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-primary/5 rounded-full blur-[80px] ambient-sphere" style={{ animationDelay: '-10s' }}></div>
+        <div
+          className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full ambient-sphere"
+          style={{ background: 'radial-gradient(circle, color-mix(in srgb, var(--color-primary) 12%, transparent) 0%, transparent 70%)' }}
+        ></div>
+        <div
+          className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full ambient-sphere"
+          style={{ animationDelay: '-5s', background: 'radial-gradient(circle, color-mix(in srgb, var(--color-on-surface) 5%, transparent) 0%, transparent 70%)' }}
+        ></div>
+        <div
+          className="absolute top-[20%] right-[10%] w-[30%] h-[30%] rounded-full ambient-sphere"
+          style={{ animationDelay: '-10s', background: 'radial-gradient(circle, color-mix(in srgb, var(--color-primary) 5%, transparent) 0%, transparent 70%)' }}
+        ></div>
       </div>
 
       {/* Onboarding Container */}

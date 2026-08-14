@@ -17,11 +17,11 @@ import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { Switch } from '@/components/ui/switch';
 
 const ROLES_OPTIONS = [
-  { valor: 'CAJERO', nombre: 'Cajero', desc: 'Atención en caja y cobros', icon: 'point_of_sale', colorClass: 'border-blue-500 bg-blue-500/5', textClass: 'text-blue-600' },
+  { valor: 'CAJERO', nombre: 'Cajero', desc: 'Atención en caja y cobros', icon: 'point_of_sale', colorClass: 'border-primary bg-primary/5', textClass: 'text-primary' },
   { valor: 'ALMACEN', nombre: 'Almacén', desc: 'Gestión de inventario y stock', icon: 'warehouse', colorClass: 'border-orange-500 bg-orange-500/5', textClass: 'text-orange-600' },
   { valor: 'CONTADOR', nombre: 'Contador', desc: 'Acceso a reportes y finanzas', icon: 'calculate', colorClass: 'border-teal-500 bg-teal-500/5', textClass: 'text-teal-600' },
   { valor: 'GERENTE', nombre: 'Gerente', desc: 'Inventario, reportes y catálogo', icon: 'manage_accounts', colorClass: 'border-purple-500 bg-purple-500/5', textClass: 'text-purple-600' },
-  { valor: 'ADMIN', nombre: 'Administrador', desc: 'Acceso total a la sucursal', icon: 'admin_panel_settings', colorClass: 'border-red-500 bg-red-500/5', textClass: 'text-red-600' },
+  { valor: 'ADMIN', nombre: 'Administrador', desc: 'Acceso total a la sucursal', icon: 'admin_panel_settings', colorClass: 'border-error bg-error/5', textClass: 'text-error' },
 ];
 
 interface Usuario {
@@ -65,9 +65,9 @@ export default function UsuariosView() {
 
   const getFuerzaColor = () => {
     if (formData.password.length === 0) return 'bg-outline/20';
-    if (fuerzaPassword <= 2) return 'bg-red-500';
+    if (fuerzaPassword <= 2) return 'bg-error';
     if (fuerzaPassword <= 3) return 'bg-yellow-500';
-    return 'bg-green-500';
+    return 'bg-success';
   };
 
   const getFuerzaTexto = () => {
@@ -443,7 +443,7 @@ export default function UsuariosView() {
                   </TableCell>
                   <TableCell>
                     {user.estaActivo ? (
-                      <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 border-green-500/20">Activo</Badge>
+                      <Badge className="bg-success/10 text-success hover:bg-success/20 border-success/20">Activo</Badge>
                     ) : (
                       <Badge variant="secondary">Inactivo</Badge>
                     )}
@@ -458,7 +458,7 @@ export default function UsuariosView() {
                         )}
                         {currentUser?.id !== user.id && (
                           <Button variant="ghost" size="sm" title={user.estaActivo ? "Desactivar" : "Activar"} onClick={() => handleToggleClick(user)}>
-                            <PowerOff className={`w-4 h-4 ${user.estaActivo ? 'text-red-500' : 'text-green-500'}`} />
+                            <PowerOff className={`w-4 h-4 ${user.estaActivo ? 'text-error' : 'text-success'}`} />
                           </Button>
                         )}
                       </div>

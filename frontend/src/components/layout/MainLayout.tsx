@@ -151,7 +151,7 @@ export default function MainLayout() {
             </div>
           )}
 
-          {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN') && (
+          {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN' || user?.rol === 'GERENTE') && (
             <div className="px-4">
               <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
                 Administración
@@ -165,6 +165,16 @@ export default function MainLayout() {
                   <span className="material-symbols-outlined !text-xl shrink-0">group</span>
                   <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
                     Usuarios
+                  </span>
+                </button>
+                <button
+                  onClick={() => { navigate('/admin/auditoria'); setIsMobileMenuOpen(false); }}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/admin/auditoria' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  title={!isSidebarOpen ? 'Auditoría' : ''}
+                >
+                  <span className="material-symbols-outlined !text-xl shrink-0">history</span>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                    Auditoría
                   </span>
                 </button>
               </div>
@@ -270,6 +280,15 @@ export default function MainLayout() {
                     <span className="material-symbols-outlined !text-[18px]">person</span>
                     Ver / Editar mi Perfil
                   </button>
+                  {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN') && (
+                    <button
+                      onClick={() => { setIsProfileMenuOpen(false); navigate('/admin/configuracion'); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 transition-colors flex items-center gap-3"
+                    >
+                      <span className="material-symbols-outlined !text-[18px]">settings</span>
+                      Configuración del Sitio
+                    </button>
+                  )}
                   <button
                     onClick={() => { setIsProfileMenuOpen(false); logout(); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 transition-colors flex items-center gap-3"

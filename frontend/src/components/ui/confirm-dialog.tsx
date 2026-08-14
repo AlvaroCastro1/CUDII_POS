@@ -39,22 +39,22 @@ export function ConfirmDialog({
     switch (variant) {
       case 'danger':
         return {
-          icon: <Trash2 className="w-6 h-6 text-red-600 dark:text-red-500" />,
-          bg: 'bg-red-100 dark:bg-red-500/20',
-          btn: 'bg-red-600 hover:bg-red-700 text-white shadow-sm shadow-red-600/20',
+          icon: <Trash2 className="w-6 h-6 text-error" />,
+          bg: 'bg-error/10',
+          btn: 'bg-error hover:bg-error text-white shadow-sm shadow-error/20',
         };
       case 'info':
         return {
-          icon: <Info className="w-6 h-6 text-blue-600 dark:text-blue-500" />,
-          bg: 'bg-blue-100 dark:bg-blue-500/20',
-          btn: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-600/20',
+          icon: <Info className="w-6 h-6 text-primary" />,
+          bg: 'bg-primary/10',
+          btn: 'bg-primary hover:bg-primary text-white shadow-sm shadow-primary/20',
         };
       case 'warning':
       default:
         return {
-          icon: <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-500" />,
-          bg: 'bg-amber-100 dark:bg-amber-500/20',
-          btn: 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm shadow-amber-600/20',
+          icon: <AlertTriangle className="w-6 h-6 text-warning" />,
+          bg: 'bg-warning/10',
+          btn: 'bg-warning hover:bg-warning text-white shadow-sm shadow-warning/20',
         };
     }
   };

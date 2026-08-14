@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -8,25 +12,37 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createProductDto: CreateProductDto, empresaId: string, usuarioId: string) {
+  async create(
+    createProductDto: CreateProductDto,
+    empresaId: string,
+    usuarioId: string,
+  ) {
     // Validar código de barras único
     const existe = await this.prisma.producto.findFirst({
-      where: { empresaId, codigoBarras: createProductDto.codigoBarras, estaActivo: true },
+      where: {
+        empresaId,
+        codigoBarras: createProductDto.codigoBarras,
+        estaActivo: true,
+      },
     });
     if (existe) {
-      throw new ConflictException('Ya existe un producto activo con este código de barras');
+      throw new ConflictException(
+        'Ya existe un producto activo con este código de barras',
+      );
     }
 
     const { categoriasIds, preciosAdicionales, ...rest } = createProductDto;
-    
+
     return this.prisma.$transaction(async (tx) => {
       const producto = await tx.producto.create({
         data: {
           ...rest,
           empresaId,
-          categorias: categoriasIds?.length ? {
-            connect: categoriasIds.map(id => ({ id }))
-          } : undefined
+          categorias: categoriasIds?.length
+            ? {
+                connect: categoriasIds.map((id) => ({ id })),
+              }
+            : undefined,
         },
       });
 
@@ -45,7 +61,10 @@ export class ProductsService {
       // Crear precios adicionales por unidad si se proporcionan
       if (preciosAdicionales && preciosAdicionales.length > 0) {
         await tx.precioPorUnidad.createMany({
-          data: preciosAdicionales.map(pp => ({ ...pp, productoId: producto.id })),
+          data: preciosAdicionales.map((pp) => ({
+            ...pp,
+            productoId: producto.id,
+          })),
         });
       }
 
@@ -53,13 +72,13 @@ export class ProductsService {
       const sucursales = await tx.sucursal.findMany({ where: { empresaId } });
       if (sucursales.length > 0) {
         await tx.inventarioSucursal.createMany({
-          data: sucursales.map(s => ({
+          data: sucursales.map((s) => ({
             productoId: producto.id,
             sucursalId: s.id,
             stockActual: 0,
             stockMaximo: 0,
             stockMinimo: 0,
-          }))
+          })),
         });
       }
 
@@ -67,13 +86,20 @@ export class ProductsService {
     });
   }
 
-  async findAll(empresaId: string, page = 1, limit = 20, search = '', categoriaId = '', incluirInactivos = false) {
+  async findAll(
+    empresaId: string,
+    page = 1,
+    limit = 20,
+    search = '',
+    categoriaId = '',
+    incluirInactivos = false,
+  ) {
     const where: Prisma.ProductoWhereInput = { empresaId };
-    
+
     if (!incluirInactivos) {
       where.estaActivo = true;
     }
-    
+
     if (search) {
       where.OR = [
         { nombre: { contains: search, mode: 'insensitive' as const } },
@@ -81,10 +107,10 @@ export class ProductsService {
         { codigoInterno: { contains: search, mode: 'insensitive' as const } },
       ];
     }
-    
+
     if (categoriaId) {
       where.categorias = {
-        some: { id: categoriaId }
+        some: { id: categoriaId },
       };
     }
 
@@ -95,9 +121,17 @@ export class ProductsService {
       this.prisma.producto.count({ where }),
       this.prisma.producto.findMany({
         where,
-        include: { 
+        include: {
           categorias: true,
           preciosPorUnidad: { orderBy: { precio: 'asc' } },
+          inventario: {
+            select: {
+              stockActual: true,
+              stockMinimo: true,
+              stockMaximo: true,
+              sucursalId: true,
+            },
+          },
         },
         orderBy: { nombre: 'asc' },
         skip,
@@ -106,8 +140,6 @@ export class ProductsService {
     ]);
 
     const totalPages = Math.ceil(total / limitSafe);
-
-    console.log(`[findAll] incluirInactivos: ${incluirInactivos}, count: ${data.length}`);
 
     return {
       data,
@@ -139,29 +171,36 @@ export class ProductsService {
           estaActivo: true,
           OR: [
             { nombre: { contains: termino, mode: 'insensitive' as const } },
-            { codigoBarras: { contains: termino, mode: 'insensitive' as const } },
-            { codigoInterno: { contains: termino, mode: 'insensitive' as const } },
+            {
+              codigoBarras: { contains: termino, mode: 'insensitive' as const },
+            },
+            {
+              codigoInterno: {
+                contains: termino,
+                mode: 'insensitive' as const,
+              },
+            },
           ],
         }
       : { empresaId, estaActivo: true };
 
     return this.prisma.producto.findMany({
       where,
-      select: {
-        id: true,
-        nombre: true,
-        codigoBarras: true,
-        codigoInterno: true,
-        unidadMedida: true,
-        esGranel: true,
-        precioVentaBase: true,
-        precioCompra: true,
+      include: {
+        categorias: true,
+        inventario: {
+          select: {
+            stockActual: true,
+            stockMinimo: true,
+            stockMaximo: true,
+            sucursalId: true,
+          },
+        },
       },
       orderBy: { nombre: 'asc' },
       take: limit,
     });
   }
-
 
   async findOne(id: string, empresaId: string, incluirInactivos = false) {
     const where: Prisma.ProductoWhereInput = { id, empresaId };
@@ -176,7 +215,9 @@ export class ProductsService {
         preciosPorUnidad: { orderBy: { precio: 'asc' } },
         historialPrecios: {
           orderBy: { fechaHora: 'desc' },
-          include: { usuario: { select: { id: true, nombre: true, email: true } } },
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+          },
         },
         inventario: {
           include: { sucursal: { select: { id: true, nombre: true } } },
@@ -196,20 +237,35 @@ export class ProductsService {
     return producto;
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto, empresaId: string, usuarioId: string) {
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    empresaId: string,
+    usuarioId: string,
+  ) {
     const productoAnterior = await this.findOne(id, empresaId, true);
 
-    if (updateProductDto.codigoBarras && updateProductDto.codigoBarras !== productoAnterior.codigoBarras) {
+    if (
+      updateProductDto.codigoBarras &&
+      updateProductDto.codigoBarras !== productoAnterior.codigoBarras
+    ) {
       const existe = await this.prisma.producto.findFirst({
-        where: { empresaId, codigoBarras: updateProductDto.codigoBarras, estaActivo: true },
+        where: {
+          empresaId,
+          codigoBarras: updateProductDto.codigoBarras,
+          estaActivo: true,
+        },
       });
       if (existe) {
-        throw new ConflictException('Ya existe un producto activo con este código de barras');
+        throw new ConflictException(
+          'Ya existe un producto activo con este código de barras',
+        );
       }
     }
 
     // Desestructuramos los campos de relación para no pasarlos directamente a Prisma
-    const { categoriasIds, preciosAdicionales, ...camposProducto } = updateProductDto;
+    const { categoriasIds, preciosAdicionales, ...camposProducto } =
+      updateProductDto;
 
     return this.prisma.$transaction(async (tx) => {
       // Actualizar campos del producto (sin relaciones)

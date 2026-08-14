@@ -250,9 +250,9 @@ export default function InventarioView() {
                       className={`h-1 flex-1 rounded-full transition-all duration-300 ${
                         n <= paso
                           ? tipoAjuste === 'entrada'
-                            ? 'bg-green-500'
+                            ? 'bg-success'
                             : tipoAjuste === 'salida'
-                            ? 'bg-red-500'
+                            ? 'bg-error'
                             : 'bg-primary'
                           : 'bg-on-surface/10'
                       }`}
@@ -277,12 +277,12 @@ export default function InventarioView() {
                       onClick={() => setTipoAjuste('entrada')}
                       className={`p-5 rounded-2xl border-2 text-left transition-all duration-150 flex flex-col gap-2 ${
                         tipoAjuste === 'entrada'
-                          ? 'border-green-500 bg-green-500/5'
-                          : 'border-outline/30 hover:border-green-500/50 hover:bg-green-500/5'
+                          ? 'border-success bg-success/5'
+                          : 'border-outline/30 hover:border-success/50 hover:bg-success/5'
                       }`}
                     >
-                      <TrendingUp className={`w-8 h-8 ${tipoAjuste === 'entrada' ? 'text-green-600' : 'text-on-surface-variant'}`} />
-                      <p className={`font-bold text-base ${tipoAjuste === 'entrada' ? 'text-green-600' : 'text-on-surface'}`}>Entrada</p>
+                      <TrendingUp className={`w-8 h-8 ${tipoAjuste === 'entrada' ? 'text-success' : 'text-on-surface-variant'}`} />
+                      <p className={`font-bold text-base ${tipoAjuste === 'entrada' ? 'text-success' : 'text-on-surface'}`}>Entrada</p>
                       <p className="text-xs text-on-surface-variant">Aumenta el stock. Ej: compra de mercancía, devolución.</p>
                     </button>
                     <button
@@ -290,12 +290,12 @@ export default function InventarioView() {
                       onClick={() => setTipoAjuste('salida')}
                       className={`p-5 rounded-2xl border-2 text-left transition-all duration-150 flex flex-col gap-2 ${
                         tipoAjuste === 'salida'
-                          ? 'border-red-500 bg-red-500/5'
-                          : 'border-outline/30 hover:border-red-500/50 hover:bg-red-500/5'
+                          ? 'border-error bg-error/5'
+                          : 'border-outline/30 hover:border-error/50 hover:bg-error/5'
                       }`}
                     >
-                      <TrendingDown className={`w-8 h-8 ${tipoAjuste === 'salida' ? 'text-red-500' : 'text-on-surface-variant'}`} />
-                      <p className={`font-bold text-base ${tipoAjuste === 'salida' ? 'text-red-500' : 'text-on-surface'}`}>Salida</p>
+                      <TrendingDown className={`w-8 h-8 ${tipoAjuste === 'salida' ? 'text-error' : 'text-on-surface-variant'}`} />
+                      <p className={`font-bold text-base ${tipoAjuste === 'salida' ? 'text-error' : 'text-on-surface'}`}>Salida</p>
                       <p className="text-xs text-on-surface-variant">Reduce el stock. Ej: merma, robo, corrección.</p>
                     </button>
                   </div>
@@ -307,7 +307,7 @@ export default function InventarioView() {
                 <div className="space-y-4">
                   <p className="text-sm text-on-surface-variant">
                     ¿A qué producto le aplicarás este ajuste de{' '}
-                    <span className={`font-semibold ${tipoAjuste === 'entrada' ? 'text-green-600' : 'text-red-500'}`}>
+                    <span className={`font-semibold ${tipoAjuste === 'entrada' ? 'text-success' : 'text-error'}`}>
                       {tipoAjuste}
                     </span>
                     ?
@@ -356,18 +356,18 @@ export default function InventarioView() {
                           className={`w-full text-left p-3 rounded-xl border-2 transition-all duration-150 flex items-center justify-between ${
                             formData.productoId === prod.id
                               ? tipoAjuste === 'entrada'
-                                ? 'border-green-500 bg-green-500/5'
-                                : 'border-red-500 bg-red-500/5'
+                                ? 'border-success bg-success/5'
+                                : 'border-error bg-error/5'
                               : 'border-outline/30 hover:border-outline hover:bg-surface-variant/50'
                           }`}
                         >
                           <div>
-                            <p className={`font-semibold text-sm ${formData.productoId === prod.id ? (tipoAjuste === 'entrada' ? 'text-green-600' : 'text-red-500') : 'text-on-surface'}`}>
+                            <p className={`font-semibold text-sm ${formData.productoId === prod.id ? (tipoAjuste === 'entrada' ? 'text-success' : 'text-error') : 'text-on-surface'}`}>
                               {prod.nombre}
                             </p>
                             <p className="text-xs text-on-surface-variant font-mono">{prod.codigoBarras}</p>
                           </div>
-                          <span className={`text-xs px-2 py-0.5 rounded-full border ${formData.productoId === prod.id ? (tipoAjuste === 'entrada' ? 'border-green-500 text-green-600' : 'border-red-500 text-red-500') : 'border-outline/30 text-on-surface-variant'}`}>
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${formData.productoId === prod.id ? (tipoAjuste === 'entrada' ? 'border-success text-success' : 'border-error text-error') : 'border-outline/30 text-on-surface-variant'}`}>
                             {prod.unidadMedida}
                           </span>
                         </button>
@@ -380,7 +380,7 @@ export default function InventarioView() {
                   {/* Si hay varias sucursales, mostrar selector */}
                   {sucursales.length > 1 && (
                     <div className="grid gap-2">
-                      <Label>Sucursal <span className="text-red-500">*</span></Label>
+                      <Label>Sucursal <span className="text-error">*</span></Label>
                       <Select
                         value={formData.sucursalId}
                         onValueChange={(v) => setFormData({ ...formData, sucursalId: v })}
@@ -403,7 +403,7 @@ export default function InventarioView() {
                       <p className="text-sm font-semibold text-on-surface">{productoSeleccionado.nombre}</p>
                       <p className="text-xs text-on-surface-variant">
                         Unidad: <span className="font-medium">{productoSeleccionado.unidadMedida}</span>
-                        {productoSeleccionado.esGranel && <span className="ml-2 text-blue-500">• A granel</span>}
+                        {productoSeleccionado.esGranel && <span className="ml-2 text-primary">• A granel</span>}
                       </p>
                       <p className="text-xs text-on-surface-variant">
                         Stock actual:{' '}
@@ -422,10 +422,10 @@ export default function InventarioView() {
                   {productoSeleccionado && formData.cantidad && (
                     <div className={`rounded-xl p-4 border flex items-center justify-between ${
                       tipoAjuste === 'entrada'
-                        ? 'bg-green-500/5 border-green-500/20'
+                        ? 'bg-success/5 border-success/20'
                         : stockProyectado < 0
-                        ? 'bg-red-500/10 border-red-500/30'
-                        : 'bg-red-500/5 border-red-500/20'
+                        ? 'bg-error/10 border-error/30'
+                        : 'bg-error/5 border-error/20'
                     }`}>
                       <div className="text-center">
                         <p className="text-xs text-on-surface-variant">Stock actual</p>
@@ -435,7 +435,7 @@ export default function InventarioView() {
                       <div className="text-center">
                         <p className="text-xs text-on-surface-variant">Stock resultante</p>
                         <p className={`text-2xl font-display-lg font-bold ${
-                          stockProyectado < 0 ? 'text-red-600' : tipoAjuste === 'entrada' ? 'text-green-600' : 'text-orange-500'
+                          stockProyectado < 0 ? 'text-error' : tipoAjuste === 'entrada' ? 'text-success' : 'text-orange-500'
                         }`}>
                           {stockProyectado}
                         </p>
@@ -451,7 +451,7 @@ export default function InventarioView() {
                           ({productoSeleccionado.unidadMedida.toLowerCase()})
                         </span>
                       )}
-                      <span className="text-red-500 ml-1">*</span>
+                      <span className="text-error ml-1">*</span>
                     </Label>
                     <Input
                       id="cantidad"
@@ -465,14 +465,14 @@ export default function InventarioView() {
                       placeholder={productoSeleccionado?.esGranel ? 'Ej. 2.500' : 'Ej. 12'}
                     />
                     {productoSeleccionado?.esGranel && (
-                      <p className="text-xs text-blue-600">
+                      <p className="text-xs text-primary">
                         Este producto es a granel — puedes ingresar decimales (ej. 0.350 kg).
                       </p>
                     )}
                   </div>
 
                   <div className="grid gap-2">
-                    <Label>Motivo del ajuste <span className="text-red-500">*</span></Label>
+                    <Label>Motivo del ajuste <span className="text-error">*</span></Label>
                     <p className="text-xs text-on-surface-variant -mt-1">
                       Queda registrado en el historial de movimientos.
                     </p>
@@ -485,20 +485,20 @@ export default function InventarioView() {
                           className={`w-full text-left p-3 rounded-xl border-2 transition-all duration-150 flex items-center gap-3 ${
                             formData.motivo === m.valor
                               ? tipoAjuste === 'entrada'
-                                ? 'border-green-500 bg-green-500/5'
-                                : 'border-red-500 bg-red-500/5'
+                                ? 'border-success bg-success/5'
+                                : 'border-error bg-error/5'
                               : 'border-outline/30 hover:border-outline hover:bg-surface-variant/50'
                           }`}
                         >
                           <span className={`material-symbols-outlined !text-[20px] flex-shrink-0 ${
                             formData.motivo === m.valor
-                              ? tipoAjuste === 'entrada' ? 'text-green-600' : 'text-red-500'
+                              ? tipoAjuste === 'entrada' ? 'text-success' : 'text-error'
                               : 'text-on-surface-variant'
                           }`}>{m.icono}</span>
                           <div>
                             <p className={`text-sm font-semibold ${
                               formData.motivo === m.valor
-                                ? tipoAjuste === 'entrada' ? 'text-green-600' : 'text-red-500'
+                                ? tipoAjuste === 'entrada' ? 'text-success' : 'text-error'
                                 : 'text-on-surface'
                             }`}>
                               {m.valor}
@@ -532,9 +532,9 @@ export default function InventarioView() {
                   </div>
 
                   {stockProyectado < 0 && (
-                    <div className="flex items-start gap-2 bg-red-500/5 border border-red-500/20 rounded-xl px-3 py-2">
-                      <span className="material-symbols-outlined !text-[18px] text-red-500 mt-0.5">warning</span>
-                      <p className="text-xs text-red-600 font-medium">
+                    <div className="flex items-start gap-2 bg-error/5 border border-error/20 rounded-xl px-3 py-2">
+                      <span className="material-symbols-outlined !text-[18px] text-error mt-0.5">warning</span>
+                      <p className="text-xs text-error font-medium">
                         Advertencia: El stock resultante sería negativo ({stockProyectado}). Verifica la cantidad antes de continuar.
                       </p>
                     </div>
@@ -561,7 +561,7 @@ export default function InventarioView() {
                     (paso === 2 && !formData.productoId)
                   }
                   onClick={() => setPaso(paso + 1)}
-                  className={tipoAjuste === 'salida' ? 'bg-red-500 hover:bg-red-600 text-white' : ''}
+                  className={tipoAjuste === 'salida' ? 'bg-error hover:bg-error text-white' : ''}
                 >
                   Siguiente →
                 </Button>
@@ -569,7 +569,7 @@ export default function InventarioView() {
                 <Button
                   type="submit"
                   disabled={isSubmitting || !formData.cantidad || !formData.motivo}
-                  className={tipoAjuste === 'salida' ? 'bg-red-500 hover:bg-red-600 text-white' : ''}
+                  className={tipoAjuste === 'salida' ? 'bg-error hover:bg-error text-white' : ''}
                 >
                   {isSubmitting
                     ? 'Guardando...'
@@ -664,7 +664,7 @@ export default function InventarioView() {
                     <TableCell className="text-right">
                       <span className={`font-bold px-2 py-0.5 rounded-full text-sm ${
                         sinStock
-                          ? 'bg-red-500/10 text-red-600'
+                          ? 'bg-error/10 text-error'
                           : stockBajo
                           ? 'bg-yellow-500/10 text-yellow-600'
                           : 'text-on-surface'

@@ -14,18 +14,28 @@ datasource db {
 // ---------------------------------------------------------
 
 model Empresa {
-  id              String     @id @default(uuid())
-  nombre          String
-  rfc             String?
-  estaActivo      Boolean    @default(true)
-  creadoEn        DateTime   @default(now())
-  actualizadoEn   DateTime   @updatedAt
+  id                      String     @id @default(uuid())
+  nombre                  String
+  rfc                     String?
+  modoCorteZ              ModoCorteZ @default(ciego)
+  umbralFaltanteCritico   Float      @default(50.0) // Monto ($) a partir del cual un faltante se considera crítico y requiere autorización
+  estaActivo              Boolean    @default(true)
+  creadoEn                DateTime   @default(now())
+  actualizadoEn           DateTime   @updatedAt
 
   // Relaciones
   sucursales      Sucursal[]
   usuarios        Usuario[]
   productos       Producto[]
   categorias      Categoria[]
+  ventas          Venta[]
+  logsActividad   LogActividad[]
+  notificaciones  Notificacion[]
+}
+
+enum ModoCorteZ {
+  ciego
+  abierto
 }
 
 // ---------------------------------------------------------
@@ -44,6 +54,7 @@ model Sucursal {
   // Relaciones
   cajas           Caja[]
   inventario      InventarioSucursal[]
+  ventas          Venta[]
 }
 
 model Caja {
@@ -52,7 +63,12 @@ model Caja {
   sucursal        Sucursal   @relation(fields: [sucursalId], references: [id])
   nombre          String
   codigo          String?    // ej: "CAJA-01"
+  secuenciaFolio  Int        @default(0) // Secuencia de folios para esta caja
   estaActivo      Boolean    @default(true)
+
+  // Relaciones
+  sesiones        SesionCaja[]
+  ventas          Venta[]
 }
 
 // ---------------------------------------------------------
@@ -71,9 +87,18 @@ model Usuario {
   creadoEn        DateTime   @default(now())
   actualizadoEn   DateTime   @updatedAt
   
-  // Relaciones (Opcionales, por ejemplo auditoría de quién desactivó)
+  // Relaciones
   movimientosInventario MovimientoInventario[]
   historialPrecios      HistorialPrecioProducto[]
+  sesionesCaja          SesionCaja[]
+  retirosParciales      RetiroParcial[]
+  cortesX               CorteX[]
+  cortesZ               CorteZ[]
+  cortesZAutorizados    CorteZ[]     @relation("cortesZAutorizados")
+  ventas                Venta[]
+  devoluciones          Devolucion[]
+  logsActividad         LogActividad[]
+  notificacionesRecibidas Notificacion[] @relation("notificacionesRecibidas")
 }
 
 enum Rol {
@@ -111,12 +136,13 @@ model Producto {
   actualizadoEn   DateTime   @updatedAt
 
   // Relaciones
-  // Relaciones
   categorias         Categoria[]
   preciosPorUnidad   PrecioPorUnidad[]
   inventario         InventarioSucursal[]
   movimientos        MovimientoInventario[]
   historialPrecios   HistorialPrecioProducto[]
+  detallesVenta      DetalleVenta[]
+  devolucionesProducto DevolucionProducto[]
 }
 
 model PrecioPorUnidad {
@@ -205,3 +231,281 @@ enum TipoMovimientoInventario {
   compra
   apertura_inicial
 }
+
+// ---------------------------------------------------------
+// CAJA Y SESIONES DE TURNO
+// ---------------------------------------------------------
+
+model SesionCaja {
+  id                    String           @id @default(uuid())
+  cajaId                String
+  caja                  Caja             @relation(fields: [cajaId], references: [id])
+  cajeroId              String
+  cajero                Usuario          @relation(fields: [cajeroId], references: [id])
+  
+  montoInicial          Float            // Fondo inicial en efectivo
+  montoFinalEfectivo    Float?           // Declarado por el cajero al cerrar
+  montoEsperadoEfectivo Float?           // Calculado por el sistema al cerrar
+  diferenciaEfectivo    Float?           // montoFinalEfectivo - montoEsperadoEfectivo
+  
+  modoCorteUsado        ModoCorteZ       @default(ciego)
+  
+  totalVentasEfectivo   Float            @default(0)
+  totalVentasTarjeta    Float            @default(0)
+  totalVentasOtros      Float            @default(0)
+  totalRetiros          Float            @default(0)
+  
+  estado                EstadoSesionCaja @default(abierta)
+  
+  fechaApertura         DateTime         @default(now())
+  fechaCierre           DateTime?
+
+  // Relaciones
+  ventas                Venta[]
+  retiros               RetiroParcial[]
+  cortesX               CorteX[]
+  corteZ                CorteZ?
+}
+
+enum EstadoSesionCaja {
+  abierta
+  cerrada
+}
+
+model RetiroParcial {
+  id            String     @id @default(uuid())
+  sesionCajaId  String
+  sesionCaja    SesionCaja @relation(fields: [sesionCajaId], references: [id])
+  usuarioId     String
+  usuario       Usuario    @relation(fields: [usuarioId], references: [id])
+  monto         Float
+  motivo        String
+  fechaHora     DateTime   @default(now())
+}
+
+model CorteX {
+  id                  String     @id @default(uuid())
+  sesionCajaId        String
+  sesionCaja          SesionCaja @relation(fields: [sesionCajaId], references: [id])
+  usuarioId           String
+  usuario             Usuario    @relation(fields: [usuarioId], references: [id])
+  totalVentasEfectivo Float
+  totalVentasTarjeta  Float
+  montoInicial        Float
+  montoRetiros        Float
+  efectivoEnCaja      Float
+  fechaHora           DateTime   @default(now())
+}
+
+model CorteZ {
+  id                  String     @id @default(uuid())
+  sesionCajaId        String     @unique
+  sesionCaja          SesionCaja @relation(fields: [sesionCajaId], references: [id])
+  usuarioId           String
+  usuario             Usuario    @relation(fields: [usuarioId], references: [id])
+  
+  montoInicial        Float
+  totalVentasEfectivo Float
+  totalVentasTarjeta  Float
+  totalRetiros        Float
+  montoEsperado       Float
+  montoDeclarado      Float
+  diferencia          Float
+  tipoDiscrepancia    String?    // 'cuadre', 'sobrante', 'faltante'
+  modoCorte           ModoCorteZ
+  notas               String?
+  
+  // Autorización requerida para faltantes críticos
+  autorizadoPorId     String?
+  autorizadoPor       Usuario?   @relation("cortesZAutorizados", fields: [autorizadoPorId], references: [id])
+  
+  fechaHora           DateTime   @default(now())
+}
+
+// ---------------------------------------------------------
+// VENTAS Y TRANSACCIONES
+// ---------------------------------------------------------
+
+model Venta {
+  id            String        @id @default(uuid())
+  empresaId     String
+  empresa       Empresa       @relation(fields: [empresaId], references: [id])
+  sucursalId    String
+  sucursal      Sucursal      @relation(fields: [sucursalId], references: [id])
+  cajaId        String
+  caja          Caja          @relation(fields: [cajaId], references: [id])
+  sesionCajaId  String
+  sesionCaja    SesionCaja    @relation(fields: [sesionCajaId], references: [id])
+  cajeroId      String
+  cajero        Usuario       @relation(fields: [cajeroId], references: [id])
+  
+  folio         String        // Ej: "CJ01-000001"
+  secuenciaFolio Int          // Secuencial numérico per caja
+  
+  subtotal      Float
+  descuento     Float         @default(0)
+  impuestos     Float         @default(0)
+  total         Float
+  
+  estado        EstadoVenta   @default(completada)
+  esDemostracion Boolean      @default(false)
+  notas         String?
+  
+  creadoEn      DateTime      @default(now())
+  actualizadoEn DateTime      @updatedAt
+
+  detalles      DetalleVenta[]
+  pagos         PagoVenta[]
+  devoluciones  Devolucion[]
+}
+
+enum EstadoVenta {
+  completada
+  cancelada
+  reembolsada
+}
+
+model DetalleVenta {
+  id              String   @id @default(uuid())
+  ventaId         String
+  venta           Venta    @relation(fields: [ventaId], references: [id])
+  productoId      String
+  producto        Producto @relation(fields: [productoId], references: [id])
+  
+  nombreProducto  String   // Snapshot del nombre al momento de venta
+  unidadMedida    String   // 'pieza', 'kilogramo', etc.
+  cantidad        Float
+  precioUnitario  Float
+  costoHistorico  Float    @default(0) // Snapshot del precioCompra
+  subtotal        Float
+  descuento       Float    @default(0)
+  impuestos       Float    @default(0)
+  total           Float
+}
+
+model PagoVenta {
+  id              String     @id @default(uuid())
+  ventaId         String
+  venta           Venta      @relation(fields: [ventaId], references: [id])
+  metodo          MetodoPago
+  montoRecibido   Float
+  montoPagado     Float
+  cambio          Float      @default(0)
+  referencia      String?    // Ej: Autorización de tarjeta
+}
+
+enum MetodoPago {
+  efectivo
+  tarjeta
+  transferencia
+  voucher
+  credito
+}
+
+// ---------------------------------------------------------
+// DEVOLUCIONES
+// ---------------------------------------------------------
+
+model Devolucion {
+  id              String               @id @default(uuid())
+  ventaId         String
+  venta           Venta                @relation(fields: [ventaId], references: [id])
+  usuarioId       String
+  usuario         Usuario              @relation(fields: [usuarioId], references: [id])
+  sesionCajaId    String?
+  
+  folio           String               // Ej: "DEV-000001"
+  totalDevuelto   Float
+  tipoResolucion  TipoResolucionDevolucion
+  motivoGeneral   String?
+  fechaHora       DateTime             @default(now())
+
+  productos       DevolucionProducto[]
+}
+
+enum TipoResolucionDevolucion {
+  reembolso_efectivo
+  cambio_fisico
+  saldo_favor
+}
+
+model DevolucionProducto {
+  id              String        @id @default(uuid())
+  devolucionId    String
+  devolucion      Devolucion    @relation(fields: [devolucionId], references: [id])
+  productoId      String
+  producto        Producto      @relation(fields: [productoId], references: [id])
+  
+  cantidadDevuelta Float
+  precioUnitario  Float
+  subtotal        Float
+  motivo          MotivoDevolucion
+  destino         DestinoDevolucion
+}
+
+enum MotivoDevolucion {
+  cambio_opinion
+  cambio_talla
+  danado
+  caducado
+  error_cobro
+}
+
+enum DestinoDevolucion {
+  stock
+  merma
+}
+
+// ---------------------------------------------------------
+// AUDITORÍA Y LOGS DE ACTIVIDAD
+// ---------------------------------------------------------
+
+model LogActividad {
+  id            String   @id @default(uuid())
+  empresaId     String
+  empresa       Empresa  @relation(fields: [empresaId], references: [id])
+  sucursalId    String?
+  usuarioId     String
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
+
+  accion        String   // 'APERTURA_CAJA', 'RETIRO_PARCIAL', 'CORTE_X', 'CORTE_Z', 'VENTA_COMPLETADA', 'VENTA_CANCELADA'
+  entidadTipo   String   // 'sesion_caja', 'venta', 'retiro_parcial', 'corte_z', 'corte_x'
+  entidadId     String   // UUID de la entidad afectada
+  detalles      Json     // Payload completo del evento (montos, diferencias, justificación, etc.)
+  severidad     String   @default("info") // 'info', 'warning', 'critical'
+
+  direccionIP   String?
+  agenteUsuario String?
+  fechaHora     DateTime @default(now())
+
+  @@index([empresaId])
+  @@index([usuarioId])
+  @@index([entidadTipo, entidadId])
+  @@index([fechaHora])
+}
+
+// ---------------------------------------------------------
+// NOTIFICACIONES INTERNAS
+// ---------------------------------------------------------
+
+model Notificacion {
+  id              String   @id @default(uuid())
+  empresaId       String
+  empresa         Empresa  @relation(fields: [empresaId], references: [id])
+  destinatarioId  String
+  destinatario    Usuario  @relation("notificacionesRecibidas", fields: [destinatarioId], references: [id])
+
+  titulo          String
+  mensaje         String
+  tipo            String   // 'info', 'warning', 'critical'
+  evento          String   // 'corte_z_realizado', 'caja_abierta', 'faltante_caja', 'retiro_parcial', 'venta_cancelada'
+  entidadTipo     String?  // Referencia opcional a la entidad relacionada
+  entidadId       String?  // UUID de la entidad relacionada
+  leida           Boolean  @default(false)
+  fechaHora       DateTime @default(now())
+
+  @@index([destinatarioId, leida])
+  @@index([empresaId])
+  @@index([fechaHora])
+}
+

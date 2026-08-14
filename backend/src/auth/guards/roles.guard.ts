@@ -2,6 +2,7 @@ import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Rol } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { CurrentUserPayload } from '../interfaces/jwt-payload.interface';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -12,18 +13,24 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    
+
     if (!requiredRoles) {
       return true;
     }
-    
-    const { user } = context.switchToHttp().getRequest();
-    
+
+    const { user } = context
+      .switchToHttp()
+      .getRequest<{ user?: CurrentUserPayload }>();
+
+    if (!user) {
+      return false;
+    }
+
     // Si el usuario es SUPER_ADMIN, puede acceder a todo
-    if (user?.rol === 'SUPER_ADMIN') {
+    if (user.rol === 'SUPER_ADMIN') {
       return true;
     }
-    
-    return requiredRoles.includes(user?.rol);
+
+    return requiredRoles.includes(user.rol);
   }
 }

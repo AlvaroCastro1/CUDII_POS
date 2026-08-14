@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -16,7 +26,10 @@ export class CategoriesController {
 
   @Post()
   @Roles(Rol.ADMIN, Rol.GERENTE)
-  create(@Body() createCategoryDto: CreateCategoryDto, @CurrentUser() user: CurrentUserPayload) {
+  create(
+    @Body() createCategoryDto: CreateCategoryDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     return this.categoriesService.create(createCategoryDto, user.empresaId);
   }
 
@@ -27,9 +40,15 @@ export class CategoriesController {
     @Query('limit') limit: string = '20',
     @Query('search') search: string = '',
     @Query('incluirInactivos') incluirInactivos: string = 'false',
-    @CurrentUser() user: CurrentUserPayload
+    @CurrentUser() user: CurrentUserPayload,
   ) {
-    return this.categoriesService.findAll(user.empresaId, parseInt(page, 10), parseInt(limit, 10), search, incluirInactivos === 'true');
+    return this.categoriesService.findAll(
+      user.empresaId,
+      parseInt(page, 10),
+      parseInt(limit, 10),
+      search,
+      incluirInactivos === 'true',
+    );
   }
 
   @Get(':id')
@@ -40,7 +59,11 @@ export class CategoriesController {
 
   @Patch(':id')
   @Roles(Rol.ADMIN, Rol.GERENTE)
-  update(@Param('id') id: string, @Body() updateCategoryDto: UpdateCategoryDto, @CurrentUser() user: CurrentUserPayload) {
+  update(
+    @Param('id') id: string,
+    @Body() updateCategoryDto: UpdateCategoryDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     return this.categoriesService.update(id, updateCategoryDto, user.empresaId);
   }
 

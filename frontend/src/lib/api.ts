@@ -31,3 +31,21 @@ api.interceptors.response.use((response) => response, (error) => {
   }
   return Promise.reject(error);
 });
+
+/**
+ * Extrae un mensaje legible de un error desconocido de Axios.
+ * @param err Error capturado en un bloque catch.
+ * @param fallback Mensaje por defecto si no se puede extraer uno.
+ * @returns Mensaje de error para mostrar al usuario.
+ */
+export function errorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as
+      | { message?: string | string[] }
+      | undefined;
+    const msg = data?.message;
+    if (Array.isArray(msg)) return msg[0] || fallback;
+    if (typeof msg === 'string') return msg;
+  }
+  return fallback;
+}

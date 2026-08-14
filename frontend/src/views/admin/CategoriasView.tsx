@@ -185,7 +185,7 @@ export default function CategoriasView() {
                 <div className="space-y-4">
                   
                   <div className="grid gap-2">
-                    <Label htmlFor="nombre">Nombre de la Categoría <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="nombre">Nombre de la Categoría <span className="text-error">*</span></Label>
                     <Input 
                       id="nombre" 
                       required 
@@ -333,7 +333,7 @@ export default function CategoriasView() {
                             <Pencil className="w-4 h-4 text-on-surface-variant" />
                           </Button>
                           <Button variant="ghost" size="sm" title="Ocultar / Desactivar categoría" onClick={() => handleDeleteClick(cat.id)}>
-                            <PowerOff className="w-4 h-4 text-amber-500/70 hover:text-amber-600" />
+                            <PowerOff className="w-4 h-4 text-warning/70 hover:text-warning" />
                           </Button>
                         </>
                       ) : (

@@ -1,14 +1,28 @@
 <!doctype html>
-<html lang="es" class="dark">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
+    <script>
+      // Aplica el tema antes del primer paint para evitar parpadeo (FOUC).
+      (function () {
+        var stored = null;
+        try {
+          stored = localStorage.getItem('cudii_theme');
+        } catch (e) {
+          stored = null;
+        }
+        var dark =
+          stored === 'dark' ||
+          (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
+
     <!-- Fuentes Generadas por el Diseño Premium -->
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=JetBrains+Mono:wght@100..800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-    
+
     <title>CUDII POS</title>
   </head>
   <body class="bg-background text-on-background min-h-screen font-body-md overflow-hidden selection:bg-primary selection:text-on-primary">

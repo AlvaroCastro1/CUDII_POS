@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -17,7 +21,13 @@ export class CategoriesService {
     });
   }
 
-  async findAll(empresaId: string, page = 1, limit = 20, search = '', incluirInactivos = false) {
+  async findAll(
+    empresaId: string,
+    page = 1,
+    limit = 20,
+    search = '',
+    incluirInactivos = false,
+  ) {
     const where: Prisma.CategoriaWhereInput = { empresaId };
     if (!incluirInactivos) {
       where.estaActivo = true;
@@ -29,22 +39,29 @@ export class CategoriesService {
     const skip = (page - 1) * limitSafe;
     const [total, data] = await Promise.all([
       this.prisma.categoria.count({ where }),
-      this.prisma.categoria.findMany({ 
-        where, 
-        orderBy: { nombre: 'asc' }, 
-        skip, 
+      this.prisma.categoria.findMany({
+        where,
+        orderBy: { nombre: 'asc' },
+        skip,
         take: limitSafe,
         include: {
           _count: {
-            select: { productos: true }
-          }
-        }
+            select: { productos: true },
+          },
+        },
       }),
     ]);
     const totalPages = Math.ceil(total / limitSafe);
     return {
       data,
-      meta: { total, page, limit: limitSafe, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 },
+      meta: {
+        total,
+        page,
+        limit: limitSafe,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
     };
   }
 
@@ -60,7 +77,11 @@ export class CategoriesService {
     return categoria;
   }
 
-  async update(id: string, updateCategoryDto: UpdateCategoryDto, empresaId: string) {
+  async update(
+    id: string,
+    updateCategoryDto: UpdateCategoryDto,
+    empresaId: string,
+  ) {
     await this.findOne(id, empresaId);
 
     return this.prisma.categoria.update({

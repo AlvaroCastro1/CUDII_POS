@@ -9,10 +9,13 @@ import { ConfigService } from '@nestjs/config';
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
   ) {
     const secret = configService.get<string>('JWT_SECRET');
-    if (!secret) throw new Error('JWT_SECRET no está definida en las variables de entorno');
+    if (!secret)
+      throw new Error(
+        'JWT_SECRET no está definida en las variables de entorno',
+      );
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,

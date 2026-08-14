@@ -19,13 +19,17 @@ export class AuthService {
     });
 
     if (!user || !user.estaActivo) {
-      throw new UnauthorizedException('Credenciales inválidas o usuario inactivo');
+      throw new UnauthorizedException(
+        'Credenciales inválidas o usuario inactivo',
+      );
     }
 
     const isPasswordValid = await argon2.verify(user.passwordHash, password);
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Credenciales inválidas o usuario inactivo');
+      throw new UnauthorizedException(
+        'Credenciales inválidas o usuario inactivo',
+      );
     }
 
     const payload = {

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { Prisma, TipoMovimientoInventario } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -6,13 +10,33 @@ import { PrismaService } from '../prisma/prisma.service';
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getStock(sucursalId: string, empresaId: string, page = 1, limit = 20, search = '', incluirInactivos = false) {
+  async getStock(
+    sucursalId: string,
+    empresaId: string,
+    page = 1,
+    limit = 20,
+    search = '',
+    incluirInactivos = false,
+  ) {
     let whereClause: Prisma.InventarioSucursalWhereInput = { sucursalId };
-    
+
     if (sucursalId === 'all') {
-      const sucursales = await this.prisma.sucursal.findMany({ where: { empresaId } });
-      if (sucursales.length === 0) return { data: [], meta: { total: 0, page: 1, limit, totalPages: 0, hasNextPage: false, hasPrevPage: false } };
-      whereClause = { sucursalId: { in: sucursales.map(s => s.id) } };
+      const sucursales = await this.prisma.sucursal.findMany({
+        where: { empresaId },
+      });
+      if (sucursales.length === 0)
+        return {
+          data: [],
+          meta: {
+            total: 0,
+            page: 1,
+            limit,
+            totalPages: 0,
+            hasNextPage: false,
+            hasPrevPage: false,
+          },
+        };
+      whereClause = { sucursalId: { in: sucursales.map((s) => s.id) } };
     } else {
       const sucursal = await this.prisma.sucursal.findFirst({
         where: { id: sucursalId, empresaId },
@@ -27,8 +51,8 @@ export class InventoryService {
         OR: [
           { nombre: { contains: search, mode: 'insensitive' as const } },
           { codigoBarras: { contains: search, mode: 'insensitive' as const } },
-          { codigoInterno: { contains: search, mode: 'insensitive' as const } }
-        ]
+          { codigoInterno: { contains: search, mode: 'insensitive' as const } },
+        ],
       };
       if (!incluirInactivos) {
         whereClause.producto.estaActivo = true;
@@ -50,7 +74,7 @@ export class InventoryService {
         },
         skip,
         take: limitSafe,
-      })
+      }),
     ]);
 
     const totalPages = Math.ceil(total / limitSafe);
@@ -69,9 +93,14 @@ export class InventoryService {
   }
 
   async adjustStock(
-    data: { productoId: string; sucursalId: string; cantidad: number; motivo: string },
+    data: {
+      productoId: string;
+      sucursalId: string;
+      cantidad: number;
+      motivo: string;
+    },
     empresaId: string,
-    usuarioId: string
+    usuarioId: string,
   ) {
     const { productoId, cantidad, motivo } = data;
     let { sucursalId } = data;
@@ -82,7 +111,9 @@ export class InventoryService {
         where: { empresaId },
       });
       if (!primeraSuccursal) {
-        throw new NotFoundException('No se encontró ninguna sucursal para esta empresa');
+        throw new NotFoundException(
+          'No se encontró ninguna sucursal para esta empresa',
+        );
       }
       sucursalId = primeraSuccursal.id;
     }
@@ -132,9 +163,10 @@ export class InventoryService {
         });
       }
 
-      const tipoMovimiento = cantidad > 0 
-        ? TipoMovimientoInventario.ajuste_positivo 
-        : TipoMovimientoInventario.ajuste_negativo;
+      const tipoMovimiento =
+        cantidad > 0
+          ? TipoMovimientoInventario.ajuste_positivo
+          : TipoMovimientoInventario.ajuste_negativo;
 
       await tx.movimientoInventario.create({
         data: {

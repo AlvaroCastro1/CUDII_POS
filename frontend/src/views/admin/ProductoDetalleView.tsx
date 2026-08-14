@@ -91,13 +91,13 @@ interface ProductoDetalle {
 // Colores de tipos de movimiento
 // ============================================================
 const COLORES_MOVIMIENTO: Record<string, { bg: string; text: string; label: string }> = {
-  venta:             { bg: 'bg-blue-500/10',   text: 'text-blue-600',   label: 'Venta' },
+  venta:             { bg: 'bg-primary/10',   text: 'text-primary',   label: 'Venta' },
   devolucion_venta:  { bg: 'bg-purple-500/10', text: 'text-purple-600', label: 'Devolución' },
-  ajuste_positivo:   { bg: 'bg-green-500/10',  text: 'text-green-600',  label: 'Entrada' },
-  ajuste_negativo:   { bg: 'bg-red-500/10',    text: 'text-red-600',    label: 'Salida' },
-  traspaso_salida:   { bg: 'bg-amber-500/10',  text: 'text-amber-600',  label: 'Traspaso salida' },
+  ajuste_positivo:   { bg: 'bg-success/10',  text: 'text-success',  label: 'Entrada' },
+  ajuste_negativo:   { bg: 'bg-error/10',    text: 'text-error',    label: 'Salida' },
+  traspaso_salida:   { bg: 'bg-warning/10',  text: 'text-warning',  label: 'Traspaso salida' },
   traspaso_entrada:  { bg: 'bg-teal-500/10',   text: 'text-teal-600',   label: 'Traspaso entrada' },
-  compra:            { bg: 'bg-emerald-500/10', text: 'text-emerald-600', label: 'Compra' },
+  compra:            { bg: 'bg-success/10', text: 'text-success', label: 'Compra' },
   apertura_inicial:  { bg: 'bg-gray-500/10',   text: 'text-gray-500',   label: 'Inicial' },
 };
 
@@ -191,9 +191,9 @@ export default function ProductoDetalleView() {
       {/* ===================== TARJETAS DE INDICADORES ===================== */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Stock total */}
-        <div className={`rounded-xl p-4 border ${stockTotal <= 0 ? 'bg-red-500/5 border-red-500/20' : 'bg-surface border-on-surface/10'}`}>
+        <div className={`rounded-xl p-4 border ${stockTotal <= 0 ? 'bg-error/5 border-error/20' : 'bg-surface border-on-surface/10'}`}>
           <p className="text-xs text-on-surface-variant mb-1 uppercase tracking-wide font-semibold">Stock Total</p>
-          <p className={`text-3xl font-bold font-display-lg ${stockTotal <= 0 ? 'text-red-600' : 'text-on-surface'}`}>
+          <p className={`text-3xl font-bold font-display-lg ${stockTotal <= 0 ? 'text-error' : 'text-on-surface'}`}>
             {stockTotal.toLocaleString('es-MX')}
           </p>
           <p className="text-xs text-on-surface-variant mt-1">{producto.unidadMedida.toLowerCase()}{stockTotal !== 1 ? 's' : ''} en {producto.inventario.length} sucursal(es)</p>
@@ -215,9 +215,9 @@ export default function ProductoDetalleView() {
           <p className="text-xs text-on-surface-variant mt-1">costo unitario</p>
         </div>
         {/* Margen */}
-        <div className={`rounded-xl p-4 border ${margen === null ? 'bg-surface border-on-surface/10' : margen >= 0 ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}`}>
+        <div className={`rounded-xl p-4 border ${margen === null ? 'bg-surface border-on-surface/10' : margen >= 0 ? 'bg-success/5 border-success/20' : 'bg-error/5 border-error/20'}`}>
           <p className="text-xs text-on-surface-variant mb-1 uppercase tracking-wide font-semibold">Margen</p>
-          <p className={`text-3xl font-bold font-display-lg ${margen === null ? 'text-on-surface' : margen >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <p className={`text-3xl font-bold font-display-lg ${margen === null ? 'text-on-surface' : margen >= 0 ? 'text-success' : 'text-error'}`}>
             {margen !== null ? `${margen.toFixed(1)}%` : 'N/A'}
           </p>
           {margen !== null && (
@@ -270,7 +270,7 @@ export default function ProductoDetalleView() {
                   <p className="text-xs text-on-surface-variant">Desde {pp.cantidadMinima} unidades</p>
                   {margenPP !== null && (
                     <div className="pt-1 mt-1 border-t border-on-surface/5">
-                      <p className={`text-xs font-semibold ${margenPP >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <p className={`text-xs font-semibold ${margenPP >= 0 ? 'text-success' : 'text-error'}`}>
                         Margen: {margenPP.toFixed(1)}%
                       </p>
                       <TooltipProvider>
@@ -309,12 +309,12 @@ export default function ProductoDetalleView() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {producto.inventario.map(inv => (
-              <div key={inv.id} className={`rounded-xl p-3 border space-y-1 ${inv.stockActual <= inv.stockMinimo ? 'border-red-500/30 bg-red-500/5' : 'border-on-surface/10 bg-surface-variant/30'}`}>
+              <div key={inv.id} className={`rounded-xl p-3 border space-y-1 ${inv.stockActual <= inv.stockMinimo ? 'border-error/30 bg-error/5' : 'border-on-surface/10 bg-surface-variant/30'}`}>
                 <p className="text-sm font-semibold text-on-surface">{inv.sucursal.nombre}</p>
                 <p className="text-2xl font-bold text-on-surface">{inv.stockActual}</p>
                 <p className="text-xs text-on-surface-variant">Mín: {inv.stockMinimo} | Máx: {inv.stockMaximo}</p>
                 {inv.stockActual <= inv.stockMinimo && (
-                  <p className="text-xs text-red-600 font-semibold">⚠ Stock bajo</p>
+                  <p className="text-xs text-error font-semibold">⚠ Stock bajo</p>
                 )}
               </div>
             ))}
@@ -358,7 +358,7 @@ export default function ProductoDetalleView() {
                       ${h.precioAnterior.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
-                      <span className={h.precioNuevo > h.precioAnterior ? 'text-green-600' : h.precioNuevo < h.precioAnterior ? 'text-red-600' : 'text-on-surface'}>
+                      <span className={h.precioNuevo > h.precioAnterior ? 'text-success' : h.precioNuevo < h.precioAnterior ? 'text-error' : 'text-on-surface'}>
                         ${h.precioNuevo.toFixed(2)}
                         {h.precioNuevo > h.precioAnterior ? ' ▲' : h.precioNuevo < h.precioAnterior ? ' ▼' : ''}
                       </span>
@@ -409,7 +409,7 @@ export default function ProductoDetalleView() {
                           {col.label}
                         </span>
                       </TableCell>
-                      <TableCell className={`text-right font-semibold ${m.tipo.includes('positivo') || m.tipo.includes('entrada') || m.tipo === 'compra' || m.tipo === 'devolucion_venta' || m.tipo === 'apertura_inicial' ? 'text-green-600' : 'text-red-600'}`}>
+                      <TableCell className={`text-right font-semibold ${m.tipo.includes('positivo') || m.tipo.includes('entrada') || m.tipo === 'compra' || m.tipo === 'devolucion_venta' || m.tipo === 'apertura_inicial' ? 'text-success' : 'text-error'}`}>
                         {m.tipo.includes('positivo') || m.tipo.includes('entrada') || m.tipo === 'compra' || m.tipo === 'devolucion_venta' || m.tipo === 'apertura_inicial' ? '+' : '-'}{m.cantidad}
                       </TableCell>
                       <TableCell className="text-right text-on-surface-variant">{m.stockAnterior}</TableCell>

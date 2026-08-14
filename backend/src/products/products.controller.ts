@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -16,8 +26,15 @@ export class ProductsController {
 
   @Post()
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.ALMACEN)
-  create(@Body() createProductDto: CreateProductDto, @CurrentUser() user: CurrentUserPayload) {
-    return this.productsService.create(createProductDto, user.empresaId, user.id);
+  create(
+    @Body() createProductDto: CreateProductDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.productsService.create(
+      createProductDto,
+      user.empresaId,
+      user.id,
+    );
   }
 
   @Get('search')
@@ -25,7 +42,7 @@ export class ProductsController {
   search(
     @Query('q') q: string = '',
     @Query('limit') limit: string = '10',
-    @CurrentUser() user: CurrentUserPayload
+    @CurrentUser() user: CurrentUserPayload,
   ) {
     return this.productsService.search(q, parseInt(limit, 10), user.empresaId);
   }
@@ -38,15 +55,15 @@ export class ProductsController {
     @Query('search') search: string = '',
     @Query('categoriaId') categoriaId: string = '',
     @Query('incluirInactivos') incluirInactivos: string = 'false',
-    @CurrentUser() user: CurrentUserPayload
+    @CurrentUser() user: CurrentUserPayload,
   ) {
     return this.productsService.findAll(
-      user.empresaId, 
-      parseInt(page, 10), 
-      parseInt(limit, 10), 
-      search, 
+      user.empresaId,
+      parseInt(page, 10),
+      parseInt(limit, 10),
+      search,
       categoriaId,
-      incluirInactivos === 'true'
+      incluirInactivos === 'true',
     );
   }
 
@@ -58,8 +75,17 @@ export class ProductsController {
 
   @Patch(':id')
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.ALMACEN)
-  update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto, @CurrentUser() user: CurrentUserPayload) {
-    return this.productsService.update(id, updateProductDto, user.empresaId, user.id);
+  update(
+    @Param('id') id: string,
+    @Body() updateProductDto: UpdateProductDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.productsService.update(
+      id,
+      updateProductDto,
+      user.empresaId,
+      user.id,
+    );
   }
 
   @Delete(':id')

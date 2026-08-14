@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -16,7 +26,10 @@ export class UsersController {
 
   @Post()
   @Roles(Rol.ADMIN) // Solo el administrador de la empresa puede crear usuarios
-  create(@Body() createUserDto: CreateUserDto, @CurrentUser() user: CurrentUserPayload) {
+  create(
+    @Body() createUserDto: CreateUserDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     return this.usersService.create(createUserDto, user.empresaId);
   }
 
@@ -27,15 +40,26 @@ export class UsersController {
     @Query('limit') limit: string = '20',
     @Query('search') search: string = '',
     @Query('incluirInactivos') incluirInactivos: string = 'false',
-    @CurrentUser() user: CurrentUserPayload
+    @CurrentUser() user: CurrentUserPayload,
   ) {
     return this.usersService.findAll(
-      user.empresaId, 
-      parseInt(page, 10), 
-      parseInt(limit, 10), 
+      user.empresaId,
+      parseInt(page, 10),
+      parseInt(limit, 10),
       search,
-      incluirInactivos === 'true'
+      incluirInactivos === 'true',
     );
+  }
+
+  /**
+   * Listar usuarios autorizadores (SUPER_ADMIN, ADMIN, GERENTE) de la empresa.
+   * Cualquier usuario autenticado de la empresa puede consultarlo
+   * (necesario para el flujo de autorización de faltantes críticos en POS).
+   * GET /users/authorizers
+   */
+  @Get('authorizers')
+  findAuthorizers(@CurrentUser() user: CurrentUserPayload) {
+    return this.usersService.findAuthorizers(user.empresaId);
   }
 
   @Get(':id')
@@ -45,7 +69,10 @@ export class UsersController {
   }
 
   @Patch('profile/me')
-  updateProfile(@Body() updateUserDto: UpdateUserDto, @CurrentUser() user: CurrentUserPayload) {
+  updateProfile(
+    @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     // Evitar escalada de privilegios
     delete updateUserDto.rol;
     delete updateUserDto.estaActivo;
@@ -54,7 +81,11 @@ export class UsersController {
 
   @Patch(':id')
   @Roles(Rol.ADMIN)
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @CurrentUser() user: CurrentUserPayload) {
+  update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
     return this.usersService.update(id, updateUserDto, user.empresaId);
   }
 
