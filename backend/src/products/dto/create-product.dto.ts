@@ -70,7 +70,7 @@ export class CreateProductDto {
 
   @IsBoolean()
   @IsOptional()
-  requiereLote?: boolean;
+  tieneCaducidad?: boolean;
 
   @IsBoolean()
   @IsOptional()

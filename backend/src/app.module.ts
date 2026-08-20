@@ -14,6 +14,7 @@ import { ReturnsModule } from './returns/returns.module';
 import { CompanySettingsModule } from './company-settings/company-settings.module';
 import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { MermaModule } from './merma/merma.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     SalesModule,
     ReturnsModule,
     CompanySettingsModule,
+    MermaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

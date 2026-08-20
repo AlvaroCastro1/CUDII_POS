@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Empresa" ADD COLUMN "stockMinimoGlobal" INTEGER NOT NULL DEFAULT 5;
+ALTER TABLE "Empresa" ADD COLUMN "stockMaximoGlobal" INTEGER NOT NULL DEFAULT 100;

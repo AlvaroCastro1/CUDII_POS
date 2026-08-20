@@ -19,6 +19,8 @@ export class CompanySettingsService {
         nombre: true,
         modoCorteZ: true,
         umbralFaltanteCritico: true,
+        stockMinimoGlobal: true,
+        stockMaximoGlobal: true,
       },
     });
 
@@ -53,12 +55,20 @@ export class CompanySettingsService {
         ...(dto.umbralFaltanteCritico !== undefined
           ? { umbralFaltanteCritico: dto.umbralFaltanteCritico }
           : {}),
+        ...(dto.stockMinimoGlobal !== undefined
+          ? { stockMinimoGlobal: dto.stockMinimoGlobal }
+          : {}),
+        ...(dto.stockMaximoGlobal !== undefined
+          ? { stockMaximoGlobal: dto.stockMaximoGlobal }
+          : {}),
       },
       select: {
         id: true,
         nombre: true,
         modoCorteZ: true,
         umbralFaltanteCritico: true,
+        stockMinimoGlobal: true,
+        stockMaximoGlobal: true,
       },
     });
   }

@@ -39,6 +39,8 @@ interface ConfiguracionEmpresa {
   nombre: string;
   modoCorteZ: 'ciego' | 'abierto';
   umbralFaltanteCritico: number;
+  stockMinimoGlobal: number;
+  stockMaximoGlobal: number;
 }
 
 type ModoCorteZ = 'ciego' | 'abierto';
@@ -101,6 +103,8 @@ export default function ConfiguracionView() {
   const [configuracion, setConfiguracion] = useState<ConfiguracionEmpresa | null>(null);
   const [modoCorteZ, setModoCorteZ] = useState<ModoCorteZ>('ciego');
   const [umbralFaltanteCritico, setUmbralFaltanteCritico] = useState<number>(50);
+  const [stockMinimoGlobal, setStockMinimoGlobal] = useState<number>(5);
+  const [stockMaximoGlobal, setStockMaximoGlobal] = useState<number>(100);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isGuardandoYSalir, setIsGuardandoYSalir] = useState(false);
@@ -114,6 +118,8 @@ export default function ConfiguracionView() {
         setConfiguracion(res.data);
         setModoCorteZ(res.data.modoCorteZ);
         setUmbralFaltanteCritico(res.data.umbralFaltanteCritico ?? 50);
+        setStockMinimoGlobal(res.data.stockMinimoGlobal ?? 5);
+        setStockMaximoGlobal(res.data.stockMaximoGlobal ?? 100);
       } catch (error: unknown) {
         if (axios.isAxiosError(error)) {
           toast.error(
@@ -133,7 +139,9 @@ export default function ConfiguracionView() {
   const guardarCambios = async (): Promise<boolean> => {
     if (
       modoCorteZ === configuracion?.modoCorteZ &&
-      umbralFaltanteCritico === configuracion?.umbralFaltanteCritico
+      umbralFaltanteCritico === configuracion?.umbralFaltanteCritico &&
+      stockMinimoGlobal === configuracion?.stockMinimoGlobal &&
+      stockMaximoGlobal === configuracion?.stockMaximoGlobal
     ) {
       toast.info('No hay cambios para guardar');
       return true;
@@ -144,10 +152,14 @@ export default function ConfiguracionView() {
       const res = await api.patch<ConfiguracionEmpresa>('/company-settings', {
         modoCorteZ,
         umbralFaltanteCritico,
+        stockMinimoGlobal,
+        stockMaximoGlobal,
       });
       setConfiguracion(res.data);
       setModoCorteZ(res.data.modoCorteZ);
       setUmbralFaltanteCritico(res.data.umbralFaltanteCritico);
+      setStockMinimoGlobal(res.data.stockMinimoGlobal);
+      setStockMaximoGlobal(res.data.stockMaximoGlobal);
       toast.success('Configuración guardada correctamente');
       return true;
     } catch (error: unknown) {
@@ -176,7 +188,9 @@ export default function ConfiguracionView() {
   const hayCambiosSinGuardar =
     configuracion !== null &&
     (modoCorteZ !== configuracion.modoCorteZ ||
-      umbralFaltanteCritico !== configuracion.umbralFaltanteCritico);
+      umbralFaltanteCritico !== configuracion.umbralFaltanteCritico ||
+      stockMinimoGlobal !== configuracion.stockMinimoGlobal ||
+      stockMaximoGlobal !== configuracion.stockMaximoGlobal);
 
   const blocker = useBlocker(hayCambiosSinGuardar);
   const bloquearSalida = blocker.state === 'blocked';
@@ -453,6 +467,85 @@ export default function ConfiguracionView() {
                   <strong className="text-error">crítico</strong> y requerirá la autorización de un
                   Administrador o Gerente para cerrar el turno. Faltantes menores se registran con
                   aviso (warning) y solo requieren una justificación en las notas.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* ── Sección: Control de Inventario ────────────────────── */}
+          <section className="bg-surface border border-outline/10 rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-outline/10">
+              <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined !text-[20px] text-teal-600">inventory_2</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-bold text-lg text-on-background font-headline-md">
+                  Control de Inventario
+                </h2>
+                <p className="text-xs text-outline font-label-sm mt-0.5">
+                  Límites de stock global que se aplican por defecto al crear productos nuevos.
+                </p>
+              </div>
+              <AyudaTooltip etiqueta="¿Qué es?">
+                <p className="font-semibold text-sm">Límites de Stock Global</p>
+                <p className="text-xs text-on-surface-variant leading-relaxed">
+                  Son los valores por defecto que se asignan al <strong>stock mínimo</strong> y <strong>stock máximo</strong> de cada producto nuevo que crees. Puedes modificarlos después en el detalle de cada producto.
+                </p>
+              </AyudaTooltip>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <Label htmlFor="stock-minimo-global">Stock Mínimo (default)</Label>
+                    <AyudaTooltip etiqueta="¿Cómo se usa?">
+                      <p className="font-semibold text-sm">Stock Mínimo Global</p>
+                      <p className="text-xs text-on-surface-variant leading-relaxed">
+                        Cantidad mínima en inventario. Cuando el stock de un producto llega a este nivel, se activan alertas de reabastecimiento.
+                      </p>
+                    </AyudaTooltip>
+                  </div>
+                  <Input
+                    id="stock-minimo-global"
+                    type="number"
+                    min={0}
+                    step="1"
+                    value={stockMinimoGlobal}
+                    onChange={(e) => setStockMinimoGlobal(parseInt(e.target.value) || 0)}
+                  />
+                  <p className="text-xs text-on-surface-variant font-label-sm leading-relaxed">
+                    Se aplica a productos nuevos. Los existentes conservan su valor.
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <Label htmlFor="stock-maximo-global">Stock Máximo (default)</Label>
+                    <AyudaTooltip etiqueta="¿Cómo se usa?">
+                      <p className="font-semibold text-sm">Stock Máximo Global</p>
+                      <p className="text-xs text-on-surface-variant leading-relaxed">
+                        Cantidad máxima en inventario. Ayuda a controlar el espacio de bodega y evitar sobrestock.
+                      </p>
+                    </AyudaTooltip>
+                  </div>
+                  <Input
+                    id="stock-maximo-global"
+                    type="number"
+                    min={1}
+                    step="1"
+                    value={stockMaximoGlobal}
+                    onChange={(e) => setStockMaximoGlobal(parseInt(e.target.value) || 1)}
+                  />
+                  <p className="text-xs text-on-surface-variant font-label-sm leading-relaxed">
+                    Se aplica a productos nuevos. Los existentes conservan su valor.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex gap-3">
+                <div className="text-primary shrink-0">ℹ</div>
+                <p className="text-xs text-on-surface-variant font-label-sm leading-relaxed">
+                  Estos valores son <strong className="text-on-surface">predeterminados</strong>. Puedes ajustar el stock mínimo y máximo de cada producto individualmente desde su detalle o desde la vista de inventario.
                 </p>
               </div>
             </div>

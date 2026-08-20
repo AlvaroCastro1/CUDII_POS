@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,8 @@ import { TrendingUp, TrendingDown, SlidersHorizontal } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { Switch } from '@/components/ui/switch';
+import { RecepcionMercanciaModal } from '@/components/admin/RecepcionMercanciaModal';
+import type { Lote, VencimientoInfo } from '@/types/pos';
 
 // ============================================================
 // Catálogo de motivos de ajuste pre-definidos para el usuario
@@ -40,6 +43,9 @@ interface ProductoBusqueda {
   codigoInterno?: string;
   unidadMedida: string;
   esGranel: boolean;
+  tieneCaducidad?: boolean;
+  manejaInventario?: boolean;
+  precioCompra?: number;
   estaActivo?: boolean;
 }
 
@@ -50,6 +56,7 @@ interface InventarioItem {
   stockActual: number;
   stockMinimo: number;
   stockMaximo: number;
+  ultimoMovimiento?: string;
   producto: ProductoBusqueda;
   sucursal: Sucursal;
 }
@@ -58,12 +65,19 @@ interface InventarioItem {
 // Vista principal: Control de Inventario
 // ============================================================
 export default function InventarioView() {
+  const navigate = useNavigate();
   const [inventario, setInventario] = useState<InventarioItem[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [incluirInactivos, setIncluirInactivos] = useState(false);
   const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(20);
+
+  // Recepción de mercancía (GRN)
+  const [isRecepcionOpen, setIsRecepcionOpen] = useState(false);
+
+  // Widget de lotes por vencer
+  const [vencimientos, setVencimientos] = useState<VencimientoInfo | null>(null);
 
   // Control del modal de ajuste
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -83,9 +97,17 @@ export default function InventarioView() {
     cantidad: '',
     motivo: '',
     motivoPersonalizado: '',
+    loteId: '',
+    esMerma: false,
+    motivoMerma: 'otro' as string,
+    costoUnitario: '',
+    fechaCaducidad: '',
   };
   const [formData, setFormData] = useState(initialForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Lotes activos del producto seleccionado (para salidas con lote)
+  const [lotesProducto, setLotesProducto] = useState<Lote[]>([]);
 
   // Derivados
   const productoSeleccionado = resultadosBusqueda.find((p: ProductoBusqueda) => p.id === formData.productoId) 
@@ -170,13 +192,19 @@ export default function InventarioView() {
 
       await api.post('/inventory/adjust', {
         productoId: formData.productoId,
-        sucursalId: formData.sucursalId || '', // El backend resuelve si viene vacío
+        sucursalId: formData.sucursalId || '',
         cantidad: cantidadFinal,
         motivo: motivoFinal,
+        loteId: formData.loteId || undefined,
+        esMerma: tipoAjuste === 'salida' ? formData.esMerma : undefined,
+        motivoMerma: formData.esMerma ? formData.motivoMerma : undefined,
+        costoUnitario: tipoAjuste === 'entrada' && formData.costoUnitario ? parseFloat(formData.costoUnitario) : undefined,
+        fechaCaducidad: tipoAjuste === 'entrada' && formData.fechaCaducidad ? formData.fechaCaducidad : undefined,
       });
       toast.success(`Stock ${tipoAjuste === 'entrada' ? 'ingresado' : 'retirado'} exitosamente`);
       handleCerrarModal();
       fetchData();
+      fetchVencimientos();
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         toast.error(error.response?.data?.message || 'Error al registrar ajuste');
@@ -212,9 +240,52 @@ export default function InventarioView() {
     setFormData(initialForm);
   };
 
+  // ----------------------------------------------------------------
+  // Widget de vencimientos
+  // ----------------------------------------------------------------
+  const fetchVencimientos = useCallback(async () => {
+    try {
+      const res = await api.get('/inventory/vencimientos');
+      setVencimientos(res.data);
+    } catch {
+      setVencimientos(null);
+    }
+  }, []);
+
+  // Cargar lotes activos cuando se selecciona un producto para salida
+  useEffect(() => {
+    if (tipoAjuste !== 'salida' || !formData.productoId) {
+      setLotesProducto([]);
+      return;
+    }
+    let activo = true;
+    const sucursalResuelta =
+      formData.sucursalId || sucursales[0]?.id || '';
+    api
+      .get('/inventory/lotes', {
+        params: {
+          productoId: formData.productoId,
+          estado: 'activo',
+          sucursalId: sucursalResuelta || undefined,
+          limit: 50,
+        },
+      })
+      .then((res) => {
+        if (!activo) return;
+        setLotesProducto((res.data.data || []).filter((l: Lote) => l.cantidadRestante > 0));
+      })
+      .catch(() => {
+        if (activo) setLotesProducto([]);
+      });
+    return () => {
+      activo = false;
+    };
+  }, [tipoAjuste, formData.productoId, formData.sucursalId, sucursales]);
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchVencimientos();
+  }, [fetchData, fetchVencimientos]);
 
   const motivosActuales = tipoAjuste === 'entrada' ? MOTIVOS_ENTRADA : MOTIVOS_SALIDA;
 
@@ -223,12 +294,76 @@ export default function InventarioView() {
 
       {/* ===================== ENCABEZADO ===================== */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold font-display-lg text-on-background">Control de Inventario</h1>
-        <Button onClick={() => openAdjustModal()}>
-          <SlidersHorizontal className="mr-2 w-4 h-4" />
-          Ajuste de Stock
-        </Button>
+        <div>
+          <h1 className="text-2xl font-bold font-display-lg text-on-background">Stock por Producto</h1>
+          <p className="text-sm text-on-surface-variant mt-0.5">Consulta el inventario actual, recepciones y ajustes de stock.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setIsRecepcionOpen(true)}>
+            <span className="material-symbols-outlined mr-2 !text-[18px]">move_to_inbox</span>
+            Recepción de Mercancía
+          </Button>
+          <Button onClick={() => openAdjustModal()}>
+            <SlidersHorizontal className="mr-2 w-4 h-4" />
+            Ajuste de Stock
+          </Button>
+        </div>
       </div>
+
+      {/* ===================== WIDGET LOTES POR VENCER ===================== */}
+      {(vencimientos && (vencimientos.porVencer.length > 0 || vencimientos.vencidos.length > 0)) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+          <button
+            type="button"
+            onClick={() => navigate('/admin/lotes')}
+            className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 flex items-center gap-3 text-left hover:bg-yellow-500/10 transition-colors"
+          >
+            <span className="material-symbols-outlined !text-[28px] text-yellow-600">schedule</span>
+            <div>
+              <p className="text-sm font-bold text-on-surface">
+                {vencimientos.porVencer.length} lote{vencimientos.porVencer.length !== 1 ? 's' : ''} por vencer
+              </p>
+              <p className="text-xs text-on-surface-variant">
+                En los próximos {vencimientos.diasPreaviso || 30} días
+              </p>
+            </div>
+            <span className="ml-auto font-bold text-sm text-yellow-600">
+              ${(vencimientos.valorPorVencer || 0).toFixed(2)}
+            </span>
+          </button>
+          {vencimientos.vencidos.length > 0 && (
+            <button
+              type="button"
+              onClick={() => navigate('/admin/lotes')}
+              className="rounded-xl border border-error/30 bg-error/5 p-4 flex items-center gap-3 text-left hover:bg-error/10 transition-colors"
+            >
+              <span className="material-symbols-outlined !text-[28px] text-error">warning</span>
+              <div>
+                <p className="text-sm font-bold text-on-surface">
+                  {vencimientos.vencidos.length} lote{vencimientos.vencidos.length !== 1 ? 's' : ''} vencido{vencimientos.vencidos.length !== 1 ? 's' : ''}
+                </p>
+                <p className="text-xs text-on-surface-variant">
+                  Registra la merma correspondiente
+                </p>
+              </div>
+              <span className="ml-auto font-bold text-sm text-error">
+                ${(vencimientos.valorVencidos || 0).toFixed(2)}
+              </span>
+            </button>
+          )}
+        </div>
+      )}
+
+      <RecepcionMercanciaModal
+        isOpen={isRecepcionOpen}
+        onClose={() => setIsRecepcionOpen(false)}
+        onSuccess={() => {
+          fetchData();
+          fetchVencimientos();
+        }}
+        sucursales={sucursales}
+        sucursalDefaultId={sucursales[0]?.id || ''}
+      />
 
       {/* ===================== MODAL DE AJUSTE ===================== */}
       <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open) handleCerrarModal(); }}>
@@ -471,6 +606,112 @@ export default function InventarioView() {
                     )}
                   </div>
 
+                  {/* Campos para entradas con trazabilidad */}
+                  {tipoAjuste === 'entrada' && productoSeleccionado?.manejaInventario && (
+                    <div className="space-y-3 rounded-xl border border-outline/20 p-3">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined !text-[18px] text-primary">inventory_2</span>
+                        <p className="text-sm font-semibold text-primary">Trazabilidad del lote</p>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="costoUnitario">Costo unitario</Label>
+                        <Input
+                          id="costoUnitario"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.costoUnitario}
+                          onChange={(e) => setFormData({ ...formData, costoUnitario: e.target.value })}
+                          placeholder={productoSeleccionado?.precioCompra?.toString() || '0'}
+                        />
+                        <p className="text-xs text-on-surface-variant">
+                          Se usara el precio de compra del producto si se omite.
+                        </p>
+                      </div>
+                      {productoSeleccionado?.tieneCaducidad && (
+                        <div className="grid gap-2">
+                          <Label htmlFor="fechaCaducidadEntrada">
+                            Fecha de caducidad <span className="text-error">*</span>
+                          </Label>
+                          <Input
+                            id="fechaCaducidadEntrada"
+                            type="date"
+                            value={formData.fechaCaducidad}
+                            onChange={(e) => setFormData({ ...formData, fechaCaducidad: e.target.value })}
+                            className="h-9 text-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Lote y merma para salidas */}
+                  {tipoAjuste === 'salida' && productoSeleccionado?.manejaInventario && (
+                    <div className="space-y-3 rounded-xl border border-outline/20 p-3">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined !text-[18px] text-primary">inventory_2</span>
+                        <p className="text-sm font-semibold text-primary">Control por lote</p>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Lote a descontar</Label>
+                        <Select
+                          value={formData.loteId}
+                          onValueChange={(v) => setFormData({ ...formData, loteId: v })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={lotesProducto.length > 0 ? 'Selecciona el lote (o FEFO automático)' : 'Sin lotes activos disponibles'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {lotesProducto.map((lote) => (
+                              <SelectItem key={lote.id} value={lote.id}>
+                                {lote.codigoLote} — {lote.cantidadRestante} disp.
+                                {lote.fechaCaducidad ? ` · vence ${new Date(lote.fechaCaducidad).toLocaleDateString()}` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-on-surface-variant">
+                          Si no eliges lote, el sistema usa la rotación del producto (FEFO/FIFO).
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-on-surface">Registrar como merma</p>
+                          <p className="text-xs text-on-surface-variant">
+                            Marca esta opción para caducidad, daño, robo o pérdida.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={formData.esMerma}
+                          onCheckedChange={(checked: boolean) =>
+                            setFormData({ ...formData, esMerma: checked })
+                          }
+                        />
+                      </div>
+                      {formData.esMerma && (
+                        <div className="grid gap-2">
+                          <Label className="text-xs">Motivo de la merma</Label>
+                          <Select
+                            value={formData.motivoMerma}
+                            onValueChange={(v) => setFormData({ ...formData, motivoMerma: v })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="caducado">Caducado</SelectItem>
+                              <SelectItem value="danado">Dañado</SelectItem>
+                              <SelectItem value="robo">Robo / Hurto</SelectItem>
+                              <SelectItem value="perdida">Pérdida</SelectItem>
+                              <SelectItem value="error">Error de captura</SelectItem>
+                              <SelectItem value="otro">Otro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="grid gap-2">
                     <Label>Motivo del ajuste <span className="text-error">*</span></Label>
                     <p className="text-xs text-on-surface-variant -mt-1">
@@ -617,19 +858,22 @@ export default function InventarioView() {
               <TableHead>Código / SKU</TableHead>
               <TableHead>Unidad</TableHead>
               <TableHead className="text-right">Stock Actual</TableHead>
+              <TableHead className="text-right">Mín</TableHead>
+              <TableHead className="text-right">Máx</TableHead>
+              <TableHead>Último movimiento</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-6 text-on-surface-variant">
+                <TableCell colSpan={8} className="text-center py-6 text-on-surface-variant">
                   Cargando inventario...
                 </TableCell>
               </TableRow>
             ) : inventarioFiltrado.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-64">
+                <TableCell colSpan={8} className="h-64">
                   <div className="flex flex-col items-center justify-center h-full text-on-surface-variant">
                     <span className="material-symbols-outlined !text-[64px] mb-4 opacity-30">inventory</span>
                     <p className="text-lg font-medium">
@@ -645,8 +889,9 @@ export default function InventarioView() {
               </TableRow>
             ) : (
               inventarioFiltrado.map((inv: InventarioItem) => {
-                const stockBajo = inv.stockActual > 0 && inv.stockActual <= 5;
+                const stockBajo = inv.stockActual > 0 && inv.stockActual <= inv.stockMinimo;
                 const sinStock = inv.stockActual === 0;
+                const porDebajoMinimo = inv.stockActual <= inv.stockMinimo;
                 return (
                   <TableRow key={inv.id} className={inv.producto && !inv.producto.estaActivo ? "opacity-50" : ""}>
                     <TableCell className="font-medium">
@@ -662,17 +907,31 @@ export default function InventarioView() {
                       {inv.producto?.unidadMedida}
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className={`font-bold px-2 py-0.5 rounded-full text-sm ${
+                      <span className={`inline-flex items-center gap-1.5 font-bold px-2 py-0.5 rounded-full text-sm ${
                         sinStock
                           ? 'bg-error/10 text-error'
                           : stockBajo
                           ? 'bg-yellow-500/10 text-yellow-600'
                           : 'text-on-surface'
                       }`}>
+                        {porDebajoMinimo && (
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sinStock ? 'bg-error' : 'bg-yellow-500'}`} />
+                        )}
                         {inv.stockActual}
                         {sinStock && <span className="ml-1 text-xs font-normal">Sin stock</span>}
                         {stockBajo && <span className="ml-1 text-xs font-normal">Stock bajo</span>}
                       </span>
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-on-surface-variant">
+                      {inv.stockMinimo}
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-on-surface-variant">
+                      {inv.stockMaximo}
+                    </TableCell>
+                    <TableCell className="text-sm text-on-surface-variant">
+                      {inv.ultimoMovimiento
+                        ? new Date(inv.ultimoMovimiento).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: '2-digit' })
+                        : '—'}
                     </TableCell>
                     <TableCell className="text-right">
                       {inv.producto && inv.producto.estaActivo ? (

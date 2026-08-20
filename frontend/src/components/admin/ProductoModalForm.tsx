@@ -8,6 +8,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // ============================================================
 // Interfaces
@@ -39,6 +41,9 @@ export interface Producto {
   unidadMedida: string;
   esGranel: boolean;
   estaActivo: boolean;
+  tieneCaducidad?: boolean;
+  manejaInventario?: boolean;
+  metodoRotacion?: 'FIFO' | 'FEFO';
   categorias: Categoria[];
   preciosPorUnidad: PrecioUnidad[];
 }
@@ -144,6 +149,9 @@ const initialFormState = {
   unidadMedida: '',
   precioCompra: '',
   precioVentaBase: '',
+  tieneCaducidad: false,
+  manejaInventario: true,
+  metodoRotacion: 'FEFO' as 'FIFO' | 'FEFO',
 };
 
 interface ProductoModalFormProps {
@@ -181,6 +189,11 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
           unidadMedida: editingProduct.unidadMedida || '',
           precioCompra: editingProduct.precioCompra?.toString() || '',
           precioVentaBase: editingProduct.precioVentaBase?.toString() || '',
+          tieneCaducidad: editingProduct.tieneCaducidad || false,
+          manejaInventario:
+            editingProduct.manejaInventario ??
+            editingProduct.unidadMedida !== 'SERVICIO',
+          metodoRotacion: editingProduct.metodoRotacion || 'FEFO',
         });
         setPreciosAdicionales(
           (editingProduct.preciosPorUnidad || []).map((pp) => ({
@@ -284,6 +297,9 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
         precioVentaBase: parseFloat(formData.precioVentaBase),
         precioCompra: parseFloat(formData.precioCompra) || 0,
         esGranel: esGranelAuto,
+        tieneCaducidad: formData.tieneCaducidad,
+        manejaInventario: formData.manejaInventario,
+        metodoRotacion: formData.metodoRotacion,
         preciosAdicionales: preciosValidos.length > 0 ? preciosValidos : undefined,
       };
 
@@ -390,7 +406,7 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                         <button
                           key={u.valor}
                           type="button"
-                          onClick={() => setFormData((prev) => ({ ...prev, unidadMedida: u.valor }))}
+                          onClick={() => setFormData((prev) => ({ ...prev, unidadMedida: u.valor, manejaInventario: u.valor !== 'SERVICIO', tieneCaducidad: u.valor === 'SERVICIO' ? false : prev.tieneCaducidad }))}
                           className={`w-full text-left p-3 rounded-xl border-2 transition-colors flex items-start gap-3 ${
                             formData.unidadMedida === u.valor
                               ? 'border-primary bg-primary/5'
@@ -662,6 +678,109 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                     <div className="flex items-start gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
                       <span className="material-symbols-outlined !text-[16px] text-primary mt-0.5">info</span>
                       <p className="text-xs text-primary">Se venderá a granel — el cajero podrá ingresar cantidades decimales.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* --- Control de inventario --- */}
+                <div className={`rounded-xl border p-4 space-y-3 transition-colors ${formData.manejaInventario && !formData.tieneCaducidad ? 'border-yellow-400/60 bg-yellow-500/5' : 'border-outline/20'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined !text-[18px] text-primary">inventory_2</span>
+                      <p className="text-sm font-semibold text-primary">Control de inventario</p>
+                    </div>
+                    {formData.manejaInventario && !formData.tieneCaducidad && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-700 border border-yellow-500/30 font-medium">
+                        Revisar caducidad
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-on-surface">Llevar inventario</p>
+                      <p className="text-xs text-on-surface-variant mt-0.5">
+                        Descuenta stock al vender. Apágalo para servicios o bajo demanda.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.manejaInventario}
+                      onCheckedChange={(checked: boolean) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          manejaInventario: checked,
+                          tieneCaducidad: checked ? prev.tieneCaducidad : false,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium text-on-surface">Tiene caducidad</p>
+                        <TooltipProvider>
+                          <Tooltip delayDuration={300}>
+                            <TooltipTrigger asChild>
+                              <span className="material-symbols-outlined !text-[14px] text-on-surface-variant cursor-help">info</span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[250px] p-3">
+                              <p className="text-xs text-on-surface-variant leading-relaxed">
+                                Si se activa, la fecha de caducidad sera obligatoria al recibir mercancía de este producto. Los productos sin caducidad igual llevan trazabilidad por lote.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <p className="text-xs text-on-surface-variant mt-0.5">
+                        Requiere fecha de vencimiento al recibir mercancía.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.tieneCaducidad}
+                      disabled={!formData.manejaInventario}
+                      onCheckedChange={(checked: boolean) =>
+                        setFormData((prev) => ({ ...prev, tieneCaducidad: checked }))
+                      }
+                    />
+                  </div>
+
+                  {formData.manejaInventario && !formData.tieneCaducidad && (
+                    <div className="flex items-start gap-2 bg-yellow-500/5 border border-yellow-500/20 rounded-lg px-3 py-2">
+                      <span className="material-symbols-outlined !text-[16px] text-yellow-600 mt-0.5">tips_and_updates</span>
+                      <p className="text-xs text-yellow-700">
+                        ¿Es un producto perecedero? Activa <strong>Tiene caducidad</strong> para que el sistema exija fecha de vencimiento al recibir mercancía y priorice lotes por FEFO.
+                      </p>
+                    </div>
+                  )}
+
+                  {formData.tieneCaducidad && (
+                    <div className="grid gap-2 pt-1">
+                      <Label className="text-xs">Rotación al vender</Label>
+                      <Select
+                        value={formData.metodoRotacion}
+                        onValueChange={(v: string) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            metodoRotacion: (v === 'FIFO' ? 'FIFO' : 'FEFO') as 'FIFO' | 'FEFO',
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="FEFO">
+                            FEFO — Primero vence, primero se vende (recomendado)
+                          </SelectItem>
+                          <SelectItem value="FIFO">
+                            FIFO — Primero entra, primero se vende
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-on-surface-variant">
+                        FEFO prioriza los lotes con menor fecha de caducidad para evitar pérdidas.
+                      </p>
                     </div>
                   )}
                 </div>

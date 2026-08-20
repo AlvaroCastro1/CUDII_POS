@@ -14,23 +14,30 @@ datasource db {
 // ---------------------------------------------------------
 
 model Empresa {
-  id                      String     @id @default(uuid())
-  nombre                  String
-  rfc                     String?
-  modoCorteZ              ModoCorteZ @default(ciego)
-  umbralFaltanteCritico   Float      @default(50.0) // Monto ($) a partir del cual un faltante se considera crítico y requiere autorización
-  estaActivo              Boolean    @default(true)
-  creadoEn                DateTime   @default(now())
-  actualizadoEn           DateTime   @updatedAt
+  id                    String     @id @default(uuid())
+  nombre                String
+  rfc                   String?
+  modoCorteZ            ModoCorteZ @default(ciego)
+  umbralFaltanteCritico Float      @default(50.0) // Monto ($) a partir del cual un faltante se considera crítico y requiere autorización
+  diasCaducidadPreaviso Int        @default(30) // Días de anticipación para alertar lotes por vencer
+  bloquearVentaVencidos Boolean    @default(true) // Si un lote vencido bloquea su venta en el POS
+  stockMinimoGlobal     Int        @default(5) // Stock mínimo default al crear productos nuevos
+  stockMaximoGlobal     Int        @default(100) // Stock máximo default al crear productos nuevos
+  estaActivo            Boolean    @default(true)
+  creadoEn              DateTime   @default(now())
+  actualizadoEn         DateTime   @updatedAt
 
   // Relaciones
-  sucursales      Sucursal[]
-  usuarios        Usuario[]
-  productos       Producto[]
-  categorias      Categoria[]
-  ventas          Venta[]
-  logsActividad   LogActividad[]
-  notificaciones  Notificacion[]
+  sucursales     Sucursal[]
+  usuarios       Usuario[]
+  productos      Producto[]
+  categorias     Categoria[]
+  ventas         Venta[]
+  logsActividad  LogActividad[]
+  notificaciones Notificacion[]
+  lotes          Lote[]
+  recepciones    RecepcionMercancia[]
+  mermas         Merma[]
 }
 
 enum ModoCorteZ {
@@ -43,32 +50,35 @@ enum ModoCorteZ {
 // ---------------------------------------------------------
 
 model Sucursal {
-  id              String     @id @default(uuid())
-  empresaId       String
-  empresa         Empresa    @relation(fields: [empresaId], references: [id])
-  nombre          String
-  direccion       String?
-  estaActivo      Boolean    @default(true)
-  creadoEn        DateTime   @default(now())
+  id         String   @id @default(uuid())
+  empresaId  String
+  empresa    Empresa  @relation(fields: [empresaId], references: [id])
+  nombre     String
+  direccion  String?
+  estaActivo Boolean  @default(true)
+  creadoEn   DateTime @default(now())
 
   // Relaciones
-  cajas           Caja[]
-  inventario      InventarioSucursal[]
-  ventas          Venta[]
+  cajas       Caja[]
+  inventario  InventarioSucursal[]
+  ventas      Venta[]
+  lotes       Lote[]
+  recepciones RecepcionMercancia[]
+  mermas      Merma[]
 }
 
 model Caja {
-  id              String     @id @default(uuid())
-  sucursalId      String
-  sucursal        Sucursal   @relation(fields: [sucursalId], references: [id])
-  nombre          String
-  codigo          String?    // ej: "CAJA-01"
-  secuenciaFolio  Int        @default(0) // Secuencia de folios para esta caja
-  estaActivo      Boolean    @default(true)
+  id             String   @id @default(uuid())
+  sucursalId     String
+  sucursal       Sucursal @relation(fields: [sucursalId], references: [id])
+  nombre         String
+  codigo         String? // ej: "CAJA-01"
+  secuenciaFolio Int      @default(0) // Secuencia de folios para esta caja
+  estaActivo     Boolean  @default(true)
 
   // Relaciones
-  sesiones        SesionCaja[]
-  ventas          Venta[]
+  sesiones SesionCaja[]
+  ventas   Venta[]
 }
 
 // ---------------------------------------------------------
@@ -76,31 +86,33 @@ model Caja {
 // ---------------------------------------------------------
 
 model Usuario {
-  id              String     @id @default(uuid())
-  empresaId       String
-  empresa         Empresa    @relation(fields: [empresaId], references: [id])
-  nombre          String
-  email           String     @unique
-  passwordHash    String
-  rol             Rol        @default(CAJERO)
-  estaActivo      Boolean    @default(true)
-  creadoEn        DateTime   @default(now())
-  actualizadoEn   DateTime   @updatedAt
-  
-  // Relaciones
-  movimientosInventario MovimientoInventario[]
-  historialPrecios      HistorialPrecioProducto[]
-  sesionesCaja          SesionCaja[]
-  retirosParciales      RetiroParcial[]
-  cortesX               CorteX[]
-  cortesZ               CorteZ[]
-  cortesZAutorizados    CorteZ[]     @relation("cortesZAutorizados")
-  ventas                Venta[]
-  devoluciones          Devolucion[]
-  logsActividad         LogActividad[]
-  notificacionesRecibidas Notificacion[] @relation("notificacionesRecibidas")
-}
+  id            String   @id @default(uuid())
+  empresaId     String
+  empresa       Empresa  @relation(fields: [empresaId], references: [id])
+  nombre        String
+  email         String   @unique
+  passwordHash  String
+  rol           Rol      @default(CAJERO)
+  estaActivo    Boolean  @default(true)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
+  // Relaciones
+  movimientosInventario   MovimientoInventario[]
+  historialPrecios        HistorialPrecioProducto[]
+  sesionesCaja            SesionCaja[]
+  retirosParciales        RetiroParcial[]
+  cortesX                 CorteX[]
+  cortesZ                 CorteZ[]
+  cortesZAutorizados      CorteZ[]                  @relation("cortesZAutorizados")
+  ventas                  Venta[]
+  devoluciones            Devolucion[]
+  logsActividad           LogActividad[]
+  notificacionesRecibidas Notificacion[]            @relation("notificacionesRecibidas")
+  lotesCreados            Lote[]                    @relation("lotesCreados")
+  recepciones             RecepcionMercancia[]
+  mermasRegistradas       Merma[]                   @relation("mermasRegistradas")
+}
 enum Rol {
   SUPER_ADMIN
   ADMIN
@@ -115,46 +127,50 @@ enum Rol {
 // ---------------------------------------------------------
 
 model Producto {
-  id              String     @id @default(uuid())
-  empresaId       String
-  empresa         Empresa    @relation(fields: [empresaId], references: [id])
-  codigoBarras    String
-  codigoInterno   String?
-  nombre          String
-  descripcion     String?
-  
-  unidadMedida    String     @default("pieza")
-  estaActivo      Boolean    @default(true)
-  esGranel        Boolean    @default(false)
-  requiereLote    Boolean    @default(false)
-  manejaInventario Boolean   @default(true)
-  
-  precioCompra    Float      @default(0)
-  precioVentaBase Float      @default(0)
+  id            String  @id @default(uuid())
+  empresaId     String
+  empresa       Empresa @relation(fields: [empresaId], references: [id])
+  codigoBarras  String
+  codigoInterno String?
+  nombre        String
+  descripcion   String?
 
-  creadoEn        DateTime   @default(now())
-  actualizadoEn   DateTime   @updatedAt
+  unidadMedida     String         @default("pieza")
+  estaActivo       Boolean        @default(true)
+  esGranel         Boolean        @default(false)
+  manejaInventario Boolean        @default(true) // true => SIEMPRE trazabilidad por lote (FEFO/FIFO)
+  tieneCaducidad   Boolean        @default(false) // true => fechaCaducidad obligatoria en GRN
+  metodoRotacion   MetodoRotacion @default(FEFO) // FEFO: primero lo que caduca antes; FIFO: primero lo que entra
+
+  precioCompra    Float @default(0)
+  precioVentaBase Float @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   // Relaciones
-  categorias         Categoria[]
-  preciosPorUnidad   PrecioPorUnidad[]
-  inventario         InventarioSucursal[]
-  movimientos        MovimientoInventario[]
-  historialPrecios   HistorialPrecioProducto[]
-  detallesVenta      DetalleVenta[]
+  categorias           Categoria[]
+  preciosPorUnidad     PrecioPorUnidad[]
+  inventario           InventarioSucursal[]
+  movimientos          MovimientoInventario[]
+  historialPrecios     HistorialPrecioProducto[]
+  detallesVenta        DetalleVenta[]
   devolucionesProducto DevolucionProducto[]
+  lotes                Lote[]
+  recepcionesDetalle   RecepcionDetalle[]
+  mermas               Merma[]
 }
 
 model PrecioPorUnidad {
-  id              String     @id @default(uuid())
-  productoId      String
-  producto        Producto   @relation(fields: [productoId], references: [id])
-  unidad          String     // 'pieza', 'kilogramo', 'caja', etc.
+  id                String   @id @default(uuid())
+  productoId        String
+  producto          Producto @relation(fields: [productoId], references: [id])
+  unidad            String // 'pieza', 'kilogramo', 'caja', etc.
   nombreAlternativo String?
-  cantidadMinima  Float
-  cantidadMaxima  Float?
-  precio          Float
-  esDefault       Boolean    @default(false)
+  cantidadMinima    Float
+  cantidadMaxima    Float?
+  precio            Float
+  esDefault         Boolean  @default(false)
 }
 
 // ---------------------------------------------------------
@@ -162,63 +178,65 @@ model PrecioPorUnidad {
 // ---------------------------------------------------------
 
 model InventarioSucursal {
-  id              String     @id @default(uuid())
-  sucursalId      String
-  sucursal        Sucursal   @relation(fields: [sucursalId], references: [id])
-  productoId      String
-  producto        Producto   @relation(fields: [productoId], references: [id])
-  
-  stockActual     Float      @default(0)
-  stockMinimo     Float      @default(0)
-  stockMaximo     Float      @default(100)
-  
-  ultimoMovimiento DateTime  @default(now())
+  id         String   @id @default(uuid())
+  sucursalId String
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  productoId String
+  producto   Producto @relation(fields: [productoId], references: [id])
+
+  stockActual Float @default(0)
+  stockMinimo Float @default(0)
+  stockMaximo Float @default(100)
+
+  ultimoMovimiento DateTime @default(now())
 
   @@unique([sucursalId, productoId])
 }
 
 model MovimientoInventario {
-  id              String     @id @default(uuid())
-  productoId      String
-  producto        Producto   @relation(fields: [productoId], references: [id])
-  sucursalId      String
-  tipo            TipoMovimientoInventario
-  cantidad        Float
-  stockAnterior   Float
-  stockNuevo      Float
-  referencia      String?    // ID de venta, traspaso
-  motivo          String
-  usuarioId       String
-  usuario         Usuario    @relation(fields: [usuarioId], references: [id])
-  fechaHora       DateTime   @default(now())
+  id            String                   @id @default(uuid())
+  productoId    String
+  producto      Producto                 @relation(fields: [productoId], references: [id])
+  sucursalId    String
+  loteId        String?
+  lote          Lote?                    @relation(fields: [loteId], references: [id])
+  tipo          TipoMovimientoInventario
+  cantidad      Float
+  stockAnterior Float
+  stockNuevo    Float
+  referencia    String? // ID de venta, traspaso
+  motivo        String
+  usuarioId     String
+  usuario       Usuario                  @relation(fields: [usuarioId], references: [id])
+  fechaHora     DateTime                 @default(now())
 }
 
 model Categoria {
-  id            String     @id @default(uuid())
+  id            String   @id @default(uuid())
   empresaId     String
-  empresa       Empresa    @relation(fields: [empresaId], references: [id])
+  empresa       Empresa  @relation(fields: [empresaId], references: [id])
   nombre        String
   descripcion   String?
   colorHex      String?
   icono         String?
-  estaActivo    Boolean    @default(true)
-  creadoEn      DateTime   @default(now())
-  actualizadoEn DateTime   @updatedAt
-  
-  productos     Producto[]
+  estaActivo    Boolean  @default(true)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  productos Producto[]
 }
 
 model HistorialPrecioProducto {
-  id              String   @id @default(uuid())
-  productoId      String
-  producto        Producto @relation(fields: [productoId], references: [id])
-  usuarioId       String
-  usuario         Usuario  @relation(fields: [usuarioId], references: [id])
-  precioAnterior  Float
-  precioNuevo     Float
-  tipoPrecio      String
-  motivo          String
-  fechaHora       DateTime @default(now())
+  id             String   @id @default(uuid())
+  productoId     String
+  producto       Producto @relation(fields: [productoId], references: [id])
+  usuarioId      String
+  usuario        Usuario  @relation(fields: [usuarioId], references: [id])
+  precioAnterior Float
+  precioNuevo    Float
+  tipoPrecio     String
+  motivo         String
+  fechaHora      DateTime @default(now())
 }
 
 enum TipoMovimientoInventario {
@@ -230,6 +248,136 @@ enum TipoMovimientoInventario {
   traspaso_entrada
   compra
   apertura_inicial
+  merma
+}
+
+// ---------------------------------------------------------
+// LOTES, CADUCIDADES Y MERMA
+// ---------------------------------------------------------
+
+enum EstadoLote {
+  activo
+  agotado
+  vencido
+}
+
+enum MetodoRotacion {
+  FIFO
+  FEFO
+}
+
+enum MotivoMerma {
+  caducado
+  danado
+  robo
+  perdida
+  error
+  otro
+}
+
+model Lote {
+  id         String   @id @default(uuid())
+  empresaId  String
+  empresa    Empresa  @relation(fields: [empresaId], references: [id])
+  productoId String
+  producto   Producto @relation(fields: [productoId], references: [id])
+  sucursalId String
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+
+  codigoLote       String // Código único (auto-generado si no se captura)
+  fechaRecepcion   DateTime  @default(now())
+  fechaFabricacion DateTime?
+  fechaCaducidad   DateTime? // null = sin caducidad
+  cantidadInicial  Float
+  cantidadRestante Float
+  costoUnitario    Float
+  proveedor        String? // Nombre libre del proveedor
+
+  estado      EstadoLote @default(activo)
+  creadoPorId String
+  creadoPor   Usuario    @relation("lotesCreados", fields: [creadoPorId], references: [id])
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // Relaciones
+  movimientos          MovimientoInventario[]
+  detallesVenta        DetalleVentaLote[]
+  mermas               Merma[]
+  devolucionesProducto DevolucionProducto[]
+
+  @@index([sucursalId, productoId, fechaCaducidad])
+  @@index([empresaId, estado])
+}
+
+model RecepcionMercancia {
+  id         String   @id @default(uuid())
+  empresaId  String
+  empresa    Empresa  @relation(fields: [empresaId], references: [id])
+  sucursalId String
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  folio      String
+  proveedor  String?
+  notas      String?
+  usuarioId  String
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  fechaHora  DateTime @default(now())
+
+  detalles RecepcionDetalle[]
+
+  @@index([empresaId])
+  @@index([sucursalId])
+}
+
+model RecepcionDetalle {
+  id          String             @id @default(uuid())
+  recepcionId String
+  recepcion   RecepcionMercancia @relation(fields: [recepcionId], references: [id])
+  productoId  String
+  producto    Producto           @relation(fields: [productoId], references: [id])
+
+  cantidad         Float
+  costoUnitario    Float
+  codigoLote       String? // null => se genera automáticamente
+  fechaFabricacion DateTime?
+  fechaCaducidad   DateTime?
+}
+
+model DetalleVentaLote {
+  id             String       @id @default(uuid())
+  detalleVentaId String
+  detalleVenta   DetalleVenta @relation(fields: [detalleVentaId], references: [id])
+  loteId         String
+  lote           Lote         @relation(fields: [loteId], references: [id])
+
+  cantidad      Float
+  costoUnitario Float
+
+  @@index([loteId])
+}
+
+model Merma {
+  id         String   @id @default(uuid())
+  empresaId  String
+  empresa    Empresa  @relation(fields: [empresaId], references: [id])
+  sucursalId String
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  productoId String
+  producto   Producto @relation(fields: [productoId], references: [id])
+  loteId     String?
+  lote       Lote?    @relation(fields: [loteId], references: [id])
+
+  cantidad      Float
+  motivo        MotivoMerma
+  costoUnitario Float
+  costoTotal    Float
+  notas         String?
+  usuarioId     String
+  usuario       Usuario     @relation("mermasRegistradas", fields: [usuarioId], references: [id])
+  fechaHora     DateTime    @default(now())
+
+  @@index([empresaId])
+  @@index([sucursalId, productoId])
 }
 
 // ---------------------------------------------------------
@@ -237,34 +385,34 @@ enum TipoMovimientoInventario {
 // ---------------------------------------------------------
 
 model SesionCaja {
-  id                    String           @id @default(uuid())
-  cajaId                String
-  caja                  Caja             @relation(fields: [cajaId], references: [id])
-  cajeroId              String
-  cajero                Usuario          @relation(fields: [cajeroId], references: [id])
-  
-  montoInicial          Float            // Fondo inicial en efectivo
-  montoFinalEfectivo    Float?           // Declarado por el cajero al cerrar
-  montoEsperadoEfectivo Float?           // Calculado por el sistema al cerrar
-  diferenciaEfectivo    Float?           // montoFinalEfectivo - montoEsperadoEfectivo
-  
-  modoCorteUsado        ModoCorteZ       @default(ciego)
-  
-  totalVentasEfectivo   Float            @default(0)
-  totalVentasTarjeta    Float            @default(0)
-  totalVentasOtros      Float            @default(0)
-  totalRetiros          Float            @default(0)
-  
-  estado                EstadoSesionCaja @default(abierta)
-  
-  fechaApertura         DateTime         @default(now())
-  fechaCierre           DateTime?
+  id       String  @id @default(uuid())
+  cajaId   String
+  caja     Caja    @relation(fields: [cajaId], references: [id])
+  cajeroId String
+  cajero   Usuario @relation(fields: [cajeroId], references: [id])
+
+  montoInicial          Float // Fondo inicial en efectivo
+  montoFinalEfectivo    Float? // Declarado por el cajero al cerrar
+  montoEsperadoEfectivo Float? // Calculado por el sistema al cerrar
+  diferenciaEfectivo    Float? // montoFinalEfectivo - montoEsperadoEfectivo
+
+  modoCorteUsado ModoCorteZ @default(ciego)
+
+  totalVentasEfectivo Float @default(0)
+  totalVentasTarjeta  Float @default(0)
+  totalVentasOtros    Float @default(0)
+  totalRetiros        Float @default(0)
+
+  estado EstadoSesionCaja @default(abierta)
+
+  fechaApertura DateTime  @default(now())
+  fechaCierre   DateTime?
 
   // Relaciones
-  ventas                Venta[]
-  retiros               RetiroParcial[]
-  cortesX               CorteX[]
-  corteZ                CorteZ?
+  ventas  Venta[]
+  retiros RetiroParcial[]
+  cortesX CorteX[]
+  corteZ  CorteZ?
 }
 
 enum EstadoSesionCaja {
@@ -273,14 +421,14 @@ enum EstadoSesionCaja {
 }
 
 model RetiroParcial {
-  id            String     @id @default(uuid())
-  sesionCajaId  String
-  sesionCaja    SesionCaja @relation(fields: [sesionCajaId], references: [id])
-  usuarioId     String
-  usuario       Usuario    @relation(fields: [usuarioId], references: [id])
-  monto         Float
-  motivo        String
-  fechaHora     DateTime   @default(now())
+  id           String     @id @default(uuid())
+  sesionCajaId String
+  sesionCaja   SesionCaja @relation(fields: [sesionCajaId], references: [id])
+  usuarioId    String
+  usuario      Usuario    @relation(fields: [usuarioId], references: [id])
+  monto        Float
+  motivo       String
+  fechaHora    DateTime   @default(now())
 }
 
 model CorteX {
@@ -298,12 +446,12 @@ model CorteX {
 }
 
 model CorteZ {
-  id                  String     @id @default(uuid())
-  sesionCajaId        String     @unique
-  sesionCaja          SesionCaja @relation(fields: [sesionCajaId], references: [id])
-  usuarioId           String
-  usuario             Usuario    @relation(fields: [usuarioId], references: [id])
-  
+  id           String     @id @default(uuid())
+  sesionCajaId String     @unique
+  sesionCaja   SesionCaja @relation(fields: [sesionCajaId], references: [id])
+  usuarioId    String
+  usuario      Usuario    @relation(fields: [usuarioId], references: [id])
+
   montoInicial        Float
   totalVentasEfectivo Float
   totalVentasTarjeta  Float
@@ -311,15 +459,15 @@ model CorteZ {
   montoEsperado       Float
   montoDeclarado      Float
   diferencia          Float
-  tipoDiscrepancia    String?    // 'cuadre', 'sobrante', 'faltante'
+  tipoDiscrepancia    String? // 'cuadre', 'sobrante', 'faltante'
   modoCorte           ModoCorteZ
   notas               String?
-  
+
   // Autorización requerida para faltantes críticos
-  autorizadoPorId     String?
-  autorizadoPor       Usuario?   @relation("cortesZAutorizados", fields: [autorizadoPorId], references: [id])
-  
-  fechaHora           DateTime   @default(now())
+  autorizadoPorId String?
+  autorizadoPor   Usuario? @relation("cortesZAutorizados", fields: [autorizadoPorId], references: [id])
+
+  fechaHora DateTime @default(now())
 }
 
 // ---------------------------------------------------------
@@ -327,36 +475,36 @@ model CorteZ {
 // ---------------------------------------------------------
 
 model Venta {
-  id            String        @id @default(uuid())
-  empresaId     String
-  empresa       Empresa       @relation(fields: [empresaId], references: [id])
-  sucursalId    String
-  sucursal      Sucursal      @relation(fields: [sucursalId], references: [id])
-  cajaId        String
-  caja          Caja          @relation(fields: [cajaId], references: [id])
-  sesionCajaId  String
-  sesionCaja    SesionCaja    @relation(fields: [sesionCajaId], references: [id])
-  cajeroId      String
-  cajero        Usuario       @relation(fields: [cajeroId], references: [id])
-  
-  folio         String        // Ej: "CJ01-000001"
-  secuenciaFolio Int          // Secuencial numérico per caja
-  
-  subtotal      Float
-  descuento     Float         @default(0)
-  impuestos     Float         @default(0)
-  total         Float
-  
-  estado        EstadoVenta   @default(completada)
-  esDemostracion Boolean      @default(false)
-  notas         String?
-  
-  creadoEn      DateTime      @default(now())
-  actualizadoEn DateTime      @updatedAt
+  id           String     @id @default(uuid())
+  empresaId    String
+  empresa      Empresa    @relation(fields: [empresaId], references: [id])
+  sucursalId   String
+  sucursal     Sucursal   @relation(fields: [sucursalId], references: [id])
+  cajaId       String
+  caja         Caja       @relation(fields: [cajaId], references: [id])
+  sesionCajaId String
+  sesionCaja   SesionCaja @relation(fields: [sesionCajaId], references: [id])
+  cajeroId     String
+  cajero       Usuario    @relation(fields: [cajeroId], references: [id])
 
-  detalles      DetalleVenta[]
-  pagos         PagoVenta[]
-  devoluciones  Devolucion[]
+  folio          String // Ej: "CJ01-000001"
+  secuenciaFolio Int // Secuencial numérico per caja
+
+  subtotal  Float
+  descuento Float @default(0)
+  impuestos Float @default(0)
+  total     Float
+
+  estado         EstadoVenta @default(completada)
+  esDemostracion Boolean     @default(false)
+  notas          String?
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  detalles     DetalleVenta[]
+  pagos        PagoVenta[]
+  devoluciones Devolucion[]
 }
 
 enum EstadoVenta {
@@ -366,32 +514,34 @@ enum EstadoVenta {
 }
 
 model DetalleVenta {
-  id              String   @id @default(uuid())
-  ventaId         String
-  venta           Venta    @relation(fields: [ventaId], references: [id])
-  productoId      String
-  producto        Producto @relation(fields: [productoId], references: [id])
-  
-  nombreProducto  String   // Snapshot del nombre al momento de venta
-  unidadMedida    String   // 'pieza', 'kilogramo', etc.
-  cantidad        Float
-  precioUnitario  Float
-  costoHistorico  Float    @default(0) // Snapshot del precioCompra
-  subtotal        Float
-  descuento       Float    @default(0)
-  impuestos       Float    @default(0)
-  total           Float
+  id         String   @id @default(uuid())
+  ventaId    String
+  venta      Venta    @relation(fields: [ventaId], references: [id])
+  productoId String
+  producto   Producto @relation(fields: [productoId], references: [id])
+
+  nombreProducto String // Snapshot del nombre al momento de venta
+  unidadMedida   String // 'pieza', 'kilogramo', etc.
+  cantidad       Float
+  precioUnitario Float
+  costoHistorico Float  @default(0) // Snapshot del costo (promedio ponderado de lotes)
+  subtotal       Float
+  descuento      Float  @default(0)
+  impuestos      Float  @default(0)
+  total          Float
+
+  lotes DetalleVentaLote[]
 }
 
 model PagoVenta {
-  id              String     @id @default(uuid())
-  ventaId         String
-  venta           Venta      @relation(fields: [ventaId], references: [id])
-  metodo          MetodoPago
-  montoRecibido   Float
-  montoPagado     Float
-  cambio          Float      @default(0)
-  referencia      String?    // Ej: Autorización de tarjeta
+  id            String     @id @default(uuid())
+  ventaId       String
+  venta         Venta      @relation(fields: [ventaId], references: [id])
+  metodo        MetodoPago
+  montoRecibido Float
+  montoPagado   Float
+  cambio        Float      @default(0)
+  referencia    String? // Ej: Autorización de tarjeta
 }
 
 enum MetodoPago {
@@ -407,20 +557,20 @@ enum MetodoPago {
 // ---------------------------------------------------------
 
 model Devolucion {
-  id              String               @id @default(uuid())
-  ventaId         String
-  venta           Venta                @relation(fields: [ventaId], references: [id])
-  usuarioId       String
-  usuario         Usuario              @relation(fields: [usuarioId], references: [id])
-  sesionCajaId    String?
-  
-  folio           String               // Ej: "DEV-000001"
-  totalDevuelto   Float
-  tipoResolucion  TipoResolucionDevolucion
-  motivoGeneral   String?
-  fechaHora       DateTime             @default(now())
+  id           String  @id @default(uuid())
+  ventaId      String
+  venta        Venta   @relation(fields: [ventaId], references: [id])
+  usuarioId    String
+  usuario      Usuario @relation(fields: [usuarioId], references: [id])
+  sesionCajaId String?
 
-  productos       DevolucionProducto[]
+  folio          String // Ej: "DEV-000001"
+  totalDevuelto  Float
+  tipoResolucion TipoResolucionDevolucion
+  motivoGeneral  String?
+  fechaHora      DateTime                 @default(now())
+
+  productos DevolucionProducto[]
 }
 
 enum TipoResolucionDevolucion {
@@ -430,17 +580,19 @@ enum TipoResolucionDevolucion {
 }
 
 model DevolucionProducto {
-  id              String        @id @default(uuid())
-  devolucionId    String
-  devolucion      Devolucion    @relation(fields: [devolucionId], references: [id])
-  productoId      String
-  producto        Producto      @relation(fields: [productoId], references: [id])
-  
+  id           String     @id @default(uuid())
+  devolucionId String
+  devolucion   Devolucion @relation(fields: [devolucionId], references: [id])
+  productoId   String
+  producto     Producto   @relation(fields: [productoId], references: [id])
+  loteId       String? // Lote al que se reintegra (destino stock) o del que se da de baja (destino merma)
+  lote         Lote?      @relation(fields: [loteId], references: [id])
+
   cantidadDevuelta Float
-  precioUnitario  Float
-  subtotal        Float
-  motivo          MotivoDevolucion
-  destino         DestinoDevolucion
+  precioUnitario   Float
+  subtotal         Float
+  motivo           MotivoDevolucion
+  destino          DestinoDevolucion
 }
 
 enum MotivoDevolucion {
@@ -461,18 +613,18 @@ enum DestinoDevolucion {
 // ---------------------------------------------------------
 
 model LogActividad {
-  id            String   @id @default(uuid())
-  empresaId     String
-  empresa       Empresa  @relation(fields: [empresaId], references: [id])
-  sucursalId    String?
-  usuarioId     String
-  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
+  id         String  @id @default(uuid())
+  empresaId  String
+  empresa    Empresa @relation(fields: [empresaId], references: [id])
+  sucursalId String?
+  usuarioId  String
+  usuario    Usuario @relation(fields: [usuarioId], references: [id])
 
-  accion        String   // 'APERTURA_CAJA', 'RETIRO_PARCIAL', 'CORTE_X', 'CORTE_Z', 'VENTA_COMPLETADA', 'VENTA_CANCELADA'
-  entidadTipo   String   // 'sesion_caja', 'venta', 'retiro_parcial', 'corte_z', 'corte_x'
-  entidadId     String   // UUID de la entidad afectada
-  detalles      Json     // Payload completo del evento (montos, diferencias, justificación, etc.)
-  severidad     String   @default("info") // 'info', 'warning', 'critical'
+  accion      String // 'APERTURA_CAJA', 'RETIRO_PARCIAL', 'CORTE_X', 'CORTE_Z', 'VENTA_COMPLETADA', 'VENTA_CANCELADA'
+  entidadTipo String // 'sesion_caja', 'venta', 'retiro_parcial', 'corte_z', 'corte_x'
+  entidadId   String // UUID de la entidad afectada
+  detalles    Json // Payload completo del evento (montos, diferencias, justificación, etc.)
+  severidad   String @default("info") // 'info', 'warning', 'critical'
 
   direccionIP   String?
   agenteUsuario String?
@@ -489,23 +641,22 @@ model LogActividad {
 // ---------------------------------------------------------
 
 model Notificacion {
-  id              String   @id @default(uuid())
-  empresaId       String
-  empresa         Empresa  @relation(fields: [empresaId], references: [id])
-  destinatarioId  String
-  destinatario    Usuario  @relation("notificacionesRecibidas", fields: [destinatarioId], references: [id])
+  id             String  @id @default(uuid())
+  empresaId      String
+  empresa        Empresa @relation(fields: [empresaId], references: [id])
+  destinatarioId String
+  destinatario   Usuario @relation("notificacionesRecibidas", fields: [destinatarioId], references: [id])
 
-  titulo          String
-  mensaje         String
-  tipo            String   // 'info', 'warning', 'critical'
-  evento          String   // 'corte_z_realizado', 'caja_abierta', 'faltante_caja', 'retiro_parcial', 'venta_cancelada'
-  entidadTipo     String?  // Referencia opcional a la entidad relacionada
-  entidadId       String?  // UUID de la entidad relacionada
-  leida           Boolean  @default(false)
-  fechaHora       DateTime @default(now())
+  titulo      String
+  mensaje     String
+  tipo        String // 'info', 'warning', 'critical'
+  evento      String // 'corte_z_realizado', 'caja_abierta', 'faltante_caja', 'retiro_parcial', 'venta_cancelada'
+  entidadTipo String? // Referencia opcional a la entidad relacionada
+  entidadId   String? // UUID de la entidad relacionada
+  leida       Boolean  @default(false)
+  fechaHora   DateTime @default(now())
 
   @@index([destinatarioId, leida])
   @@index([empresaId])
   @@index([fechaHora])
 }
-

@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect, useRef } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import { Search, X, Package, Scale, Droplet, Ruler, Wrench } from 'lucide-react';
 import { api } from '../../lib/api';
 import type { Categoria, Producto, ProductoInventario } from '../../types/pos';
@@ -10,7 +10,7 @@ interface ProductSearchProps {
   refreshKey?: number;
 }
 
-const getUnitIcon = (unidadMedida?: string) => {
+const getUnitIcon = (unidadMedida?: string | null) => {
   const unit = (unidadMedida || '').toLowerCase().trim();
   if (/\b(litro|litros|lt|lts|ml|mililitro|mililitros)\b/.test(unit) || unit === 'l') {
     return <Droplet className="w-4 h-4 text-primary" />;

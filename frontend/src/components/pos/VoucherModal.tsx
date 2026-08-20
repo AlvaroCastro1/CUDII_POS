@@ -3,7 +3,7 @@ import { CheckCircle, Printer, PlusCircle } from 'lucide-react';
 import type { Venta, VentaDetalle, VentaPago } from '../../types/pos';
 
 interface VoucherModalProps {
-  venta: Venta;
+  venta: Venta | null;
   onClose: () => void;
 }
 
@@ -62,11 +62,14 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
 
           <div className="space-y-1.5 py-1">
             {venta.detalles?.map((det: VentaDetalle, i: number) => (
-              <div key={i} className="flex justify-between text-on-surface">
-                <span className="line-clamp-1 flex-1 font-medium text-primary">
-                  {det.cantidad}x {det.nombreProducto}
-                </span>
-                <span className="font-bold ml-2 text-primary">${det.total.toFixed(2)}</span>
+              <div key={i}>
+                <div className="flex justify-between text-on-surface">
+                  <span className="line-clamp-1 flex-1 font-medium text-primary">
+                    {det.cantidad}x {det.nombreProducto}
+                  </span>
+                  <span className="font-bold ml-2 text-primary">${det.total.toFixed(2)}</span>
+                </div>
+
               </div>
             ))}
           </div>

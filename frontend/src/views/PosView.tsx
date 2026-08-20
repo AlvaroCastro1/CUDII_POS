@@ -17,6 +17,8 @@ import { VoucherModal } from '../components/pos/VoucherModal';
 import { OpenCashRegisterModal } from '../components/pos/OpenCashRegisterModal';
 import { CloseRegisterModal } from '../components/pos/CloseRegisterModal';
 import { CashWithdrawalModal } from '../components/pos/CashWithdrawalModal';
+import { CantidadProductoModal } from '../components/pos/CantidadProductoModal';
+import type { PresentacionSeleccion } from '../components/pos/CantidadProductoModal';
 import { useNavigate } from 'react-router-dom';
 import type { Producto, Venta } from '../types/pos';
 
@@ -35,6 +37,7 @@ export const PosView: React.FC = () => {
   const [completedSale, setCompletedSale] = useState<Venta | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [cantidadProducto, setCantidadProducto] = useState<Producto | null>(null);
 
   // Verificar sesión de caja activa al entrar a la POS
   useEffect(() => {
@@ -63,7 +66,19 @@ export const PosView: React.FC = () => {
 
   const handleSelectProduct = useCallback(
     (producto: Producto) => {
-      addToCart(producto, 1);
+      setCantidadProducto(producto);
+    },
+    [],
+  );
+
+  const handleConfirmCantidad = useCallback(
+    (
+      producto: Producto,
+      cantidad: number,
+      presentacion: PresentacionSeleccion | null,
+    ) => {
+      addToCart(producto, cantidad, presentacion ?? undefined);
+      setCantidadProducto(null);
     },
     [addToCart],
   );
@@ -224,6 +239,12 @@ export const PosView: React.FC = () => {
         isOpen={isOpenWithdrawal}
         onClose={() => setIsOpenWithdrawal(false)}
         onSuccess={() => {}}
+      />
+
+      <CantidadProductoModal
+        producto={cantidadProducto}
+        onClose={() => setCantidadProducto(null)}
+        onConfirm={handleConfirmCantidad}
       />
     </div>
   );

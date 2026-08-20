@@ -28,8 +28,8 @@ interface Producto {
   desactivadoEn?: string; // ISO 8601, null si está activo
   desactivadoPorId?: string; // Usuario que lo desactivó
   esGranel: boolean; // true = se vende por peso
-  requiereLote: boolean; // true = control por lote y caducidad
-  manejaInventario: boolean; // false = stock ilimitado (servicios, digitales)
+  manejaInventario: boolean; // true = SIEMPRE trazabilidad por lote (FEFO/FIFO); false = stock ilimitado (servicios)
+  tieneCaducidad: boolean; // true = fechaCaducidad obligatoria en GRN; false = sin caducidad
   precioCompra: number;
   precioVentaBase: number;
   impuestos: Impuesto[];
@@ -290,10 +290,10 @@ interface Lote {
 ```
 
 **Reglas de lotes:**
-1. Si el producto tiene `requiereLote = true`, toda entrada de stock debe asociarse a un lote.
-2. **FIFO estricto:** Se vende primero el lote con fecha de caducidad más próxima.
-3. **Alerta de caducidad:** 30 días antes de vencer, el sistema notifica.
-4. **Bloqueo por caducidad:** Productos vencidos NO aparecen en la caja.
+1. Todo producto con `manejaInventario = true` tiene trazabilidad por lote. Las entradas de stock (vía GRN o ajuste manual) crean lotes automáticamente.
+2. Si `tieneCaducidad = true`, la fecha de caducidad es obligatoria al recibir mercancía. Si es `false`, el lote se registra sin caducidad.
+3. **FEFO por defecto:** Se vende primero el lote con fecha de caducidad más próxima. Sin caducidad, funciona como FIFO.
+4. **Alerta de caducidad:** 30 días antes de vencer, el sistema notifica.
 5. **Descuento por proximidad a caducidad:** Configurable (ej: 30% OFF a 7 días de vencer).
 
 ### 3.4 Traspasos entre Sucursales

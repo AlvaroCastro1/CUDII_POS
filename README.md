@@ -59,6 +59,19 @@ El archivo `docker-compose.yml` está configurado con **volúmenes** que mapean 
 
 Esto significa que cualquier cambio que guardes en tu editor de código se detectará instantáneamente y NestJS/Vite se reiniciará automáticamente dentro de Docker, sin necesidad de bajar y subir los contenedores.
 
+## Pruebas
+
+El proyecto incluye una suite de pruebas API automatizada con 39 escenarios:
+
+```bash
+# Ejecutar todas las pruebas (requiere backend corriendo)
+node tests/run_tests.js
+```
+
+Para pruebas con Postman, importa `tests/POS_API_TESTS.postman_collection.json`.
+
+Ver `docs/GUIA_PRUEBAS_FASE4.md` para documentación completa de la suite.
+
 ## Documentación de Referencia
 
 Asegúrate de leer los siguientes documentos antes de comenzar a desarrollar:

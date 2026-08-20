@@ -11,6 +11,15 @@ export interface CartItem {
   stockDisponible: number;
   descuento: number;
   esGranel: boolean;
+  presentacionId?: string;
+  presentacionNombre?: string;
+}
+
+export interface PresentacionCart {
+  id?: string;
+  nombre?: string;
+  precio: number;
+  cantidadMinima: number;
 }
 
 export interface SesionCajaState {
@@ -45,9 +54,9 @@ interface PosStoreState {
     precioVentaBase: number;
     stockDisponible?: number;
     esGranel?: boolean;
-  }, cantidad?: number) => void;
-  updateQuantity: (productoId: string, cantidad: number) => void;
-  removeFromCart: (productoId: string) => void;
+  }, cantidad?: number, presentacion?: PresentacionCart) => void;
+  updateQuantity: (productoId: string, cantidad: number, presentacionId?: string) => void;
+  removeFromCart: (productoId: string, presentacionId?: string) => void;
   clearCart: () => void;
   setDescuentoGeneral: (monto: number) => void;
   setActiveSession: (session: SesionCajaState | null) => void;
@@ -62,17 +71,23 @@ export const usePosStore = create<PosStoreState>()(
       selectedCajaId: null,
       descuentoGeneral: 0,
 
-      addToCart: (producto, cantidad = 1) => {
+      addToCart: (producto, cantidad = 1, presentacion) => {
         const currentCart = get().cart;
+        const presentacionId = presentacion?.id;
         const existingIndex = currentCart.findIndex(
-          (item) => item.productoId === producto.id,
+          (item) =>
+            item.productoId === producto.id &&
+            (item.presentacionId || undefined) === (presentacionId || undefined),
         );
 
         const stockDisp = producto.stockDisponible ?? 9999;
+        const esGranel = producto.esGranel || false;
+        const precioUnitario = presentacion?.precio ?? producto.precioVentaBase;
+        const cantidadLinea = presentacion ? presentacion.cantidadMinima : cantidad;
 
         if (existingIndex >= 0) {
           const updatedCart = [...currentCart];
-          const newQty = updatedCart[existingIndex].cantidad + cantidad;
+          const newQty = updatedCart[existingIndex].cantidad + cantidadLinea;
           updatedCart[existingIndex] = {
             ...updatedCart[existingIndex],
             cantidad: newQty,
@@ -87,32 +102,43 @@ export const usePosStore = create<PosStoreState>()(
                 codigoBarras: producto.codigoBarras,
                 nombre: producto.nombre,
                 unidadMedida: producto.unidadMedida || 'pieza',
-                precioUnitario: producto.precioVentaBase,
-                cantidad,
+                precioUnitario,
+                cantidad: cantidadLinea,
                 stockDisponible: stockDisp,
                 descuento: 0,
-                esGranel: producto.esGranel || false,
+                esGranel,
+                presentacionId,
+                presentacionNombre: presentacion?.nombre,
               },
             ],
           });
         }
       },
 
-      updateQuantity: (productoId, cantidad) => {
+      updateQuantity: (productoId, cantidad, presentacionId) => {
         if (cantidad <= 0) {
-          get().removeFromCart(productoId);
+          get().removeFromCart(productoId, presentacionId);
           return;
         }
         set({
           cart: get().cart.map((item) =>
-            item.productoId === productoId ? { ...item, cantidad } : item,
+            item.productoId === productoId &&
+            (item.presentacionId || undefined) === (presentacionId || undefined)
+              ? { ...item, cantidad }
+              : item,
           ),
         });
       },
 
-      removeFromCart: (productoId) => {
+      removeFromCart: (productoId, presentacionId) => {
         set({
-          cart: get().cart.filter((item) => item.productoId !== productoId),
+          cart: get().cart.filter(
+            (item) =>
+              !(
+                item.productoId === productoId &&
+                (item.presentacionId || undefined) === (presentacionId || undefined)
+              ),
+          ),
         });
       },
 

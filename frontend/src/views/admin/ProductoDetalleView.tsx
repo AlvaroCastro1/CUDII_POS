@@ -78,6 +78,9 @@ interface ProductoDetalle {
   estaActivo: boolean;
   precioCompra: number;
   precioVentaBase: number;
+  tieneCaducidad?: boolean;
+  manejaInventario?: boolean;
+  metodoRotacion?: 'FIFO' | 'FEFO';
   creadoEn: string;
   actualizadoEn: string;
   categorias: Categoria[];
@@ -161,6 +164,23 @@ export default function ProductoDetalleView() {
               {producto.estaActivo ? 'Activo' : 'Inactivo'}
             </Badge>
             {producto.esGranel && <Badge variant="secondary">Granel</Badge>}
+            {producto.manejaInventario && (
+              <Badge variant="outline" className="border-primary/30 text-primary">
+                <span className="material-symbols-outlined !text-[12px] mr-1">inventory_2</span>
+                Inventario
+              </Badge>
+            )}
+            {producto.tieneCaducidad && (
+              <Badge variant="outline" className="border-yellow-500/40 text-yellow-700">
+                <span className="material-symbols-outlined !text-[12px] mr-1">schedule</span>
+                Caducidad
+              </Badge>
+            )}
+            {producto.manejaInventario && (
+              <Badge variant="outline" className="border-outline/30">
+                {producto.metodoRotacion || 'FEFO'}
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-3 mt-2 flex-wrap">
             <span className="font-mono text-sm text-on-surface-variant bg-surface-variant px-2 py-0.5 rounded-lg">{producto.codigoBarras}</span>
@@ -185,6 +205,11 @@ export default function ProductoDetalleView() {
           {producto.descripcion && (
             <p className="text-sm text-on-surface-variant mt-2">{producto.descripcion}</p>
           )}
+          <p className="text-xs text-on-surface-variant/60 mt-2">
+            Creado: {new Date(producto.creadoEn).toLocaleDateString('es-MX', { dateStyle: 'medium' })}
+            {' · '}
+            Actualizado: {new Date(producto.actualizadoEn).toLocaleDateString('es-MX', { dateStyle: 'medium' })}
+          </p>
         </div>
       </div>
 
@@ -248,6 +273,43 @@ export default function ProductoDetalleView() {
           )}
         </div>
       </div>
+
+      {/* ===================== CONFIGURACIÓN DE INVENTARIO ===================== */}
+      {producto.manejaInventario !== undefined && (
+        <div className="bg-surface rounded-xl border border-on-surface/10 p-4">
+          <h2 className="text-base font-semibold text-on-surface mb-3 flex items-center gap-2">
+            <span className="material-symbols-outlined !text-[20px] text-primary">inventory_2</span>
+            Configuración de Inventario
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-semibold">Maneja Inventario</p>
+              <div className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${producto.manejaInventario ? 'bg-success' : 'bg-outline'}`} />
+                <p className="text-sm font-medium text-on-surface">{producto.manejaInventario ? 'Sí' : 'No (servicio)'}</p>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-semibold">Tiene Caducidad</p>
+              <div className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${producto.tieneCaducidad ? 'bg-yellow-500' : 'bg-outline'}`} />
+                <p className="text-sm font-medium text-on-surface">{producto.tieneCaducidad ? 'Sí — fecha obligatoria al recibir' : 'No — caducidad opcional'}</p>
+              </div>
+            </div>
+            {producto.manejaInventario && (
+              <div className="space-y-1">
+                <p className="text-xs text-on-surface-variant uppercase tracking-wide font-semibold">Rotación</p>
+                <p className="text-sm font-medium text-on-surface">{producto.metodoRotacion || 'FEFO'}</p>
+                <p className="text-xs text-on-surface-variant">{producto.metodoRotacion === 'FIFO' ? 'Primero entra, primero se vende' : 'Primero vence, primero se vende'}</p>
+              </div>
+            )}
+            <div className="space-y-1">
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-semibold">Tipo de Venta</p>
+              <p className="text-sm font-medium text-on-surface">{producto.esGranel ? 'A granel (decimales)' : 'Por pieza (enteros)'}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===================== PRECIOS POR UNIDAD ===================== */}
       {producto.preciosPorUnidad.length > 0 && (
@@ -393,6 +455,7 @@ export default function ProductoDetalleView() {
                   <TableHead className="text-right">Stock Anterior</TableHead>
                   <TableHead className="text-right">Stock Nuevo</TableHead>
                   <TableHead>Motivo</TableHead>
+                  <TableHead>Referencia</TableHead>
                   <TableHead>Usuario</TableHead>
                 </TableRow>
               </TableHeader>
@@ -415,6 +478,7 @@ export default function ProductoDetalleView() {
                       <TableCell className="text-right text-on-surface-variant">{m.stockAnterior}</TableCell>
                       <TableCell className="text-right font-semibold">{m.stockNuevo}</TableCell>
                       <TableCell className="text-sm text-on-surface-variant max-w-[200px] truncate">{m.motivo}</TableCell>
+                      <TableCell className="text-sm text-on-surface-variant font-mono">{m.referencia ? (m.referencia.includes('-') ? m.referencia.slice(0, 8) : m.referencia) : '—'}</TableCell>
                       <TableCell className="text-sm text-on-surface-variant">{m.usuario?.nombre || '—'}</TableCell>
                     </TableRow>
                   );

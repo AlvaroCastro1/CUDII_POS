@@ -5,7 +5,18 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CrearDevolucionDto } from './dto/crear-devolucion.dto';
-import { DestinoDevolucion, TipoMovimientoInventario } from '@prisma/client';
+import {
+  DestinoDevolucion,
+  EstadoLote,
+  MotivoDevolucion,
+  MotivoMerma,
+  TipoMovimientoInventario,
+} from '@prisma/client';
+import {
+  distribuirProporcional,
+  redondearSegunUnidad,
+  validarCantidadSegunUnidad,
+} from '../common/validators/unidad.util';
 
 @Injectable()
 export class ReturnsService {
@@ -25,7 +36,9 @@ export class ReturnsService {
         empresaId,
       },
       include: {
-        detalles: true,
+        detalles: {
+          include: { lotes: true },
+        },
         devoluciones: {
           include: { productos: true },
         },
@@ -41,6 +54,14 @@ export class ReturnsService {
         'No se pueden procesar devoluciones sobre una venta cancelada',
       );
     }
+
+    // Pre-cargar productos para saber unidadMedida de cada uno
+    const productoIds = [...new Set(venta.detalles.map((d) => d.productoId))];
+    const productos = await this.prisma.producto.findMany({
+      where: { id: { in: productoIds } },
+      select: { id: true, unidadMedida: true },
+    });
+    const unidadMap = new Map(productos.map((p) => [p.id, p.unidadMedida]));
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Generar folio para la devolución
@@ -77,17 +98,19 @@ export class ReturnsService {
           );
         }
 
+        // Validar y redondear cantidad según unidad de medida
+        const unidad = unidadMap.get(item.productoId) || 'pieza';
+        validarCantidadSegunUnidad(item.cantidadDevuelta, unidad, 'devolución');
+        item.cantidadDevuelta = redondearSegunUnidad(item.cantidadDevuelta, unidad);
+
         const subtotalItem = item.cantidadDevuelta * item.precioUnitario;
         totalDevuelto += subtotalItem;
 
-        itemsDevolucionData.push({
-          productoId: item.productoId,
-          cantidadDevuelta: item.cantidadDevuelta,
-          precioUnitario: item.precioUnitario,
-          subtotal: subtotalItem,
-          motivo: item.motivo,
-          destino: item.destino,
-        });
+        const lotesVenta = detalleOriginal.lotes || [];
+        const costoUnitario =
+          lotesVenta[0]?.costoUnitario || detalleOriginal.costoHistorico || 0;
+
+        let loteAsociadoId: string | null = lotesVenta[0]?.loteId || null;
 
         // Manejo de Inventario según Destino (stock vs merma)
         let inventario = await tx.inventarioSucursal.findUnique({
@@ -122,35 +145,166 @@ export class ReturnsService {
             },
           });
 
-          await tx.movimientoInventario.create({
-            data: {
-              productoId: item.productoId,
-              sucursalId: venta.sucursalId,
-              tipo: TipoMovimientoInventario.devolucion_venta,
-              cantidad: item.cantidadDevuelta,
-              stockAnterior,
-              stockNuevo,
-              referencia: folio,
-              motivo: `Devolución a stock - Venta ${venta.folio}`,
-              usuarioId,
-            },
-          });
+          // Restaurar al lote original de la venta (proporcional al consumo)
+          if (lotesVenta.length > 0) {
+            const unidad = unidadMap.get(item.productoId) || 'pieza';
+            const shares = lotesVenta.map((l) => l.cantidad);
+            const cantidades = distribuirProporcional(
+              item.cantidadDevuelta,
+              shares,
+              unidad,
+            );
+
+            for (let idx = 0; idx < lotesVenta.length; idx++) {
+              const lote = lotesVenta[idx];
+              const cantidadRestaurar = cantidades[idx];
+              if (cantidadRestaurar <= 0) continue;
+
+              const loteActual = await tx.lote.findUnique({
+                where: { id: lote.loteId },
+              });
+              if (!loteActual) continue;
+
+              await tx.lote.update({
+                where: { id: lote.loteId },
+                data: {
+                  cantidadRestante: { increment: cantidadRestaurar },
+                  estado:
+                    loteActual.estado === EstadoLote.agotado
+                      ? EstadoLote.activo
+                      : loteActual.estado,
+                  actualizadoEn: new Date(),
+                },
+              });
+
+              await tx.movimientoInventario.create({
+                data: {
+                  productoId: item.productoId,
+                  sucursalId: venta.sucursalId,
+                  loteId: lote.loteId,
+                  tipo: TipoMovimientoInventario.devolucion_venta,
+                  cantidad: cantidadRestaurar,
+                  stockAnterior,
+                  stockNuevo,
+                  referencia: folio,
+                  motivo: `Devolución a stock - Venta ${venta.folio} - Lote`,
+                  usuarioId,
+                },
+              });
+            }
+            loteAsociadoId = lotesVenta[0].loteId;
+          } else {
+            await tx.movimientoInventario.create({
+              data: {
+                productoId: item.productoId,
+                sucursalId: venta.sucursalId,
+                tipo: TipoMovimientoInventario.devolucion_venta,
+                cantidad: item.cantidadDevuelta,
+                stockAnterior,
+                stockNuevo,
+                referencia: folio,
+                motivo: `Devolución a stock - Venta ${venta.folio}`,
+                usuarioId,
+              },
+            });
+          }
         } else {
-          // Destino: merma (no reintegra al stock vendible)
-          await tx.movimientoInventario.create({
-            data: {
-              productoId: item.productoId,
-              sucursalId: venta.sucursalId,
-              tipo: TipoMovimientoInventario.ajuste_negativo,
-              cantidad: item.cantidadDevuelta,
-              stockAnterior,
-              stockNuevo: stockAnterior,
-              referencia: folio,
-              motivo: `Devolución a merma (${item.motivo}) - Venta ${venta.folio}`,
-              usuarioId,
-            },
-          });
+          // Destino: merma (no reintegra al stock vendible) — se registra Merma
+          const motivoMerma: MotivoMerma =
+            item.motivo === MotivoDevolucion.caducado
+              ? MotivoMerma.caducado
+              : item.motivo === MotivoDevolucion.danado
+                ? MotivoMerma.danado
+                : MotivoMerma.otro;
+
+          if (lotesVenta.length > 0) {
+            const unidad = unidadMap.get(item.productoId) || 'pieza';
+            const shares = lotesVenta.map((l) => l.cantidad);
+            const cantidades = distribuirProporcional(
+              item.cantidadDevuelta,
+              shares,
+              unidad,
+            );
+
+            for (let idx = 0; idx < lotesVenta.length; idx++) {
+              const lote = lotesVenta[idx];
+              const cantidadMerma = cantidades[idx];
+              if (cantidadMerma <= 0) continue;
+
+              const loteCostoUnitario = lote.costoUnitario || costoUnitario;
+
+              await tx.merma.create({
+                data: {
+                  empresaId,
+                  sucursalId: venta.sucursalId,
+                  productoId: item.productoId,
+                  loteId: lote.loteId,
+                  cantidad: cantidadMerma,
+                  motivo: motivoMerma,
+                  costoUnitario: loteCostoUnitario,
+                  costoTotal: loteCostoUnitario * cantidadMerma,
+                  notas: `Devolución ${folio} - Venta ${venta.folio} - Lote`,
+                  usuarioId,
+                },
+              });
+
+              await tx.movimientoInventario.create({
+                data: {
+                  productoId: item.productoId,
+                  sucursalId: venta.sucursalId,
+                  loteId: lote.loteId,
+                  tipo: TipoMovimientoInventario.merma,
+                  cantidad: cantidadMerma,
+                  stockAnterior,
+                  stockNuevo: stockAnterior,
+                  referencia: folio,
+                  motivo: `Devolución a merma (${item.motivo}) - Venta ${venta.folio} - Lote`,
+                  usuarioId,
+                },
+              });
+            }
+          } else {
+            await tx.merma.create({
+              data: {
+                empresaId,
+                sucursalId: venta.sucursalId,
+                productoId: item.productoId,
+                loteId: loteAsociadoId,
+                cantidad: item.cantidadDevuelta,
+                motivo: motivoMerma,
+                costoUnitario,
+                costoTotal: costoUnitario * item.cantidadDevuelta,
+                notas: `Devolución ${folio} - Venta ${venta.folio}`,
+                usuarioId,
+              },
+            });
+
+            await tx.movimientoInventario.create({
+              data: {
+                productoId: item.productoId,
+                sucursalId: venta.sucursalId,
+                loteId: loteAsociadoId,
+                tipo: TipoMovimientoInventario.merma,
+                cantidad: item.cantidadDevuelta,
+                stockAnterior,
+                stockNuevo: stockAnterior,
+                referencia: folio,
+                motivo: `Devolución a merma (${item.motivo}) - Venta ${venta.folio}`,
+                usuarioId,
+              },
+            });
+          }
         }
+
+        itemsDevolucionData.push({
+          productoId: item.productoId,
+          loteId: loteAsociadoId,
+          cantidadDevuelta: item.cantidadDevuelta,
+          precioUnitario: item.precioUnitario,
+          subtotal: subtotalItem,
+          motivo: item.motivo,
+          destino: item.destino,
+        });
       }
 
       // 2. Crear cabecera Devolución
@@ -188,7 +342,7 @@ export class ReturnsService {
       orderBy: { fechaHora: 'desc' },
       include: {
         productos: {
-          include: { producto: true },
+          include: { producto: true, lote: { select: { codigoLote: true } } },
         },
         venta: { select: { id: true, folio: true } },
         usuario: { select: { id: true, nombre: true } },

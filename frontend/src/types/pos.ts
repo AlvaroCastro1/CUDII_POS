@@ -21,8 +21,19 @@ export interface Producto {
   esGranel?: boolean;
   estaActivo?: boolean;
   manejaInventario?: boolean;
-  requiereLote?: boolean;
+  tieneCaducidad?: boolean;
+  metodoRotacion?: 'FIFO' | 'FEFO';
+  preciosPorUnidad?: PrecioPorUnidad[];
   inventario?: ProductoInventario[];
+}
+
+export interface PrecioPorUnidad {
+  id: string;
+  unidad: string;
+  nombreAlternativo?: string | null;
+  cantidadMinima: number;
+  precio: number;
+  esDefault?: boolean;
 }
 
 export interface Categoria {
@@ -51,6 +62,12 @@ export interface VentaDetalle {
   total: number;
   descuento?: number;
   unidadMedida?: string;
+  lotes?: {
+    id: string;
+    loteId: string;
+    cantidad: number;
+    lote?: { id: string; codigoLote: string } | null;
+  }[];
 }
 
 export interface VentaDevolucionProducto {
@@ -82,3 +99,73 @@ export type TipoResolucionDevolucion =
   | 'reembolso_efectivo'
   | 'cambio_fisico'
   | 'saldo_favor';
+
+export type EstadoLote = 'activo' | 'agotado' | 'vencido';
+export type MotivoMerma =
+  | 'caducado'
+  | 'danado'
+  | 'robo'
+  | 'perdida'
+  | 'error'
+  | 'otro';
+
+export interface Lote {
+  id: string;
+  codigoLote: string;
+  productoId: string;
+  sucursalId: string;
+  fechaRecepcion: string;
+  fechaFabricacion?: string | null;
+  fechaCaducidad?: string | null;
+  cantidadInicial: number;
+  cantidadRestante: number;
+  costoUnitario: number;
+  proveedor?: string | null;
+  estado: EstadoLote;
+  producto?: { id: string; nombre: string; codigoBarras: string; unidadMedida?: string | null; esGranel?: boolean };
+  sucursal?: { id: string; nombre: string };
+}
+
+export interface LoteMovimiento {
+  id: string;
+  tipo: string;
+  cantidad: number;
+  motivo?: string | null;
+  fechaHora: string;
+  usuario?: { nombre?: string } | null;
+}
+
+export interface LoteDetalle extends Lote {
+  movimientos?: LoteMovimiento[];
+  creadoPor?: { nombre?: string } | null;
+}
+
+export interface RecepcionDetalle {
+  productoId: string;
+  nombreProducto?: string;
+  cantidad: number;
+  costoUnitario: number;
+  loteId?: string;
+  lote?: { id: string; codigoLote: string } | null;
+  producto?: { id: string; nombre: string; unidadMedida?: string | null; esGranel?: boolean; tieneCaducidad?: boolean };
+}
+
+export interface RecepcionMercancia {
+  id: string;
+  folio: string;
+  proveedor?: string | null;
+  fechaRecepcion: string;
+  notas?: string | null;
+  creadoPor?: { nombre?: string } | null;
+  detalles?: RecepcionDetalle[];
+}
+
+export interface VencimientoInfo {
+  diasPreaviso?: number;
+  porVencer: { id: string; codigoLote: string; productoId: string; nombreProducto: string; cantidadRestante: number; fechaCaducidad: string; dias: number; costoUnitario: number }[];
+  vencidos: { id: string; codigoLote: string; productoId: string; nombreProducto: string; cantidadRestante: number; fechaCaducidad: string; dias: number; costoUnitario: number }[];
+  totalPorVencer: number;
+  totalVencidos: number;
+  valorPorVencer?: number;
+  valorVencidos?: number;
+}

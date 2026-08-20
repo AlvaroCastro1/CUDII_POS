@@ -241,6 +241,16 @@ export default function ProductosView() {
                         Inactivo
                       </Badge>
                     )}
+                    {prod.manejaInventario && (
+                      <Badge variant="outline" className="ml-2 text-[10px] border-success/60 text-success">
+                        INV
+                      </Badge>
+                    )}
+                    {prod.tieneCaducidad && (
+                      <Badge variant="outline" className="ml-1 text-[10px] border-yellow-500/60 text-yellow-500">
+                        CAD
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     {prod.categorias && prod.categorias.length > 0 ? (

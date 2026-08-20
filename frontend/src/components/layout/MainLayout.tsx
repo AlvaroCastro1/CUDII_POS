@@ -144,17 +144,27 @@ export default function MainLayout() {
           {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN' || user?.rol === 'GERENTE' || user?.rol === 'ALMACEN') && (
             <div className="px-4">
               <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
-                Inventario
+                Control de Inventario
               </h3>
               <div className="space-y-1">
                 <button
                   onClick={() => { navigate('/admin/inventario'); setIsMobileMenuOpen(false); }}
                   className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/admin/inventario' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
-                  title={!isSidebarOpen ? 'Inventario' : ''}
+                  title={!isSidebarOpen ? 'Stock por Producto' : ''}
                 >
-                  <span className="material-symbols-outlined !text-xl shrink-0">warehouse</span>
+                  <span className="material-symbols-outlined !text-xl shrink-0">package_2</span>
                   <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
-                    Inventario
+                    Stock por Producto
+                  </span>
+                </button>
+                <button
+                  onClick={() => { navigate('/admin/lotes'); setIsMobileMenuOpen(false); }}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/admin/lotes' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  title={!isSidebarOpen ? 'Lotes y Caducidades' : ''}
+                >
+                  <span className="material-symbols-outlined !text-xl shrink-0">calendar_month</span>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                    Lotes y Caducidades
                   </span>
                 </button>
               </div>

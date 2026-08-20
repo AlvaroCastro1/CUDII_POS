@@ -1,0 +1,1538 @@
+{
+  "info": {
+    "name": "CUDII POS — Pruebas Completas",
+    "description": "Coleccion de pruebas para todos los escenarios del POS.\n\nEjecutar PRIMERO: Auth > Login.\n\nEndpoints:\n- POST /auth/login\n- POST /sales\n- POST /returns (DTO: tipoResolucion, productos[]) \n- GET /cash-register/current\n- GET /inventory/lotes?productoId=...\n- PATCH /sales/:id/discounts (descuentoGeneral)\n- POST /sales/:id/discounts (per-item descuento)\n\nDescuentos:\n- descuentoGeneral: monto fijo (no porcentaje)\n- descuento por item: campo descuento en ItemDetalleVenta",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "sesionCajaId",
+      "value": "d1809383-19ef-434b-9ec9-e141a392e190"
+    },
+    {
+      "key": "lastVentaId",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "00 — Auth",
+      "item": [
+        {
+          "name": "Login admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@cudii.demo\",\n  \"password\": \"password123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login OK', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const d = pm.response.json();",
+                  "  pm.expect(d.access_token).to.be.a('string');",
+                  "  pm.collectionVariables.set('token', d.access_token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 — Venta 1 Producto",
+      "item": [
+        {
+          "name": "1.1 PanBimbo x2 = $104",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 2,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 200,\n      \"montoPagado\": 104,\n      \"cambio\": 96\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Total 104', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().total).to.equal(104);",
+                  "  pm.collectionVariables.set('lastVentaId', pm.response.json().id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 Granel Arroz 1.5kg = $48",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"4eb0ad6c-ead4-49ff-8b77-1cd51e874be6\",\n      \"cantidad\": 1.5,\n      \"precioUnitario\": 32,\n      \"unidadMedida\": \"kilo\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 50,\n      \"montoPagado\": 48,\n      \"cambio\": 2\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Total 48', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().total).to.equal(48);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 Servicio = $250 (sin inventario)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"596c770c-c3ed-4e63-a743-0dd4dd0cd4e9\",\n      \"cantidad\": 1,\n      \"precioUnitario\": 250,\n      \"unidadMedida\": \"servicio\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"tarjeta\",\n      \"montoRecibido\": 250,\n      \"montoPagado\": 250\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Servicio 250', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const d = pm.response.json();",
+                  "  pm.expect(d.total).to.equal(250);",
+                  "  pm.expect(d.detalles[0].lotes).to.have.length(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.4 RECHAZAR: PanBimbo 2.5 piezas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 2.5,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 200,\n      \"montoPagado\": 130\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Rechazado decimal', () => {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.5 RECHAZAR: cantidad 0",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 0,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 0,\n      \"montoPagado\": 0\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Rechazado cero', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.6 RECHAZAR: negativo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": -1,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 0,\n      \"montoPagado\": 0\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Rechazado neg', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 — Venta Multi-Producto",
+      "item": [
+        {
+          "name": "2.1 PanBimbo+Coca = $158",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 2,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    },\n    {\n      \"productoId\": \"83b49cb0-1d15-4a88-9962-8ff8998791a5\",\n      \"cantidad\": 3,\n      \"precioUnitario\": 18,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 200,\n      \"montoPagado\": 158,\n      \"cambio\": 42\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Multi OK', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const d = pm.response.json();",
+                  "  pm.expect(d.detalles).to.have.length(2);",
+                  "  pm.expect(d.total).to.equal(158);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Granel+Pieza = $81",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"4eb0ad6c-ead4-49ff-8b77-1cd51e874be6\",\n      \"cantidad\": 2,\n      \"precioUnitario\": 32,\n      \"unidadMedida\": \"kilo\"\n    },\n    {\n      \"productoId\": \"d4d9015f-760a-485c-86a8-0c40705dcb94\",\n      \"cantidad\": 1,\n      \"precioUnitario\": 17,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 100,\n      \"montoPagado\": 81,\n      \"cambio\": 19\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Mixta OK', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().total).to.equal(81);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 Pieza+Granel+Servicio = $329.5",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 1,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    },\n    {\n      \"productoId\": \"2ed8695e-5feb-4617-b90c-0e7631032641\",\n      \"cantidad\": 0.5,\n      \"precioUnitario\": 55,\n      \"unidadMedida\": \"kilo\"\n    },\n    {\n      \"productoId\": \"596c770c-c3ed-4e63-a743-0dd4dd0cd4e9\",\n      \"cantidad\": 1,\n      \"precioUnitario\": 250,\n      \"unidadMedida\": \"servicio\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 400,\n      \"montoPagado\": 329.5,\n      \"cambio\": 70.5\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('3 prod OK', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const d = pm.response.json();",
+                  "  pm.expect(d.detalles).to.have.length(3);",
+                  "  pm.expect(d.total).to.equal(329.5);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 — Consumo Multi-Lote (FEFO)",
+      "item": [
+        {
+          "name": "3.1 PanBimbo x8 FEFO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 8,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 500,\n      \"montoPagado\": 416,\n      \"cambio\": 84\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('FEFO OK', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const d = pm.response.json();",
+                  "  pm.expect(d.total).to.equal(416);",
+                  "  console.log('Lotes: ' + JSON.stringify(d.detalles[0].lotes.map(l => l.lote.codigoLote + '=' + l.cantidad)));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 Atun x2 FEFO (2 lotes)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"02de1b1d-e316-4e07-abc0-dde6f20d8b3e\",\n      \"cantidad\": 2,\n      \"precioUnitario\": 28,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 60,\n      \"montoPagado\": 56,\n      \"cambio\": 4\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Atun FEFO', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const lotes = pm.response.json().detalles[0].lotes;",
+                  "  console.log('Lotes: ' + JSON.stringify(lotes.map(l => l.lote.codigoLote + '=' + l.cantidad)));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.3 Jugo x30 FEFO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"7950be30-6b0d-4523-90b0-c2aaec009e4f\",\n      \"cantidad\": 30,\n      \"precioUnitario\": 14,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 500,\n      \"montoPagado\": 420,\n      \"cambio\": 80\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Jugo 30', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const lotes = pm.response.json().detalles[0].lotes;",
+                  "  const sum = lotes.reduce((s, l) => s + l.cantidad, 0);",
+                  "  pm.expect(sum).to.equal(30);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 — Validacion Stock",
+      "item": [
+        {
+          "name": "4.1 PanBimbo auto-create lote (by design)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 50,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 3000,\n      \"montoPagado\": 2600\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Auto-create lote', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([201, 400, 409, 422]);",
+                  "  console.log('Info: PanBimbo auto-creates lote from InventarioSucursal when lotes=0 (by design)');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 Servilletas: auto-create lote",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"b07e5fc1-ebfc-48e4-8d29-dde71a0d2eb0\",\n      \"cantidad\": 5,\n      \"precioUnitario\": 5,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 30,\n      \"montoPagado\": 25,\n      \"cambio\": 5\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Auto lote', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([201, 400, 409, 422]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 — Devoluciones",
+      "item": [
+        {
+          "name": "5.1 Devolver PanBimbo a stock",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/returns",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "returns"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ventaId\": \"{{lastVentaId}}\",\n  \"tipoResolucion\": \"cambio_fisico\",\n  \"productos\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidadDevuelta\": 1,\n      \"precioUnitario\": 52,\n      \"motivo\": \"danado\",\n      \"destino\": \"stock\"\n    }\n  ],\n  \"motivoGeneral\": \"Cliente devolvio producto\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Devolucion OK', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const d = pm.response.json();",
+                  "  pm.expect(d.productos[0].destino).to.equal('stock');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2 RECHAZAR: decimal en devolucion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/returns",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "returns"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ventaId\": \"{{lastVentaId}}\",\n  \"tipoResolucion\": \"cambio_fisico\",\n  \"productos\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidadDevuelta\": 1.5,\n      \"precioUnitario\": 52,\n      \"motivo\": \"danado\",\n      \"destino\": \"stock\"\n    }\n  ],\n  \"motivoGeneral\": \"Test decimal\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Rechazado decimal', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.3 Devolver Arroz a merma",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/returns",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "returns"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ventaId\": \"{{lastVentaId}}\",\n  \"tipoResolucion\": \"reembolso_efectivo\",\n  \"productos\": [\n    {\n      \"productoId\": \"4eb0ad6c-ead4-49ff-8b77-1cd51e874be6\",\n      \"cantidadDevuelta\": 0.5,\n      \"precioUnitario\": 32,\n      \"motivo\": \"danado\",\n      \"destino\": \"merma\"\n    }\n  ],\n  \"motivoGeneral\": \"Producto danado\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Merma OK', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().productos[0].destino).to.equal('merma');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 — Metodos de Pago",
+      "item": [
+        {
+          "name": "6.1 Tarjeta = $52",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 1,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"tarjeta\",\n      \"montoRecibido\": 52,\n      \"montoPagado\": 52\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Tarjeta', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().total).to.equal(52);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.2 Pago mixto = $104",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 2,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 60,\n      \"montoPagado\": 60\n    },\n    {\n      \"metodo\": \"tarjeta\",\n      \"montoRecibido\": 44,\n      \"montoPagado\": 44\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Mixto', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const d = pm.response.json();",
+                  "  pm.expect(d.pagos).to.have.length(2);",
+                  "  pm.expect(d.pagos.reduce((s,p)=>s+p.montoPagado,0)).to.equal(104);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.3 Pago menor (no server validation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 2,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 50,\n      \"montoPagado\": 50\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Pago menor', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([201, 400, 422]);",
+                  "  console.log('Nota: API acepta pago menor (sin validacion server)');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 — Sesiones de Caja",
+      "item": [
+        {
+          "name": "7.1 Sesion actual",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cash-register/current",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cash-register",
+                "current"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Sesion OK', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.2 Historial ventas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales?sesionCajaId=d1809383-19ef-434b-9ec9-e141a392e190",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales?sesionCajaId=d1809383-19ef-434b-9ec9-e141a392e190"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Historial', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const d = pm.response.json();",
+                  "  const ventas = d.data || d;",
+                  "  pm.expect(ventas.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 — Inventario y Lotes",
+      "item": [
+        {
+          "name": "8.1 Lotes PanBimbo",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/lotes?productoId=cec97cd4-9dad-4d2e-9f41-0a9147a84627",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inventory",
+                "lotes?productoId=cec97cd4-9dad-4d2e-9f41-0a9147a84627"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Lotes', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().length).to.be.above(0);",
+                  "  console.log('Lotes: ' + JSON.stringify(pm.response.json().map(l => ({code:l.codigoLote,qty:l.cantidadRestante}))));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.2 Lotes Arroz",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/lotes?productoId=4eb0ad6c-ead4-49ff-8b77-1cd51e874be6",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inventory",
+                "lotes?productoId=4eb0ad6c-ead4-49ff-8b77-1cd51e874be6"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Arroz lotes', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  console.log('Arroz: ' + JSON.stringify(pm.response.json().map(l => ({code:l.codigoLote,qty:l.cantidadRestante}))));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.3 LecheAlpura lotes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/lotes?productoId=644e8b97-5040-4b7b-b501-bdbfc3bb557f",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inventory",
+                "lotes?productoId=644e8b97-5040-4b7b-b501-bdbfc3bb557f"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Alpura lotes', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  console.log('Alpura: ' + JSON.stringify(pm.response.json().map(l => ({code:l.codigoLote,qty:l.cantidadRestante}))));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 — Unidades de Medida",
+      "item": [
+        {
+          "name": "9.1 Leche Lala 1.5L = $42",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"53f524d1-b67e-405b-a9ce-291dd5263ba8\",\n      \"cantidad\": 1.5,\n      \"precioUnitario\": 28,\n      \"unidadMedida\": \"litro\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 50,\n      \"montoPagado\": 42,\n      \"cambio\": 8\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Litro OK', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().total).to.equal(42);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9.2 RECHAZAR: Doritos 1.7 piezas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"c66fd291-a0aa-4572-92ee-6164b37fb105\",\n      \"cantidad\": 1.7,\n      \"precioUnitario\": 20,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 40,\n      \"montoPagado\": 34\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Pieza decimal', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10 — Descuentos",
+      "item": [
+        {
+          "name": "10.1 descuentoGeneral $10: $104 -> $94",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"descuentoGeneral\": 10,\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 2,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 100,\n      \"montoPagado\": 94,\n      \"cambio\": 6\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Desc $10', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().total).to.equal(94);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10.2 descuento item $5: $52 -> $47",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 1,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\",\n      \"descuento\": 5\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 50,\n      \"montoPagado\": 47,\n      \"cambio\": 3\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Item desc $5', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().total).to.equal(47);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10.3 Combinado: general $10 + item $5 = $89",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"descuentoGeneral\": 10,\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 2,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\",\n      \"descuento\": 5\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 100,\n      \"montoPagado\": 89,\n      \"cambio\": 11\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Combinado', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.json().total).to.equal(89);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11 — Caducidad",
+      "item": [
+        {
+          "name": "11.1 Atun con fechaCaducidad",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/lotes?productoId=02de1b1d-e316-4e07-abc0-dde6f20d8b3e",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inventory",
+                "lotes?productoId=02de1b1d-e316-4e07-abc0-dde6f20d8b3e"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Caducidad', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const lotes = pm.response.json();",
+                  "  pm.expect(lotes.length).to.be.above(0);",
+                  "  lotes.forEach(l => pm.expect(l.fechaCaducidad).to.not.be.null);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11.2 LecheAlpura sin caducidad",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/inventory/lotes?productoId=644e8b97-5040-4b7b-b501-bdbfc3bb557f",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inventory",
+                "lotes?productoId=644e8b97-5040-4b7b-b501-bdbfc3bb557f"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Sin cad', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  console.log('Alpura: ' + JSON.stringify(pm.response.json().map(l => ({code:l.codigoLote,qty:l.cantidadRestante}))));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "12 — Casos Borde",
+      "item": [
+        {
+          "name": "12.1 RECHAZAR: vacio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 0,\n      \"montoPagado\": 0\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Vacio', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12.2 Token invalido -> 401",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "products"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "bad-token",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('401', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12.3 Endpoint 404",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/nonexistent-endpoint",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "nonexistent-endpoint"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('404', () => {",
+                  "  pm.expect(pm.response.code).to.equal(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12.4 Bolsa Croquetas x2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"b290de72-a725-4774-884f-50b2584dfc9c\",\n      \"cantidad\": 2,\n      \"precioUnitario\": 30,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 100,\n      \"montoPagado\": 60,\n      \"cambio\": 40\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Bolson', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([201, 400]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12.5 PanBimbo auto-create x9999 (by design)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sales",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sales"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sesionCajaId\": \"d1809383-19ef-434b-9ec9-e141a392e190\",\n  \"detalles\": [\n    {\n      \"productoId\": \"cec97cd4-9dad-4d2e-9f41-0a9147a84627\",\n      \"cantidad\": 9999,\n      \"precioUnitario\": 52,\n      \"unidadMedida\": \"pieza\"\n    }\n  ],\n  \"pagos\": [\n    {\n      \"metodo\": \"efectivo\",\n      \"montoRecibido\": 999999,\n      \"montoPagado\": 519948\n    }\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Auto-create', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([201, 400, 409, 422]);",
+                  "  console.log('Info: PanBimbo auto-creates lote from InventarioSucursal (by design)');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

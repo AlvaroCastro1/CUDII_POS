@@ -6,6 +6,11 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CrearVentaDto } from './dto/crear-venta.dto';
 import { MetodoPago, Prisma, TipoMovimientoInventario } from '@prisma/client';
+import { consumirLotes } from '../inventory/lotes.helper';
+import {
+  redondearSegunUnidad,
+  validarCantidadSegunUnidad,
+} from '../common/validators/unidad.util';
 
 @Injectable()
 export class SalesService {
@@ -62,6 +67,10 @@ export class SalesService {
       const impuestosVenta = 0;
 
       const detallesData = [];
+      const lotesPorProducto = new Map<
+        string,
+        { loteId: string; cantidad: number; costoUnitario: number }[]
+      >();
       const detallesList = dto.detalles;
 
       for (const item of detallesList) {
@@ -75,6 +84,17 @@ export class SalesService {
           );
         }
 
+        // Validar y redondear cantidad según unidad de medida
+        validarCantidadSegunUnidad(
+          item.cantidad,
+          item.unidadMedida || producto.unidadMedida,
+          'venta',
+        );
+        item.cantidad = redondearSegunUnidad(
+          item.cantidad,
+          item.unidadMedida || producto.unidadMedida,
+        );
+
         const subtotalItem = item.cantidad * item.precioUnitario;
         const descuentoItem = item.descuento || 0;
         const totalItem = subtotalItem - descuentoItem;
@@ -82,20 +102,9 @@ export class SalesService {
         subtotalVenta += subtotalItem;
         descuentoVenta += descuentoItem;
 
-        detallesData.push({
-          productoId: item.productoId,
-          nombreProducto: producto.nombre,
-          unidadMedida: item.unidadMedida || producto.unidadMedida,
-          cantidad: item.cantidad,
-          precioUnitario: item.precioUnitario,
-          costoHistorico: producto.precioCompra || 0,
-          subtotal: subtotalItem,
-          descuento: descuentoItem,
-          impuestos: 0,
-          total: totalItem,
-        });
-
         // Descontar inventario (Permisivo: se permite stock negativo con registro auditado)
+        let costoHistorico = producto.precioCompra || 0;
+
         if (producto.manejaInventario) {
           let inventario = await tx.inventarioSucursal.findUnique({
             where: {
@@ -127,20 +136,82 @@ export class SalesService {
             },
           });
 
-          await tx.movimientoInventario.create({
-            data: {
-              productoId: item.productoId,
-              sucursalId,
-              tipo: TipoMovimientoInventario.venta,
-              cantidad: item.cantidad,
-              stockAnterior,
-              stockNuevo,
-              referencia: folio,
-              motivo: `Venta POS - Folio ${folio}`,
-              usuarioId: cajeroId,
-            },
-          });
+          // Consumo por lote (FEFO/FIFO según producto) — siempre con manejaInventario
+          let lotesConsumidos: Awaited<ReturnType<typeof consumirLotes>> = [];
+
+          lotesConsumidos = await consumirLotes(
+            tx,
+            item.productoId,
+            sucursalId,
+            item.cantidad,
+            item.unidadMedida || producto.unidadMedida,
+          );
+
+          if (lotesConsumidos.length > 0) {
+            lotesPorProducto.set(
+              item.productoId,
+              lotesConsumidos.map((l) => ({
+                loteId: l.loteId,
+                cantidad: l.cantidad,
+                costoUnitario: l.costoUnitario,
+              })),
+            );
+
+            // Costo histórico = promedio ponderado por los lotes consumidos
+            costoHistorico =
+              lotesConsumidos.reduce(
+                (acc, l) => acc + l.costoUnitario * l.cantidad,
+                0,
+              ) / item.cantidad;
+
+            // Un movimiento por lote para trazabilidad
+            for (const lote of lotesConsumidos) {
+              await tx.movimientoInventario.create({
+                data: {
+                  productoId: item.productoId,
+                  sucursalId,
+                  loteId: lote.loteId,
+                  tipo: TipoMovimientoInventario.venta,
+                  cantidad: lote.cantidad,
+                  stockAnterior,
+                  stockNuevo,
+                  referencia: folio,
+                  motivo: `Venta POS - Folio ${folio} - Lote ${lote.codigoLote}`,
+                  usuarioId: cajeroId,
+                },
+              });
+            }
+          }
+
+          if (lotesConsumidos.length === 0) {
+            await tx.movimientoInventario.create({
+              data: {
+                productoId: item.productoId,
+                sucursalId,
+                tipo: TipoMovimientoInventario.venta,
+                cantidad: item.cantidad,
+                stockAnterior,
+                stockNuevo,
+                referencia: folio,
+                motivo: `Venta POS - Folio ${folio}`,
+                usuarioId: cajeroId,
+              },
+            });
+          }
         }
+
+        detallesData.push({
+          productoId: item.productoId,
+          nombreProducto: producto.nombre,
+          unidadMedida: item.unidadMedida || producto.unidadMedida,
+          cantidad: item.cantidad,
+          precioUnitario: item.precioUnitario,
+          costoHistorico,
+          subtotal: subtotalItem,
+          descuento: descuentoItem,
+          impuestos: 0,
+          total: totalItem,
+        });
       }
 
       const totalVenta = subtotalVenta - descuentoVenta + impuestosVenta;
@@ -151,10 +222,7 @@ export class SalesService {
       let acumuladoOtros = 0;
 
       const pagosData = dto.pagos.map((pago) => {
-        const metodoEnum =
-          pago.metodo === MetodoPago.tarjeta
-            ? MetodoPago.tarjeta
-            : MetodoPago.efectivo;
+        const metodoEnum = pago.metodo;
         const montoRecibido = pago.montoRecibido;
         const montoPagado = pago.montoPagado;
         const cambio = pago.cambio ?? 0;
@@ -209,7 +277,13 @@ export class SalesService {
           },
         },
         include: {
-          detalles: true,
+          detalles: {
+            include: {
+              lotes: {
+                include: { lote: { select: { id: true, codigoLote: true } } },
+              },
+            },
+          },
           pagos: true,
           cajero: {
             select: { id: true, nombre: true },
@@ -218,7 +292,47 @@ export class SalesService {
         },
       });
 
-      return venta;
+      // 5b. Trazabilidad por lote: vincular cada línea con los lotes consumidos
+      if (lotesPorProducto.size > 0) {
+        const detallePorProducto = new Map(
+          venta.detalles.map((d) => [d.productoId, d.id]),
+        );
+
+        for (const [productoId, lotes] of lotesPorProducto) {
+          const detalleVentaId = detallePorProducto.get(productoId);
+          if (!detalleVentaId) continue;
+
+          await tx.detalleVentaLote.createMany({
+            data: lotes.map((l) => ({
+              detalleVentaId,
+              loteId: l.loteId,
+              cantidad: l.cantidad,
+              costoUnitario: l.costoUnitario,
+            })),
+          });
+        }
+      }
+
+      // 5c. Re-leer la venta para incluir la trazabilidad por lote en la respuesta
+      const ventaFinal = await tx.venta.findUnique({
+        where: { id: venta.id },
+        include: {
+          detalles: {
+            include: {
+              lotes: {
+                include: { lote: { select: { id: true, codigoLote: true } } },
+              },
+            },
+          },
+          pagos: true,
+          cajero: {
+            select: { id: true, nombre: true },
+          },
+          caja: true,
+        },
+      });
+
+      return ventaFinal;
     });
   }
 
@@ -293,6 +407,9 @@ export class SalesService {
         detalles: {
           include: {
             producto: true,
+            lotes: {
+              include: { lote: { select: { id: true, codigoLote: true } } },
+            },
           },
         },
         pagos: true,

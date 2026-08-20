@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Package, Scale, Droplet, Ruler, Wrench } from 'lucide-react';
 import { api } from '../../lib/api';
 import type { Producto } from '../../types/pos';
@@ -17,7 +17,7 @@ interface ProductGridProps {
  * - Servicio / Hora: Wrench (Purple)
  * - Pieza / Paquete: Package (Primary)
  */
-const getUnitIcon = (unidadMedida?: string) => {
+const getUnitIcon = (unidadMedida?: string | null) => {
   const unit = (unidadMedida || '').toLowerCase().trim();
 
   // 1. Litro / Volumen

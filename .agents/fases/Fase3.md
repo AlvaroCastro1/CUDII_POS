@@ -1,6 +1,6 @@
 # Fase 3 — Terminal POS y Ciclo de Venta Completo
 
-> **Estado:** 🔴 PENDIENTE  
+> **Estado:** ✅ Completada  
 > **Versión objetivo:** V1.0  
 > **Dependencia de:** Fase 2 (completada)  
 > **Produce para:** Fase 4
@@ -346,3 +346,32 @@ Body: {
 | El folio de ticket no es único si hay concurrencia | Usar una secuencia de PostgreSQL (`SERIAL` o `nextval`) para garantizar unicidad atómica |
 | El estado del carrito se pierde si el cajero refresca la página | Persistir el carrito en `sessionStorage` o en un estado de servidor con Redis |
 | El Corte Z bloquea ventas pero el frontend no lo refleja | Al abrir la POS, siempre verificar `GET /cash-register/current`; si no hay sesión activa, mostrar modal de apertura |
+
+---
+
+## Extensión: Fase 3+ — Trazabilidad y Lotes
+
+**Estado:** ✅ Completada
+
+Se implementó una extensión significativa sobre la Fase 3 que añade trazabilidad completa de inventario:
+
+### Funcionalidades añadidas
+- **Consumo FEFO/FIFO de lotes**: `consumirLotes` consume primero el lote con caducidad más cercana
+- **Gestión de caducidades**: `tieneCaducidad` (antes `requiereLote`) controla si la fecha es obligatoria al recibir
+- **Merma**: Devoluciones con `destino=merma` registran movimiento sin decrementar lotes
+- **Venta a granel**: Decimales para unidades continuas (kilo, litro, metro)
+- **Validación de unidades**: Discretas (pieza, caja) requieren enteros; continuas permiten decimales
+- **Descuentos**: `descuentoGeneral` (monto fijo) y `descuento` por item
+- **Auto-creación de lotes**: Si no hay lotes activos, se crea uno desde `InventarioSucursal`
+
+### Archivos clave
+- `backend/src/common/validators/unidad.util.ts` — Validación de unidades
+- `backend/src/inventory/lotes.helper.ts` — Consumo FEFO + auto-creación
+- `backend/src/sales/sales.service.ts` — Integración de validación en venta
+- `backend/src/returns/returns.service.ts` — Validación en devoluciones
+- `tests/run_tests.js` — Suite de 39 pruebas API
+
+### Documentación
+- `docs/FASE4_Trazabilidad.md` — Documentación técnica completa
+- `docs/GUIA_PRUEBAS_FASE4.md` — Guía de pruebas (manual + automatizada)
+- `.agents/REGLAS_NEGOCIO.md` — Reglas de negocio actualizadas

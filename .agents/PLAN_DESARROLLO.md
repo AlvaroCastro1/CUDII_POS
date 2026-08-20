@@ -88,14 +88,15 @@ src/
 
 ## 4. Lista de Fases
 
-| Fase | Nombre | Descripción Corta | Versión |
-|------|--------|-------------------|---------|
-| **1** | Fundación e Infraestructura | Docker, BD base, Auth, Onboarding | MVP base |
-| **2** | Catálogo y Gestión de Inventario | CRUD Productos, Categorías, Stock, Usuarios | MVP pre-caja |
-| **3** | Terminal POS y Ciclo de Venta | Apertura de caja, Venta, Cortes, Devoluciones | V1.0 |
-| **4** | Clientes, Reportes y Dashboard | Lealtad, Fiados, Reportes básicos, Dashboard | V1.5 |
-| **5** | Módulos Avanzados (V2.0) | IA, Compras, Migración, Notificaciones | V2.0 |
-| **6** | Especialización (V3.0) | CFDI 4.0, Restaurantes, Periféricos, Offline | V3.0 |
+| Fase | Nombre | Descripción Corta | Versión | Estado |
+|------|--------|-------------------|---------|--------|
+| **1** | Fundación e Infraestructura | Docker, BD base, Auth, Onboarding | MVP base | ✅ Completada |
+| **2** | Catálogo y Gestión de Inventario | CRUD Productos, Categorías, Stock, Usuarios | MVP pre-caja | ✅ Completada |
+| **3** | Terminal POS y Ciclo de Venta | Apertura de caja, Venta, Cortes, Devoluciones | V1.0 | ✅ Completada |
+| **3+** | Trazabilidad y Lotes | FEFO/FIFO, caducidad, merma, granel, descuentos, validación unidades | V1.0+ | ✅ Completada |
+| **4** | Clientes, Reportes y Dashboard | Lealtad, Fiados, Reportes básicos, Dashboard | V1.5 | 🔴 Pendiente |
+| **5** | Módulos Avanzados (V2.0) | IA, Compras, Migración, Notificaciones | V2.0 | 🔴 Pendiente |
+| **6** | Especialización (V3.0) | CFDI 4.0, Restaurantes, Periféricos, Offline | V3.0 | 🔴 Pendiente |
 
 ---
 
@@ -119,6 +120,15 @@ Construye las pantallas de administración que son prerequisito para que el caje
 Implementa el corazón del negocio: la pantalla del cajero. Incluye apertura de sesión de caja, flujo completo de venta (carrito → cobro → ticket), cortes X/Z y devoluciones básicas.
 
 **Entregables clave:** Modelos `Venta`, `DetalleVenta`, `PagoVenta`, `SesionCaja`, `CorteX`, `CorteZ`, `Devolucion`. Terminal POS con 2 paneles, modal de cobro y flujo de devolución.
+
+---
+
+### Fase 3+ — Trazabilidad y Lotes (extensión de Fase 3)
+Extiende el sistema de venta con trazabilidad completa de inventario: consumo FEFO/FIFO de lotes, gestión de caducidades, merma, venta a granel con decimales, descuentos por monto fijo y validación de unidades de medida (discreta vs continua).
+
+**Entregables clave:** Módulo `inventory` extendido (lotes, movimientos, caducidad), `consumirLotes` con FEFO, validación de unidades (`unidad.util.ts`), devoluciones a stock/merma, descuentos (general + por item), suite de pruebas API (39 tests).
+
+**Documentación:** `docs/FASE4_Trazabilidad.md`, `docs/GUIA_PRUEBAS_FASE4.md`, `.agents/REGLAS_NEGOCIO.md`.
 
 ---
 

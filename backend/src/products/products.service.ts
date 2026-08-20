@@ -69,6 +69,10 @@ export class ProductsService {
       }
 
       // Inicializar stock en 0 para todas las sucursales de la empresa
+      const empresa = await tx.empresa.findUnique({
+        where: { id: empresaId },
+        select: { stockMinimoGlobal: true, stockMaximoGlobal: true },
+      });
       const sucursales = await tx.sucursal.findMany({ where: { empresaId } });
       if (sucursales.length > 0) {
         await tx.inventarioSucursal.createMany({
@@ -76,8 +80,8 @@ export class ProductsService {
             productoId: producto.id,
             sucursalId: s.id,
             stockActual: 0,
-            stockMaximo: 0,
-            stockMinimo: 0,
+            stockMinimo: empresa?.stockMinimoGlobal ?? 0,
+            stockMaximo: empresa?.stockMaximoGlobal ?? 100,
           })),
         });
       }
