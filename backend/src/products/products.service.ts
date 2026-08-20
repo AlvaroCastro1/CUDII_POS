@@ -46,18 +46,6 @@ export class ProductsService {
         },
       });
 
-      // Registrar historial de precios inicial
-      await tx.historialPrecioProducto.create({
-        data: {
-          productoId: producto.id,
-          usuarioId: usuarioId,
-          precioAnterior: 0,
-          precioNuevo: producto.precioVentaBase,
-          tipoPrecio: 'precioVentaBase',
-          motivo: 'Creación de producto',
-        },
-      });
-
       // Crear precios adicionales por unidad si se proporcionan
       if (preciosAdicionales && preciosAdicionales.length > 0) {
         await tx.precioPorUnidad.createMany({
@@ -217,12 +205,6 @@ export class ProductsService {
       include: {
         categorias: true,
         preciosPorUnidad: { orderBy: { precio: 'asc' } },
-        historialPrecios: {
-          orderBy: { fechaHora: 'desc' },
-          include: {
-            usuario: { select: { id: true, nombre: true, email: true } },
-          },
-        },
         inventario: {
           include: { sucursal: { select: { id: true, nombre: true } } },
         },
@@ -283,40 +265,6 @@ export class ProductsService {
           }),
         },
       });
-
-      // Registrar historial si cambió precioVentaBase
-      if (
-        camposProducto.precioVentaBase !== undefined &&
-        camposProducto.precioVentaBase !== productoAnterior.precioVentaBase
-      ) {
-        await tx.historialPrecioProducto.create({
-          data: {
-            productoId: productoEditado.id,
-            usuarioId,
-            precioAnterior: productoAnterior.precioVentaBase,
-            precioNuevo: camposProducto.precioVentaBase,
-            tipoPrecio: 'precioVentaBase',
-            motivo: 'Actualización de precio de venta',
-          },
-        });
-      }
-
-      // Registrar historial si cambió precioCompra
-      if (
-        camposProducto.precioCompra !== undefined &&
-        camposProducto.precioCompra !== productoAnterior.precioCompra
-      ) {
-        await tx.historialPrecioProducto.create({
-          data: {
-            productoId: productoEditado.id,
-            usuarioId,
-            precioAnterior: productoAnterior.precioCompra,
-            precioNuevo: camposProducto.precioCompra,
-            tipoPrecio: 'precioCompra',
-            motivo: 'Actualización de precio de compra',
-          },
-        });
-      }
 
       // Si vienen precios adicionales por unidad, reemplazar todos
       if (preciosAdicionales !== undefined) {

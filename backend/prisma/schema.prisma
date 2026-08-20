@@ -100,7 +100,6 @@ model Usuario {
 
   // Relaciones
   movimientosInventario   MovimientoInventario[]
-  historialPrecios        HistorialPrecioProducto[]
   sesionesCaja            SesionCaja[]
   retirosParciales        RetiroParcial[]
   cortesX                 CorteX[]
@@ -154,7 +153,6 @@ model Producto {
   preciosPorUnidad     PrecioPorUnidad[]
   inventario           InventarioSucursal[]
   movimientos          MovimientoInventario[]
-  historialPrecios     HistorialPrecioProducto[]
   detallesVenta        DetalleVenta[]
   devolucionesProducto DevolucionProducto[]
   lotes                Lote[]
@@ -225,19 +223,6 @@ model Categoria {
   actualizadoEn DateTime @updatedAt
 
   productos Producto[]
-}
-
-model HistorialPrecioProducto {
-  id             String   @id @default(uuid())
-  productoId     String
-  producto       Producto @relation(fields: [productoId], references: [id])
-  usuarioId      String
-  usuario        Usuario  @relation(fields: [usuarioId], references: [id])
-  precioAnterior Float
-  precioNuevo    Float
-  tipoPrecio     String
-  motivo         String
-  fechaHora      DateTime @default(now())
 }
 
 enum TipoMovimientoInventario {
