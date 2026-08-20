@@ -38,6 +38,7 @@ model Empresa {
   lotes          Lote[]
   recepciones    RecepcionMercancia[]
   mermas         Merma[]
+  proveedores    Proveedor[]
 }
 
 enum ModoCorteZ {
@@ -291,7 +292,9 @@ model Lote {
   cantidadInicial  Float
   cantidadRestante Float
   costoUnitario    Float
-  proveedor        String? // Nombre libre del proveedor
+  proveedor        String?  // Nombre libre del proveedor (legacy)
+  proveedorId      String?
+  proveedorRef     Proveedor? @relation(fields: [proveedorId], references: [id])
 
   estado      EstadoLote @default(activo)
   creadoPorId String
@@ -637,6 +640,34 @@ model LogActividad {
 }
 
 // ---------------------------------------------------------
+// ---------------------------------------------------------
+// PROVEEDORES
+// ---------------------------------------------------------
+
+model Proveedor {
+  id        String  @id @default(uuid())
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  nombre      String
+  rfc         String?
+  telefono    String?
+  email       String?
+  direccion   String?
+  contacto    String? // Nombre del contacto principal
+  notas       String?
+  estaActivo  Boolean @default(true)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // Relaciones
+  lotes Lote[]
+
+  @@index([empresaId])
+  @@index([empresaId, estaActivo])
+}
+
 // NOTIFICACIONES INTERNAS
 // ---------------------------------------------------------
 

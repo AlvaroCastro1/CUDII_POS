@@ -17,6 +17,7 @@ import ProductoDetalleView from './views/admin/ProductoDetalleView';
 import CategoriasView from './views/admin/CategoriasView';
 import InventarioView from './views/admin/InventarioView';
 import LotesView from './views/admin/LotesView';
+import ProveedoresView from './views/admin/ProveedoresView';
 import UsuariosView from './views/admin/UsuariosView';
 import MiPerfilView from './views/admin/MiPerfilView';
 import ConfiguracionView from './views/admin/ConfiguracionView';
@@ -85,6 +86,7 @@ const router = createBrowserRouter([
           { path: 'productos/:id', element: <ProductoDetalleView /> },
           { path: 'inventario', element: <InventarioView /> },
           { path: 'lotes', element: <LotesView /> },
+          { path: 'proveedores', element: <ProveedoresView /> },
           { path: 'usuarios', element: <UsuariosView /> },
           { path: 'devoluciones', element: <DevolucionesView /> },
           { path: 'perfil', element: <MiPerfilView /> },

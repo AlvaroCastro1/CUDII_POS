@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -15,9 +17,17 @@ import { CompanySettingsModule } from './company-settings/company-settings.modul
 import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MermaModule } from './merma/merma.module';
+import { SuppliersModule } from './suppliers/suppliers.module';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([
+      {
+        name: 'global',
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
     PrismaModule,
     AuditModule,
     NotificationsModule,
@@ -32,8 +42,15 @@ import { MermaModule } from './merma/merma.module';
     ReturnsModule,
     CompanySettingsModule,
     MermaModule,
+    SuppliersModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
