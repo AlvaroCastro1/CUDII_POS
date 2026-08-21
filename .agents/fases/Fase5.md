@@ -82,34 +82,13 @@ interface NotificacionAdapter {
 
 ---
 
-### E2 — Módulo de Proveedores (Backend)
+### E2 — Módulo de Proveedores (Backend) ✅ COMPLETADO EN FASE 3+
 
-**Modelos a agregar al schema:**
-```prisma
-model Proveedor {
-  id                 String   @id @default(uuid())
-  empresaId          String
-  nombre             String
-  rfc                String?
-  contactoNombre     String?
-  contactoTelefono   String?
-  contactoEmail      String?
-  contactoWhatsapp   String?
-  diasEntregaPromedio Int?
-  estaActivo         Boolean  @default(true)
-  creadoEn           DateTime @default(now())
-  actualizadoEn      DateTime @updatedAt
-  ordenesCompra      OrdenCompra[]
-}
-```
-
-**Endpoints de proveedores:**
-| Método | Ruta | Roles |
-|--------|------|-------|
-| GET | `/suppliers` | ADMIN, GERENTE |
-| POST | `/suppliers` | ADMIN, GERENTE |
-| PATCH | `/suppliers/:id` | ADMIN, GERENTE |
-| DELETE | `/suppliers/:id` | ADMIN |
+> El modelo `Proveedor` con FK a `Lote` ya existe (migración `20260819000000_add_proveedor_model`).
+> El backend CRUD completo ya está implementado (`suppliers.controller.ts`, `suppliers.service.ts`, DTOs).
+> El frontend `ProveedoresView.tsx` con búsqueda, paginación y soft delete ya está implementado.
+>
+> **Solo queda:** Integrar la relación `OrdenCompra.proveedorId → Proveedor.id` en el módulo E3 (Órdenes de Compra), ya que el modelo `OrdenCompra` referencia `proveedorId` pero la relación Prisma entre `OrdenCompra` y `Proveedor` aún no está declarada en el schema.
 
 ---
 
@@ -237,18 +216,50 @@ Response: { respuesta: string, datosVisuales?: object }
 
 ---
 
+### E6 — Códigos de Barras y Etiquetas
+
+**Qué hacer:** Implementar generación e impresión de códigos de barras para productos.
+
+**Backend:**
+- Instalar `@napi-rs/barras` o `jsbarcode` + `canvas` para generación de imágenes
+- Endpoint: `GET /products/:id/barcode` → retorna imagen PNG/SVG del código de barras
+- Endpoint: `GET /products/:id/label` → retorna etiqueta compuesta (código + nombre + precio)
+- Si el producto no tiene `codigoBarras`, generar uno automáticamente basado en el `id`
+
+**Frontend:**
+- Botón "Imprimir etiqueta" en `ProductoDetalleView`
+- Modal de vista previa de etiqueta antes de imprimir
+- Soporte para impresora térmica de etiquetas (formato ZPL o impresión directa vía `window.print()`)
+- Opción de imprimir etiquetas en lote (seleccionar múltiples productos en InventarioView)
+
+**Formato de etiqueta:**
+```
+┌─────────────────────┐
+│ |||||||||||||||||||  │  ← Código de barras
+│  CUDII              │
+│  [Nombre Producto]  │
+│  $12.50 / kg        │  ← Precio por unidad
+│  SKU: 001234        │
+└─────────────────────┘
+```
+
+---
+
 ## Entregables
 
 - [ ] Migración Prisma `add_proveedores_ordenes_importaciones` aplicada
 - [ ] `backend/src/modules/adapters/notificaciones/` — 3 adaptadores (Telegram, Email, Mock)
-- [ ] `backend/src/modules/suppliers/` — CRUD de proveedores
+- [ ] `backend/src/modules/suppliers/` — ✅ Ya completado en Fase 3+ (solo integrar FK en OrdenCompra)
 - [ ] `backend/src/modules/orders/` — órdenes de compra con recepción atómica
 - [ ] `backend/src/modules/imports/` — importación asistida CSV/Excel
 - [ ] `backend/src/modules/adapters/ia/` — adaptador LLM con 2 proveedores + Mock
-- [ ] `frontend/src/views/ProveedoresView.tsx`
+- [ ] `backend/src/modules/barcode/` — generación de códigos de barras y etiquetas
+- [ ] `frontend/src/views/ProveedoresView.tsx` — ✅ Ya completado en Fase 3+
 - [ ] `frontend/src/views/OrdenesCompraView.tsx`
 - [ ] `frontend/src/views/ImportacionView.tsx` — wizard de importación
 - [ ] `frontend/src/components/dashboard/AIChat.tsx` — interfaz de chat con la IA
+- [ ] `frontend/src/components/BarcodeLabel.tsx` — componente de etiqueta con código de barras
+- [ ] Botón "Imprimir etiqueta" en ProductoDetalleView
 
 ---
 
@@ -262,6 +273,8 @@ Response: { respuesta: string, datosVisuales?: object }
 5. Ejecutar la importación → solo los registros válidos se crean en el catálogo.
 6. Preguntar a la IA: "¿Cuáles son mis 3 productos más vendidos esta semana?" → respuesta coherente basada en datos reales.
 7. Configurar notificación de `stock_bajo` vía Telegram → bajar el stock de un producto bajo el mínimo → verificar que llega la notificación al bot.
+8. `GET /products/:id/barcode` → retorna imagen PNG válida del código de barras.
+9. Imprimir etiqueta de un producto → vista previa muestra código, nombre y precio correctos.
 
 ---
 

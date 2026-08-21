@@ -94,7 +94,7 @@ src/
 | **2** | Catálogo y Gestión de Inventario | CRUD Productos, Categorías, Stock, Usuarios | MVP pre-caja | ✅ Completada |
 | **3** | Terminal POS y Ciclo de Venta | Apertura de caja, Venta, Cortes, Devoluciones | V1.0 | ✅ Completada |
 | **3+** | Trazabilidad y Lotes | FEFO/FIFO, caducidad, merma, granel, descuentos, validación unidades | V1.0+ | ✅ Completada |
-| **4** | Clientes, Reportes y Dashboard | Lealtad, Fiados, Reportes básicos, Dashboard | V1.5 | 🔴 Pendiente |
+| **4** | Clientes, Dashboard, Reportes y Arquitectura | Lealtad, Fiados, Dashboard, Reportes, fix N+1, paginación, índices | V1.5 | 🔴 Pendiente |
 | **5** | Módulos Avanzados (V2.0) | IA, Compras, Migración, Notificaciones | V2.0 | 🔴 Pendiente |
 | **6** | Especialización (V3.0) | CFDI 4.0, Restaurantes, Periféricos, Offline | V3.0 | 🔴 Pendiente |
 
@@ -132,17 +132,17 @@ Extiende el sistema de venta con trazabilidad completa de inventario: consumo FE
 
 ---
 
-### Fase 4 — Clientes, Reportes y Dashboard
-Añade la capa de fidelización y visibilidad operacional: registro de clientes, programa de puntos, crédito/fiados, y las primeras pantallas de reportes y dashboard para el gerente/admin.
+### Fase 4 — Clientes, Dashboard, Reportes y Arquitectura
+Añade fidelización, visibilidad operacional y **consistencia arquitectónica** completa. Incluye limpieza de schema (campos muertos), 25+ índices en FKs críticas, fix de N+1 queries, paginación estandarizada, y resolución de endpoints huérfanos. También implementa clientes con crédito/fiados, programa de puntos, dashboard con KPIs reales y reportes exportables.
 
-**Entregables clave:** Modelos `Cliente`, `CuentaCreditoCliente`, `VentaCredito`, `AbonoCredito`. Dashboard con ventas del día, reporte de inventario y gestión de fiados.
+**Entregables clave:** Limpieza de schema + índices + fix N+1 + paginación consistente. Modelos `Cliente`, `CuentaCreditoCliente`, `VentaCredito`, `AbonoCredito`. Dashboard con KPIs, 5 reportes exportables (CSV), historial de ventas/devoluciones, RBAC en sidebar.
 
 ---
 
 ### Fase 5 — Módulos Avanzados (V2.0)
-Incorpora inteligencia operacional: IA conversacional en el dashboard, órdenes de compra a proveedores, migración asistida con IA y notificaciones multicanal.
+Incorpora inteligencia operacional: IA conversacional en el dashboard, órdenes de compra a proveedores, migración asistida con IA, notificaciones multicanal y códigos de barras/etiquetas.
 
-**Entregables clave:** Adaptador LLM (Strategy), módulo `orders` (compras), módulo `imports` (migración), integración de notificaciones (Telegram, Email).
+**Entregables clave:** Adaptador LLM (Strategy), módulo `orders` (compras), módulo `imports` (migración), integración de notificaciones (Telegram, Email), generación de códigos de barras e impresión de etiquetas.
 
 ---
 
