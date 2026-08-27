@@ -86,9 +86,14 @@ export interface Venta {
   folio: string;
   total: number;
   subtotal?: number;
+  descuento?: number;
+  descuentoNivel?: number;
+  descuentoCanje?: number;
+  impuestos?: number;
   descuentoGeneral?: number;
   creadoEn?: string;
   cajero?: { id: string; nombre?: string } | null;
+  cliente?: { id: string; nombre: string; apellidoPaterno?: string | null; cuentaCredito?: { id: string; limiteCredito: number; saldoPendiente: number; estaActivo: boolean } | null } | null;
   pagos?: VentaPago[];
   detalles?: VentaDetalle[];
   devoluciones?: VentaDevolucion[];

@@ -99,6 +99,40 @@ export default function MainLayout() {
                 </span>
               </button>
               <button
+                onClick={() => { navigate('/clientes'); setIsMobileMenuOpen(false); }}
+                className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/clientes' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                title={!isSidebarOpen ? 'Clientes' : ''}
+              >
+                <span className="material-symbols-outlined !text-xl shrink-0">groups</span>
+                <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                  Clientes
+                </span>
+              </button>
+              {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN' || user?.rol === 'GERENTE' || user?.rol === 'CAJERO') && (
+                <button
+                  onClick={() => { navigate('/fiados'); setIsMobileMenuOpen(false); }}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/fiados' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  title={!isSidebarOpen ? 'Fiados (Crédito)' : ''}
+                >
+                  <span className="material-symbols-outlined !text-xl shrink-0">credit_card_off</span>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                    Fiados (Crédito)
+                  </span>
+                </button>
+              )}
+              {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN' || user?.rol === 'GERENTE' || user?.rol === 'CAJERO') && (
+                <button
+                  onClick={() => { navigate('/admin/devoluciones'); setIsMobileMenuOpen(false); }}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/admin/devoluciones' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  title={!isSidebarOpen ? 'Devoluciones' : ''}
+                >
+                  <span className="material-symbols-outlined !text-xl shrink-0">assignment_return</span>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                    Devoluciones
+                  </span>
+                </button>
+              )}
+              <button
                 className="nav-link w-full flex items-center h-11 rounded-xl transition-colors text-on-surface-variant hover:bg-on-surface/5 animate-hover animate-press pl-[14px]"
                 title={!isSidebarOpen ? 'Pedidos' : ''}
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -205,6 +239,26 @@ export default function MainLayout() {
                   <span className="material-symbols-outlined !text-xl shrink-0">history</span>
                   <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
                     Auditoría
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN' || user?.rol === 'GERENTE' || user?.rol === 'CONTADOR') && (
+            <div className="px-4">
+              <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
+                Análisis
+              </h3>
+              <div className="space-y-1">
+                <button
+                  onClick={() => { navigate('/reportes'); setIsMobileMenuOpen(false); }}
+                  className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/reportes' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                  title={!isSidebarOpen ? 'Reportes' : ''}
+                >
+                  <span className="material-symbols-outlined !text-xl shrink-0">monitoring</span>
+                  <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                    Reportes
                   </span>
                 </button>
               </div>

@@ -9,6 +9,8 @@ import LoginView from './views/LoginView';
 import DashboardView from './views/DashboardView';
 import PosView from './views/PosView';
 import OnboardingView from './views/OnboardingView';
+import ClientesView from './views/admin/ClientesView';
+import FiadosView from './views/FiadosView';
 import MainLayout from './components/layout/MainLayout';
 
 // Vistas Admin
@@ -23,6 +25,8 @@ import MiPerfilView from './views/admin/MiPerfilView';
 import ConfiguracionView from './views/admin/ConfiguracionView';
 import AuditoriaView from './views/admin/AuditoriaView';
 import DevolucionesView from './views/DevolucionesView';
+import ReportesView from './views/ReportesView';
+import VentaDetalleView from './views/admin/VentaDetalleView';
 
 // Componente para proteger rutas privadas
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -46,6 +50,20 @@ function GerenciaRoute({ children }: { children: React.ReactNode }) {
     user?.rol !== 'SUPER_ADMIN' &&
     user?.rol !== 'ADMIN' &&
     user?.rol !== 'GERENTE'
+  ) {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
+// Componente para rutas de análisis (SUPER_ADMIN / ADMIN / GERENTE / CONTADOR)
+function AnalisisRoute({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((state) => state.user);
+  if (
+    user?.rol !== 'SUPER_ADMIN' &&
+    user?.rol !== 'ADMIN' &&
+    user?.rol !== 'GERENTE' &&
+    user?.rol !== 'CONTADOR'
   ) {
     return <Navigate to="/" replace />;
   }
@@ -79,6 +97,22 @@ const router = createBrowserRouter([
         element: <PosView />,
       },
       {
+        path: 'clientes',
+        element: <ClientesView />,
+      },
+      {
+        path: 'fiados',
+        element: <FiadosView />,
+      },
+      {
+        path: 'reportes',
+        element: (
+          <AnalisisRoute>
+            <ReportesView />
+          </AnalisisRoute>
+        ),
+      },
+      {
         path: 'admin',
         children: [
           { path: 'categorias', element: <CategoriasView /> },
@@ -88,6 +122,7 @@ const router = createBrowserRouter([
           { path: 'lotes', element: <LotesView /> },
           { path: 'proveedores', element: <ProveedoresView /> },
           { path: 'usuarios', element: <UsuariosView /> },
+          { path: 'ventas/:id', element: <VentaDetalleView /> },
           { path: 'devoluciones', element: <DevolucionesView /> },
           { path: 'perfil', element: <MiPerfilView /> },
           {
