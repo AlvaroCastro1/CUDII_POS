@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CreditCard,
   Banknote,
@@ -6,16 +6,56 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
+  UserSearch,
+  Coins,
+  UserCheck,
+  Users,
+  Wallet,
 } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import { usePosStore } from '../../store/usePosStore';
 import type { Venta } from '../../types/pos';
+
+/** Nivel de lealtad del cliente (D10) */
+interface NivelLealtadPos {
+  id: string;
+  nombre: string;
+  colorHex: string | null;
+  descuentoPct: number;
+}
+
+/** Cliente reducido para el punto de venta (D10) */
+interface ClientePos {
+  id: string;
+  nombre: string;
+  apellidoPaterno?: string | null;
+  telefono?: string | null;
+  puntosActuales: number;
+  puntosHistoricos: number;
+  nivelLealtad?: NivelLealtadPos | null;
+  cuentaCredito?: {
+    limiteCredito: number;
+    saldoPendiente: number;
+    estaActivo: boolean;
+  } | null;
+}
+
+/** Configuración del programa de lealtad (D10) */
+interface ProgramaLealtadPos {
+  habilitado: boolean;
+  permitirCanje: boolean;
+  puntosPorPesos: number;
+  canjeMinimoPuntos: number;
+}
 
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (venta: Venta) => void;
 }
+
+/** Redondeo a centavos (#4): evita artefactos de punto flotante en montos cobrables */
+const r2 = (n: number) => Math.round(n * 100) / 100;
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   isOpen,
@@ -27,32 +67,170 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const descuentoGeneral = usePosStore((s) => s.descuentoGeneral);
   const activeSession = usePosStore((s) => s.activeSession);
 
-  const [metodoPago, setMetodoPago] = useState<'efectivo' | 'tarjeta' | 'mixto'>('efectivo');
+  const [metodoPago, setMetodoPago] = useState<
+    'efectivo' | 'tarjeta' | 'mixto' | 'credito'
+  >('efectivo');
   const [montoEfectivo, setMontoEfectivo] = useState<string>('');
   const [montoTarjeta, setMontoTarjeta] = useState<string>('');
   const [referenciaTarjeta, setReferenciaTarjeta] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ── D10: Selector de cliente y lealtad ────────────────────────────────
+  const [busquedaCliente, setBusquedaCliente] = useState('');
+  const [resultados, setResultados] = useState<ClientePos[]>([]);
+  const [buscandoCliente, setBuscandoCliente] = useState(false);
+  const [mostrarResultados, setMostrarResultados] = useState(false);
+  const [cliente, setCliente] = useState<ClientePos | null>(null);
+  const [programa, setPrograma] = useState<ProgramaLealtadPos | null>(null);
+  const [puntosACanjearInput, setPuntosACanjearInput] = useState<string>('');
+  // #1: cobro de deuda pendiente al seleccionar cliente con crédito
+  const [cobrarDeuda, setCobrarDeuda] = useState(false);
+
+  /** Carga la configuración del programa al abrir el modal */
+  useEffect(() => {
+    if (!isOpen) return;
+    let vigente = true;
+    api
+      .get<ProgramaLealtadPos>('/company-settings/lealtad')
+      .then((res) => {
+        if (vigente) setPrograma(res.data);
+      })
+      .catch(() => {
+        if (vigente)
+          setPrograma({
+            habilitado: false,
+            permitirCanje: false,
+            puntosPorPesos: 100,
+            canjeMinimoPuntos: 100,
+          });
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [isOpen]);
+
+  /** Búsqueda con retardo de clientes activos para el selector */
+  useEffect(() => {
+    if (!isOpen || !mostrarResultados || busquedaCliente.trim().length < 2) {
+      setResultados([]);
+      return;
+    }
+    let vigente = true;
+    setBuscandoCliente(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.get(
+          `/customers?page=1&limit=6&search=${encodeURIComponent(busquedaCliente)}`,
+        );
+        if (vigente) setResultados(res.data.data ?? []);
+      } catch {
+        if (vigente) setResultados([]);
+      } finally {
+        if (vigente) setBuscandoCliente(false);
+      }
+    }, 300);
+    return () => {
+      vigente = false;
+      clearTimeout(t);
+    };
+  }, [busquedaCliente, mostrarResultados, isOpen]);
+
+  // #8: si se estaba cobrando a crédito y se quita el cliente o la cuenta, volver a efectivo
+  // (el chequeo exacto contra el total se valida al enviar)
+  useEffect(() => {
+    if (metodoPago !== 'credito') return;
+    if (!cliente?.cuentaCredito?.estaActivo) {
+      setMetodoPago('efectivo');
+    }
+  }, [metodoPago, cliente]);
+
+  // #1: al cambiar de cliente, resetear la selección de cobro de deuda
+  useEffect(() => {
+    setCobrarDeuda(false);
+  }, [cliente]);
+
   if (!isOpen) return null;
 
-  const subtotal = cart.reduce(
-    (acc, item) => acc + item.cantidad * item.precioUnitario,
-    0,
+  // #1: deuda pendiente del cliente
+  const deudaPendiente =
+    cobrarDeuda && cliente?.cuentaCredito?.estaActivo
+      ? Math.max(0, Number(cliente.cuentaCredito.saldoPendiente) || 0)
+      : 0;
+
+  // ── Totales (el backend recalcula el descuento de lealtad de forma autoritativa) ──
+  const subtotal = r2(
+    cart.reduce((acc, item) => acc + item.cantidad * item.precioUnitario, 0),
   );
-  const totalDescuentos =
-    cart.reduce((acc, item) => acc + item.descuento, 0) + descuentoGeneral;
-  const total = Math.max(0, subtotal - totalDescuentos);
+  const totalDescuentos = r2(
+    cart.reduce((acc, item) => acc + item.descuento, 0) + descuentoGeneral,
+  );
+
+  // D10: Descuento por nivel del cliente seleccionado
+  const pctNivel = cliente?.nivelLealtad?.descuentoPct ?? 0;
+  const netoTrasDescuentos = r2(Math.max(0, subtotal - totalDescuentos));
+  const descuentoLealtad =
+    programa?.habilitado && pctNivel > 0
+      ? Math.round(netoTrasDescuentos * pctNivel) / 100
+      : 0;
+
+  // D10: Canje de puntos (limitado por saldo, mínimo configurado y total restante)
+  const puntosACanjear = parseInt(puntosACanjearInput, 10) || 0;
+  const canjeHabilitado =
+    programa?.habilitado === true &&
+    programa.permitirCanje === true &&
+    cliente !== null &&
+    puntosACanjear >= (programa.canjeMinimoPuntos ?? 0) &&
+    puntosACanjear <= (cliente.puntosActuales ?? 0);
+  const montoCanjeBruto =
+    canjeHabilitado && programa && programa.puntosPorPesos > 0
+      ? Math.round((puntosACanjear / programa.puntosPorPesos) * 100) / 100
+      : 0;
+  const montoCanje = Math.min(montoCanjeBruto, netoTrasDescuentos - descuentoLealtad);
+
+  // Techo inteligente de puntos: no más de los disponibles ni más que el resto a pagar
+  const restanteParaCanje = Math.max(
+    0,
+    netoTrasDescuentos - descuentoLealtad,
+  );
+  const maxPuntosCanjeables =
+    programa && programa.puntosPorPesos > 0
+      ? Math.floor(
+          Math.min(
+            cliente?.puntosActuales ?? 0,
+            restanteParaCanje * programa.puntosPorPesos,
+          ),
+        )
+      : 0;
+
+  const totalVenta = r2(
+    Math.max(0, netoTrasDescuentos - descuentoLealtad - montoCanje),
+  );
+  const total = r2(totalVenta + deudaPendiente);
+
+  // ── #8: Crédito (fiar) — disponible según la cuenta del cliente ──
+  const creditoDisponible =
+    cliente?.cuentaCredito?.estaActivo === true
+      ? r2(
+          Math.max(
+            0,
+            cliente.cuentaCredito.limiteCredito -
+              cliente.cuentaCredito.saldoPendiente,
+          ),
+        )
+      : null;
+  const creditoSuficiente =
+    creditoDisponible !== null && creditoDisponible >= total;
 
   const efectivoNum = parseFloat(montoEfectivo) || 0;
   const tarjetaNum = parseFloat(montoTarjeta) || 0;
   const totalPagado = metodoPago === 'efectivo' ? efectivoNum : efectivoNum + tarjetaNum;
-  const cambio = Math.max(0, efectivoNum - (total - tarjetaNum));
+  const cambio = r2(Math.max(0, efectivoNum - (total - tarjetaNum)));
 
   const isPagoSuficiente =
     metodoPago === 'efectivo'
       ? efectivoNum >= total
-      : metodoPago === 'tarjeta'
+      : metodoPago === 'tarjeta' || metodoPago === 'credito'
       ? true
       : totalPagado >= total;
 
@@ -60,11 +238,36 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setMontoEfectivo(monto.toString());
   };
 
+  /** Selecciona un cliente del buscador y muestra su chip */
+  const seleccionarCliente = (c: ClientePos) => {
+    setCliente(c);
+    setBusquedaCliente('');
+    setResultados([]);
+    setMostrarResultados(false);
+    setPuntosACanjearInput('');
+  };
+
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isPagoSuficiente && metodoPago !== 'tarjeta') {
+    if (!isPagoSuficiente && metodoPago !== 'tarjeta' && metodoPago !== 'credito') {
       setError('El monto pagado es menor al total a cobrar');
       return;
+    }
+    if (metodoPago === 'credito') {
+      if (!cliente) {
+        setError('Selecciona un cliente para poder fiar la venta');
+        return;
+      }
+      if (!cliente.cuentaCredito?.estaActivo) {
+        setError('El cliente no tiene una cuenta de crédito activa');
+        return;
+      }
+      if (!creditoSuficiente) {
+        setError(
+          `Crédito disponible insuficiente ($${(creditoDisponible ?? 0).toFixed(2)}) para fiar $${total.toFixed(2)}`,
+        );
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -72,19 +275,34 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     try {
       const pagos = [];
+      // #1: nota de deuda para referencia en el pago
+      const notaDeuda =
+        cobrarDeuda && deudaPendiente > 0
+          ? ` · Deuda $${deudaPendiente.toFixed(2)}`
+          : '';
+
       if (metodoPago === 'efectivo') {
         pagos.push({
           metodo: 'efectivo',
           montoRecibido: efectivoNum || total,
           montoPagado: total,
           cambio,
+          ...(notaDeuda ? { referencia: `Venta $${totalVenta.toFixed(2)}${notaDeuda}` } : {}),
         });
       } else if (metodoPago === 'tarjeta') {
         pagos.push({
           metodo: 'tarjeta',
           montoRecibido: total,
           montoPagado: total,
-          referencia: referenciaTarjeta || undefined,
+          referencia: [referenciaTarjeta, notaDeuda ? `Venta $${totalVenta.toFixed(2)}${notaDeuda}` : null]
+            .filter(Boolean)
+            .join(' · ') || undefined,
+        });
+      } else if (metodoPago === 'credito') {
+        pagos.push({
+          metodo: 'credito',
+          montoRecibido: total,
+          montoPagado: total,
         });
       } else {
         if (efectivoNum > 0) {
@@ -93,6 +311,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             montoRecibido: efectivoNum,
             montoPagado: Math.min(efectivoNum, total),
             cambio,
+            ...(notaDeuda && efectivoNum >= total
+              ? { referencia: `Venta $${totalVenta.toFixed(2)}${notaDeuda}` }
+              : {}),
           });
         }
         if (tarjetaNum > 0) {
@@ -100,12 +321,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             metodo: 'tarjeta',
             montoRecibido: tarjetaNum,
             montoPagado: Math.min(tarjetaNum, Math.max(0, total - efectivoNum)),
-            referencia: referenciaTarjeta || undefined,
+            referencia: [
+              referenciaTarjeta || null,
+              notaDeuda && efectivoNum + tarjetaNum >= total
+                ? `Venta $${totalVenta.toFixed(2)}${notaDeuda}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || undefined,
           });
         }
       }
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         sesionCajaId: activeSession?.id,
         cajaId: activeSession?.cajaId,
         detalles: cart.map((item) => ({
@@ -118,11 +346,34 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         pagos,
         descuentoGeneral,
       };
+      if (cliente) payload.clienteId = cliente.id;
+      if (canjeHabilitado) payload.puntosACanjear = puntosACanjear;
 
       const res = await api.post('/sales', payload);
 
+      // #1: registrar abono de deuda (CRITICAL: incluir metodoPago y referencia)
+      if (cobrarDeuda && deudaPendiente > 0 && cliente?.id) {
+        try {
+          await api.post(`/customers/${cliente.id}/payment`, {
+            monto: deudaPendiente,
+            metodoPago: metodoPago === 'tarjeta' ? 'tarjeta' : 'efectivo',
+            referencia: `Abono a deuda — Venta ${res.data.folio ?? ''}`.trim(),
+          });
+        } catch (err) {
+          console.error('Error al registrar abono de deuda:', err);
+        }
+      }
+
       clearCart();
       onSuccess(res.data);
+      // Reiniciar el estado de lealtad y de pago tras la venta
+      setCliente(null);
+      setPuntosACanjearInput('');
+      setMetodoPago('efectivo');
+      setMontoEfectivo('');
+      setMontoTarjeta('');
+      setReferenciaTarjeta('');
+      setCobrarDeuda(false);
     } catch (err: unknown) {
       console.error('Error al procesar cobro:', err);
       setError(errorMessage(err, 'Ocurrió un error al procesar la venta en la caja'));
@@ -164,6 +415,116 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
         )}
 
+        {/* ── #2: Estado del cliente a simple vista ───────────────────────── */}
+        <div
+          className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl border ${
+            cliente
+              ? 'bg-success/10 border-success/40'
+              : 'bg-surface-container-low border-outline/20'
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {cliente ? (
+            <>
+              <span className="w-8 h-8 rounded-full bg-success/20 text-success flex items-center justify-center shrink-0">
+                <UserCheck className="w-4 h-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-on-surface truncate">
+                  Cliente: {cliente.nombre} {cliente.apellidoPaterno ?? ''}
+                </p>
+                <p className="text-[11px] text-outline">
+                  {cliente.telefono ?? 'Sin teléfono'} · {cliente.puntosActuales} pts disponibles
+                </p>
+              </div>
+              {cliente.nivelLealtad && (
+                <span
+                  className="px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0"
+                  style={{
+                    backgroundColor: `${cliente.nivelLealtad.colorHex ?? '#6366F1'}22`,
+                    color: cliente.nivelLealtad.colorHex ?? '#6366F1',
+                    border: `1px solid ${cliente.nivelLealtad.colorHex ?? '#6366F1'}55`,
+                  }}
+                >
+                  {cliente.nivelLealtad.nombre}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="w-8 h-8 rounded-full bg-surface-container-high text-outline flex items-center justify-center shrink-0">
+                <Users className="w-4 h-4" />
+              </span>
+              <p className="text-sm font-semibold text-on-surface-variant">
+                Venta a público general (sin cliente)
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* #1: Alerta de deuda pendiente del cliente (solo si hay saldo > 0) */}
+        {cliente?.cuentaCredito?.estaActivo &&
+          Number(cliente.cuentaCredito.saldoPendiente) > 0 && (
+            <div
+              className={`rounded-2xl border p-3 space-y-2 ${
+                cobrarDeuda
+                  ? 'bg-warning/10 border-warning/40'
+                  : 'bg-error/10 border-error/30'
+              }`}
+            >
+              <div className="flex items-start gap-2.5">
+                <span
+                  className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-xs ${
+                    cobrarDeuda
+                      ? 'bg-warning/20 text-warning'
+                      : 'bg-error/20 text-error'
+                  }`}
+                >
+                  !
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-on-surface leading-snug">
+                    Este cliente tiene{' '}
+                    <strong className="text-error">
+                      ${cliente.cuentaCredito.saldoPendiente.toFixed(2)}
+                    </strong>{' '}
+                    de deuda pendiente.
+                  </p>
+                  {!cobrarDeuda && (
+                    <p className="text-[10px] text-on-surface-variant mt-0.5">
+                      Si deseas cobrarla ahora, se agregará como un pago
+                      adicional dentro de esta venta.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCobrarDeuda(true)}
+                  disabled={cobrarDeuda}
+                  className={`flex-1 px-3 py-1.5 rounded-xl text-[11px] font-semibold border transition-colors ${
+                    cobrarDeuda
+                      ? 'bg-warning/20 text-warning border-warning/40 cursor-default'
+                      : 'bg-surface text-on-surface border-outline/30 hover:bg-surface-container-high'
+                  }`}
+                >
+                  {cobrarDeuda ? '✓ Cobrando deuda' : `Cobrar deuda (${cliente.cuentaCredito.saldoPendiente.toFixed(2)})`}
+                </button>
+                {cobrarDeuda && (
+                  <button
+                    type="button"
+                    onClick={() => setCobrarDeuda(false)}
+                    className="px-3 py-1.5 rounded-xl text-[11px] font-semibold border border-outline/30 text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                  >
+                    Omitir
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
         {/* Total Prominente */}
         <div className="p-4 spatial-glass rounded-2xl text-center space-y-0.5 border border-outline/20 shadow-inner">
           <p className="text-[10px] font-label-sm uppercase tracking-wider text-outline">
@@ -172,10 +533,130 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <p className="text-4xl font-black text-primary font-display-lg font-mono">
             ${total.toFixed(2)}
           </p>
+          {(descuentoLealtad > 0 || montoCanje > 0 || deudaPendiente > 0) && (
+            <div className="space-y-0.5">
+              {deudaPendiente > 0 && (
+                <p className="text-[11px] font-label-sm text-error">
+                  Venta: ${totalVenta.toFixed(2)} + Deuda: ${deudaPendiente.toFixed(2)}
+                </p>
+              )}
+              {descuentoLealtad > 0 && (
+                <p className="text-[11px] font-label-sm text-success">
+                  Descuento {cliente?.nivelLealtad?.nombre}: -${descuentoLealtad.toFixed(2)}
+                </p>
+              )}
+              {montoCanje > 0 && (
+                <p className="text-[11px] font-label-sm text-success">
+                  Canje: -${montoCanje.toFixed(2)}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Métodos de Pago Tabs */}
-        <div className="grid grid-cols-3 gap-2.5">
+        {/* ── D10/#8: Selector de cliente (siempre disponible) y canje ─────── */}
+        <div className="rounded-2xl border border-outline/20 p-3 space-y-2.5 relative">
+          {!cliente ? (
+            <>
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-primary font-label-sm">
+                <UserSearch className="w-3.5 h-3.5" />
+                Cliente (opcional)
+              </label>
+              <input
+                type="text"
+                value={busquedaCliente}
+                onChange={(e) => {
+                  setBusquedaCliente(e.target.value);
+                  setMostrarResultados(true);
+                }}
+                onFocus={() => setMostrarResultados(true)}
+                placeholder="Buscar por nombre, teléfono o email..."
+                className="w-full px-3 py-2 bg-surface-container-low border border-outline/20 rounded-xl text-primary text-sm focus:outline-none focus:ring-2 focus:ring-primary font-body-md"
+              />
+              {mostrarResultados && (buscandoCliente || resultados.length > 0) && (
+                <ul className="absolute left-3 right-3 top-full mt-1 z-10 bg-surface border border-outline/20 rounded-xl shadow-xl divide-y divide-outline/20 max-h-52 overflow-y-auto">
+                  {buscandoCliente && (
+                    <li className="px-3 py-2 text-xs text-on-surface-variant">
+                      Buscando...
+                    </li>
+                  )}
+                  {resultados.map((r) => (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        onClick={() => seleccionarCliente(r)}
+                        className="w-full px-3 py-2 text-left hover:bg-surface-container-high transition-colors"
+                      >
+                        <span className="text-sm font-medium text-on-surface">
+                          {r.nombre} {r.apellidoPaterno ?? ''}
+                        </span>
+                        <span className="block text-[11px] text-outline">
+                          {r.telefono ?? 'Sin teléfono'}
+                          {r.nivelLealtad ? ` · ${r.nivelLealtad.nombre}` : ''} ·{' '}
+                          {r.puntosActuales} pts
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-outline truncate">
+                  ¿Venta equivocada? Quitar cliente:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCliente(null);
+                    setPuntosACanjearInput('');
+                  }}
+                  className="p-1 text-outline hover:text-error transition-colors"
+                  aria-label="Quitar cliente de la venta"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Canje de puntos */}
+              {programa?.habilitado &&
+                programa.permitirCanje &&
+                maxPuntosCanjeables >= (programa.canjeMinimoPuntos ?? 0) && (
+                  <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 bg-surface-container-low rounded-xl p-2">
+                    <Coins className="w-4 h-4 text-primary shrink-0" />
+                    <input
+                      type="number"
+                      min={0}
+                      step={50}
+                      max={maxPuntosCanjeables}
+                      value={puntosACanjearInput}
+                      onChange={(e) => setPuntosACanjearInput(e.target.value)}
+                      placeholder={`Canjear puntos (máx. ${maxPuntosCanjeables})`}
+                      className="w-full px-2 py-1.5 bg-surface border border-outline/20 rounded-lg text-primary text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPuntosACanjearInput(String(maxPuntosCanjeables))
+                      }
+                      className="text-[11px] font-semibold text-primary underline underline-offset-2 shrink-0"
+                    >
+                      Usar todo
+                    </button>
+                  </div>
+                )}
+            </div>
+          )}
+        </div>
+
+        {/* Métodos de Pago Tabs — #8: se muestra "Fiar" si el cliente tiene crédito */}
+        <div
+          className={`grid gap-2.5 ${
+            cliente?.cuentaCredito?.estaActivo ? 'grid-cols-4' : 'grid-cols-3'
+          }`}
+        >
           <button
             type="button"
             onClick={() => setMetodoPago('efectivo')}
@@ -214,7 +695,42 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <Receipt className="w-5 h-5" />
             <span>Pago Mixto</span>
           </button>
+
+          {cliente?.cuentaCredito?.estaActivo && (
+            <button
+              type="button"
+              disabled={!creditoSuficiente}
+              onClick={() => setMetodoPago('credito')}
+              title={
+                creditoSuficiente
+                  ? `Fiá hasta $${(creditoDisponible ?? 0).toFixed(2)}`
+                  : `Crédito disponible insuficiente ($${(creditoDisponible ?? 0).toFixed(2)})`
+              }
+              className={`p-3 rounded-2xl border font-label-sm text-xs font-bold flex flex-col items-center gap-1.5 transition-all ${
+                metodoPago === 'credito'
+                  ? 'bg-primary text-on-primary border-primary shadow-lg scale-[1.02]'
+                  : creditoSuficiente
+                  ? 'spatial-glass text-on-surface-variant border-outline/20 hover:bg-surface-container-high'
+                  : 'opacity-40 cursor-not-allowed spatial-glass text-outline border-outline/20'
+              }`}
+            >
+              <Wallet className="w-5 h-5" />
+              <span>Fiar</span>
+            </button>
+          )}
         </div>
+
+        {/* Aviso de crédito (#8) */}
+        {metodoPago === 'credito' && (
+          <div className="p-2.5 bg-warning/10 border border-warning/30 rounded-xl text-xs text-on-surface-variant font-label-sm">
+            Se registrará una deuda de <strong>${total.toFixed(2)}</strong> a nombre de{' '}
+            <strong>
+              {cliente?.nombre} {cliente?.apellidoPaterno ?? ''}
+            </strong>
+            . Crédito disponible después de esta venta:{' '}
+            <strong>${r2((creditoDisponible ?? 0) - total).toFixed(2)}</strong>.
+          </div>
+        )}
 
         {/* Formulario según Método */}
         <form onSubmit={handleCheckoutSubmit} className="space-y-3.5">
@@ -302,7 +818,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           <button
             type="submit"
-            disabled={isLoading || (!isPagoSuficiente && metodoPago !== 'tarjeta')}
+            disabled={
+              isLoading ||
+              (!isPagoSuficiente && metodoPago !== 'tarjeta' && metodoPago !== 'credito')
+            }
             className={`w-full py-3.5 rounded-2xl font-bold font-display-lg text-lg flex items-center justify-center gap-2.5 transition-all min-h-[48px] ${
               isPagoSuficiente || metodoPago === 'tarjeta'
                 ? 'bg-primary text-on-primary shadow-lg hover:scale-[1.01] active:scale-95'

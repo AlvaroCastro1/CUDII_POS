@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   RotateCcw,
   Search,
@@ -7,9 +7,12 @@ import {
   ArrowLeft,
   Ban,
   PackageCheck,
+  History,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { api, errorMessage } from '../lib/api';
+import { useAuthStore } from '../store/useAuthStore';
 import type {
   TipoResolucionDevolucion,
   Venta,
@@ -18,8 +21,41 @@ import type {
   VentaDevolucionProducto,
 } from '../types/pos';
 
+// Forma de una devolución del endpoint GET /returns
+interface DevolucionHistorial {
+  id: string;
+  folio: string;
+  totalDevuelto: number;
+  tipoResolucion: TipoResolucionDevolucion;
+  motivoGeneral?: string | null;
+  fechaHora: string;
+  venta?: { id: string; folio: string } | null;
+  usuario?: { id: string; nombre: string } | null;
+  productos?: {
+    id: string;
+    cantidadDevuelta: number;
+    producto?: { nombre: string } | null;
+  }[];
+}
+
+const ETIQUETAS_RESOLUCION: Record<TipoResolucionDevolucion, string> = {
+  reembolso_efectivo: 'Reembolso en Efectivo',
+  cambio_fisico: 'Cambio Físico',
+  saldo_favor: 'Saldo a Favor',
+};
+
 export const DevolucionesView: React.FC = () => {
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const puedeVerHistorial = ['SUPER_ADMIN', 'ADMIN', 'GERENTE', 'CONTADOR'].includes(
+    user?.rol ?? '',
+  );
+
+  // Pestaña activa: registro manual o historial general
+  const [tabActiva, setTabActiva] = useState<'nueva' | 'historial'>('nueva');
+  const [historial, setHistorial] = useState<DevolucionHistorial[]>([]);
+  const [cargandoHistorial, setCargandoHistorial] = useState(false);
+
   const [searchFolio, setSearchFolio] = useState('');
   const [venta, setVenta] = useState<Venta | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -74,6 +110,28 @@ export const DevolucionesView: React.FC = () => {
       );
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  // Carga el historial completo de devoluciones de la empresa
+  const cargarHistorial = useCallback(async () => {
+    try {
+      setCargandoHistorial(true);
+      const res = await api.get('/returns');
+      setHistorial(Array.isArray(res.data) ? res.data : res.data.data ?? []);
+    } catch (err: unknown) {
+      console.error('Error al cargar historial de devoluciones:', err);
+      toast.error(errorMessage(err, 'Error al cargar el historial de devoluciones'));
+    } finally {
+      setCargandoHistorial(false);
+    }
+  }, []);
+
+  // Carga perezosa: solo se consulta la API al abrir la pestaña por primera vez
+  const cambiarTab = (tab: 'nueva' | 'historial') => {
+    setTabActiva(tab);
+    if (tab === 'historial' && historial.length === 0) {
+      cargarHistorial();
     }
   };
 
@@ -181,6 +239,113 @@ export const DevolucionesView: React.FC = () => {
         </div>
       </div>
 
+      {/* Pestañas: Nueva Devolución / Historial */}
+      {puedeVerHistorial && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => cambiarTab('nueva')}
+            className={`px-5 py-2.5 rounded-2xl font-semibold text-sm transition-colors border ${
+              tabActiva === 'nueva'
+                ? 'bg-primary text-on-primary border-primary'
+                : 'bg-surface-container-low text-on-surface-variant border-outline/20 hover:bg-surface-container-high'
+            }`}
+          >
+            <RotateCcw className="w-4 h-4 inline mr-2 -mt-0.5" />
+            Nueva Devolución
+          </button>
+          <button
+            type="button"
+            onClick={() => cambiarTab('historial')}
+            className={`px-5 py-2.5 rounded-2xl font-semibold text-sm transition-colors border ${
+              tabActiva === 'historial'
+                ? 'bg-primary text-on-primary border-primary'
+                : 'bg-surface-container-low text-on-surface-variant border-outline/20 hover:bg-surface-container-high'
+            }`}
+          >
+            <History className="w-4 h-4 inline mr-2 -mt-0.5" />
+            Historial
+          </button>
+        </div>
+      )}
+
+      {tabActiva === 'historial' && puedeVerHistorial ? (
+        /* ===================== HISTORIAL DE DEVOLUCIONES ===================== */
+        <div className="liquid-glass border border-outline/20 rounded-[28px] p-6 shadow-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-bold text-primary font-headline-md">
+                Devoluciones Registradas
+              </h3>
+              <p className="text-xs text-outline font-body-md mt-0.5">
+                Todas las devoluciones de la empresa, de la más reciente a la más antigua
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={cargarHistorial}
+              disabled={cargandoHistorial}
+              className="px-4 py-2 rounded-xl border border-outline/20 text-on-surface-variant hover:bg-surface-container-high text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              {cargandoHistorial ? 'Actualizando...' : 'Actualizar'}
+            </button>
+          </div>
+
+          {cargandoHistorial && historial.length === 0 ? (
+            <div className="flex items-center justify-center py-12 gap-3 text-outline">
+              <RotateCcw className="w-5 h-5 animate-spin" />
+              Cargando historial...
+            </div>
+          ) : historial.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-outline">
+              <PackageCheck className="w-14 h-14 mb-3 opacity-30" />
+              <p className="font-medium">Aún no hay devoluciones registradas</p>
+              <p className="text-sm mt-1">Las devoluciones procesadas aparecerán aquí</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-outline/20 text-left text-[11px] uppercase tracking-wider text-outline">
+                    <th className="py-3 px-2">Folio</th>
+                    <th className="py-3 px-2">Fecha</th>
+                    <th className="py-3 px-2">Ticket Original</th>
+                    <th className="py-3 px-2">Productos</th>
+                    <th className="py-3 px-2">Resolución</th>
+                    <th className="py-3 px-2">Registró</th>
+                    <th className="py-3 px-2 text-right">Total Devuelto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historial.map((dev) => (
+                    <tr key={dev.id} className="border-b border-outline/10 hover:bg-surface-container-low/60">
+                      <td className="py-3 px-2 font-mono font-bold text-primary">{dev.folio}</td>
+                      <td className="py-3 px-2 text-outline whitespace-nowrap">
+                        {new Date(dev.fechaHora).toLocaleString('es-MX')}
+                      </td>
+                      <td className="py-3 px-2 font-mono">{dev.venta?.folio ?? '—'}</td>
+                      <td className="py-3 px-2 text-outline">
+                        {dev.productos?.length ?? 0}{' '}
+                        {(dev.productos?.length ?? 0) === 1 ? 'producto' : 'productos'}
+                      </td>
+                      <td className="py-3 px-2">
+                        <span className="px-2 py-0.5 rounded-full bg-surface-container-high border border-outline/20 text-[11px] font-semibold">
+                          {ETIQUETAS_RESOLUCION[dev.tipoResolucion]}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2 text-outline">{dev.usuario?.nombre ?? '—'}</td>
+                      <td className="py-3 px-2 text-right font-mono font-bold text-error">
+                        -${dev.totalDevuelto.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
       {successMsg && (
         <div className="p-4 bg-success/10 border border-success/30 rounded-2xl text-success flex items-center gap-3 text-sm font-semibold">
           <CheckCircle className="w-6 h-6 shrink-0" />
@@ -415,6 +580,8 @@ export const DevolucionesView: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   );

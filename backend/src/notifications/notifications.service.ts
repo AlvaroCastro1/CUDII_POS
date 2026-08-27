@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Rol } from '@prisma/client';
+import { construirRespuestaPaginada } from '../common/helpers/pagination.helper';
 
 /**
  * Datos para crear una notificación interna.
@@ -94,12 +95,12 @@ export class NotificationsService {
     usuarioId: string,
     filtros?: {
       soloNoLeidas?: boolean;
-      limite?: number;
-      pagina?: number;
+      limit?: number;
+      page?: number;
     },
   ) {
-    const limite = filtros?.limite || 20;
-    const pagina = filtros?.pagina || 1;
+    const limite = filtros?.limit || 20;
+    const pagina = filtros?.page || 1;
     const skip = (pagina - 1) * limite;
 
     const where: Record<string, unknown> = { destinatarioId: usuarioId };
@@ -117,15 +118,7 @@ export class NotificationsService {
       }),
     ]);
 
-    return {
-      datos: notificaciones,
-      meta: {
-        total,
-        pagina,
-        limite,
-        totalPaginas: Math.ceil(total / limite),
-      },
-    };
+    return construirRespuestaPaginada(notificaciones, total, pagina, limite);
   }
 
   /**

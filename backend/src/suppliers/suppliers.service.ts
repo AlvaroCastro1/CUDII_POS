@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
+import { construirRespuestaPaginada } from '../common/helpers/pagination.helper';
 
 /** Servicio de proveedores: CRUD completo multitenant */
 @Injectable()
@@ -64,16 +65,7 @@ export class SuppliersService {
       }),
     ]);
 
-    return {
-      data: datos,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page * limit < total,
-      },
-    };
+    return construirRespuestaPaginada(datos, total, page, limit);
   }
 
   /** Obtener un proveedor por ID */

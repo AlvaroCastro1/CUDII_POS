@@ -17,6 +17,7 @@ import {
   redondearSegunUnidad,
   validarCantidadSegunUnidad,
 } from '../common/validators/unidad.util';
+import { construirRespuestaPaginada } from '../common/helpers/pagination.helper';
 
 @Injectable()
 export class InventoryService {
@@ -143,10 +144,17 @@ export class InventoryService {
       });
       const folio = `REC-${String(totalRecepciones + 1).padStart(6, '0')}`;
 
+      // Fetch de todos los productos en una sola query (evita N+1)
+      const productoIds = [...new Set(dto.detalles.map((i) => i.productoId))];
+      const productosEncontrados = await tx.producto.findMany({
+        where: { id: { in: productoIds }, empresaId },
+      });
+      const productosMap = new Map(
+        productosEncontrados.map((p) => [p.id, p]),
+      );
+
       for (const item of dto.detalles) {
-        const producto = await tx.producto.findFirst({
-          where: { id: item.productoId, empresaId },
-        });
+        const producto = productosMap.get(item.productoId);
         if (!producto) {
           throw new NotFoundException(
             `El producto con ID ${item.productoId} no fue encontrado`,
@@ -159,8 +167,8 @@ export class InventoryService {
 
         const codigoLote = item.codigoLote?.trim() || generarCodigoLote(producto.codigoBarras);
 
-        // 1. Crear el lote
-        await tx.lote.create({
+        // 1. Crear el lote (se captura el id para el movimiento, sin re-consultar)
+        const loteCreado = await tx.lote.create({
           data: {
             empresaId,
             productoId: item.productoId,
@@ -218,22 +226,12 @@ export class InventoryService {
           });
         }
 
-        // 3. Movimiento de compra vinculado al lote
-        const ultimoLote = await tx.lote.findFirst({
-          where: {
-            empresaId,
-            productoId: item.productoId,
-            sucursalId: dto.sucursalId,
-            codigoLote,
-          },
-          orderBy: { creadoEn: 'desc' },
-        });
-
+        // 3. Movimiento de compra vinculado al lote recién creado
         await tx.movimientoInventario.create({
           data: {
             productoId: item.productoId,
             sucursalId: dto.sucursalId,
-            loteId: ultimoLote?.id || null,
+            loteId: loteCreado.id,
             tipo: TipoMovimientoInventario.compra,
             cantidad: item.cantidad,
             stockAnterior,
@@ -360,16 +358,8 @@ export class InventoryService {
       }),
     ]);
 
-    return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
+      return construirRespuestaPaginada(data, total, page, limit);
+    }
 
   /**
    * Detalle de un lote con su historial de movimientos (trazabilidad).
@@ -397,6 +387,37 @@ export class InventoryService {
     }
 
     return lote;
+  }
+
+  /**
+   * #9: actualizar la fecha de caducidad de un lote existente.
+   * Permite corregir capturas erróneas o asignar vencimiento a lotes sin fecha.
+   */
+  async actualizarFechaCaducidad(
+    empresaId: string,
+    id: string,
+    fechaCaducidad: string | null,
+  ) {
+    const lote = await this.prisma.lote.findFirst({
+      where: { id, empresaId },
+      select: { id: true },
+    });
+    if (!lote) {
+      throw new NotFoundException('Lote no encontrado');
+    }
+
+    let fecha: Date | null = null;
+    if (fechaCaducidad) {
+      fecha = new Date(fechaCaducidad);
+      if (isNaN(fecha.getTime())) {
+        throw new BadRequestException('Fecha de caducidad inválida');
+      }
+    }
+
+    return this.prisma.lote.update({
+      where: { id },
+      data: { fechaCaducidad: fecha },
+    });
   }
 
   /**
@@ -469,17 +490,20 @@ export class InventoryService {
     const inicioDia = new Date();
     inicioDia.setHours(0, 0, 0, 0);
 
+    // Batch dedup: un solo findMany para saber qué lotes ya fueron notificados hoy
+    const notificacionesHoy = await this.prisma.notificacion.findMany({
+      where: {
+        empresaId,
+        evento: 'lote_por_vencer',
+        entidadTipo: 'lote',
+        fechaHora: { gte: inicioDia },
+      },
+      select: { entidadId: true },
+    });
+    const yaNotificados = new Set(notificacionesHoy.map((n) => n.entidadId));
+
     for (const lote of porVencer) {
-      const yaNotificado = await this.prisma.notificacion.findFirst({
-        where: {
-          empresaId,
-          evento: 'lote_por_vencer',
-          entidadTipo: 'lote',
-          entidadId: lote.id,
-          fechaHora: { gte: inicioDia },
-        },
-      });
-      if (yaNotificado) continue;
+      if (yaNotificados.has(lote.id)) continue;
 
       const diasRestantes = Math.ceil(
         (lote.fechaCaducidad!.getTime() - Date.now()) / (24 * 3600 * 1000),
@@ -495,16 +519,7 @@ export class InventoryService {
     }
 
     for (const lote of vencidos) {
-      const yaNotificado = await this.prisma.notificacion.findFirst({
-        where: {
-          empresaId,
-          evento: 'lote_por_vencer',
-          entidadTipo: 'lote',
-          entidadId: lote.id,
-          fechaHora: { gte: inicioDia },
-        },
-      });
-      if (yaNotificado) continue;
+      if (yaNotificados.has(lote.id)) continue;
 
       await this.notifications.notificarAdminsYGerentes(empresaId, {
         titulo: 'Lote vencido',

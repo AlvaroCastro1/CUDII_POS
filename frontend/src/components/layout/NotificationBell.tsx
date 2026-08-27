@@ -21,9 +21,11 @@ interface Notificacion {
 
 interface Paginacion {
   total: number;
-  pagina: number;
-  limite: number;
-  totalPaginas: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
 }
 
 const ICONO_POR_TIPO = {
@@ -80,15 +82,15 @@ export default function NotificationBell() {
     async (pag: number, solo: boolean) => {
       setIsLoading(true);
       try {
-        const res = await api.get<{ datos: Notificacion[]; meta: Paginacion }>(
+        const res = await api.get<{ data: Notificacion[]; meta: Paginacion }>(
           '/notifications',
-          { params: { soloNoLeidas: solo, limite: LIMITE_POR_PAGINA, pagina: pag } },
+          { params: { soloNoLeidas: solo, limit: LIMITE_POR_PAGINA, page: pag } },
         );
         setNotificaciones((prev) =>
-          pag === 1 ? res.data.datos : [...prev, ...res.data.datos],
+          pag === 1 ? res.data.data : [...prev, ...res.data.data],
         );
-        setPagina(res.data.meta.pagina);
-        setTotalPaginas(res.data.meta.totalPaginas);
+        setPagina(res.data.meta.page);
+        setTotalPaginas(res.data.meta.totalPages);
       } catch {
         setNotificaciones([]);
       } finally {
@@ -137,7 +139,7 @@ export default function NotificationBell() {
     setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })));
     setNoLeidas(0);
     try {
-      await api.patch('/notifications/read-all');
+      await api.patch('/notifications/mark-all-read');
     } catch {
       // Silencioso.
     }
@@ -147,13 +149,13 @@ export default function NotificationBell() {
     if (isCargandoMas || pagina >= totalPaginas) return;
     setIsCargandoMas(true);
     try {
-      const res = await api.get<{ datos: Notificacion[]; meta: Paginacion }>(
+      const res = await api.get<{ data: Notificacion[]; meta: Paginacion }>(
         '/notifications',
-        { params: { soloNoLeidas, limite: LIMITE_POR_PAGINA, pagina: pagina + 1 } },
+        { params: { soloNoLeidas, limit: LIMITE_POR_PAGINA, page: pagina + 1 } },
       );
-      setNotificaciones((prev) => [...prev, ...res.data.datos]);
-      setPagina(res.data.meta.pagina);
-      setTotalPaginas(res.data.meta.totalPaginas);
+      setNotificaciones((prev) => [...prev, ...res.data.data]);
+      setPagina(res.data.meta.page);
+      setTotalPaginas(res.data.meta.totalPages);
     } catch {
       // Silencioso.
     } finally {

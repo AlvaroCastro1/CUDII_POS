@@ -7,25 +7,43 @@ interface VoucherModalProps {
   onClose: () => void;
 }
 
+const fmtMoneda = (v: number) => `$${v.toFixed(2)}`;
+const fmtFecha = (iso?: string) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-MX', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+};
+const fmtHora = (iso?: string) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('es-MX', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) => {
   if (!venta) return null;
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
-  const pago: VentaPago = venta.pagos?.[0] || {
-    cambio: 0,
-    montoRecibido: venta.total,
-    montoPagado: venta.total,
-    metodo: 'EFECTIVO',
-  };
+  const pagos = venta.pagos ?? [];
+  const totalPagos = pagos.reduce((acc, p) => acc + p.montoPagado, 0);
+  const cambioTotal = pagos.reduce((acc, p) => acc + p.cambio, 0);
+
+  // Desglose de descuentos
+  const descProductos =
+    Math.round(((venta.descuento ?? 0) - (venta.descuentoNivel ?? 0) - (venta.descuentoCanje ?? 0)) * 100) / 100;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6 sm:p-8 overflow-y-auto">
-      <div className="bg-surface border border-outline/20 rounded-[28px] max-w-md w-full p-6 shadow-2xl space-y-5 text-center text-on-surface my-auto max-h-[85vh] overflow-y-auto custom-scrollbar">
+      <div className="bg-surface border border-outline/20 rounded-[28px] max-w-md w-full p-6 shadow-2xl space-y-4 text-on-surface my-auto max-h-[85vh] overflow-y-auto custom-scrollbar">
         {/* Banner de Éxito */}
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-2 text-center">
           <div className="p-3.5 bg-success/10 text-success rounded-2xl border border-success/30">
             <CheckCircle className="w-9 h-9" />
           </div>
@@ -36,49 +54,135 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
         </div>
 
         {/* Resumen del Cambio */}
-        {pago.cambio > 0 && (
-          <div className="p-4 bg-success/10 border border-success/30 rounded-2xl space-y-0.5">
+        {cambioTotal > 0 && (
+          <div className="p-4 bg-success/10 border border-success/30 rounded-2xl text-center space-y-0.5">
             <div className="text-[11px] uppercase font-semibold text-success font-label-sm tracking-wider">
               Cambio a Entregar
             </div>
             <div className="text-3xl font-black text-success font-mono">
-              ${pago.cambio.toFixed(2)}
+              {fmtMoneda(cambioTotal)}
             </div>
           </div>
         )}
 
-        {/* Voucher digital imprimible (Diseño Whitelabel Dark/Light Adaptable) */}
-        <div className="spatial-glass text-on-surface p-5 rounded-2xl border border-outline/20 shadow-inner font-mono text-xs text-left space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
+        {/* Voucher digital imprimible */}
+        <div className="spatial-glass text-on-surface p-5 rounded-2xl border border-outline/20 shadow-inner font-mono text-xs text-left space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+
+          {/* Encabezado */}
           <div className="text-center font-bold text-sm text-primary border-b border-outline/20 pb-2 font-headline-md">
             CUDII POS - COMPROBANTE DE VENTA
           </div>
-          <div className="flex justify-between text-outline text-[11px]">
-            <span>Folio: {venta.folio}</span>
-            <span>{new Date(venta.creadoEn || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-          </div>
-          <div className="border-b border-outline/20 pb-1.5 text-outline text-[11px]">
-            Cajero: {venta.cajero?.nombre || 'Cajero'}
+
+          {/* Folio + Fecha y hora */}
+          <div className="flex justify-between text-on-surface-variant text-[11px]">
+            <span className="font-semibold">Folio: {venta.folio}</span>
+            <span>{fmtFecha(venta.creadoEn)} {fmtHora(venta.creadoEn)}</span>
           </div>
 
-          <div className="space-y-1.5 py-1">
-            {venta.detalles?.map((det: VentaDetalle, i: number) => (
-              <div key={i}>
-                <div className="flex justify-between text-on-surface">
-                  <span className="line-clamp-1 flex-1 font-medium text-primary">
+          {/* Cajero */}
+          <div className="text-on-surface-variant text-[11px]">
+            Cajero: <span className="font-semibold text-on-surface">{venta.cajero?.nombre || 'Cajero'}</span>
+          </div>
+
+          {/* Cliente */}
+          {venta.cliente && (
+            <div className="text-on-surface-variant text-[11px]">
+              Cliente: <span className="font-semibold text-on-surface">
+                {venta.cliente.nombre} {venta.cliente.apellidoPaterno ?? ''}
+              </span>
+            </div>
+          )}
+
+          {/* Línea separadora */}
+          <div className="border-t border-outline/20" />
+
+          {/* Productos */}
+          <div className="space-y-1">
+            {(venta.detalles ?? []).map((det: VentaDetalle, i: number) => (
+              <div key={i} className="flex justify-between text-on-surface">
+                <div className="flex-1 min-w-0 pr-2">
+                  <span className="font-medium text-primary line-clamp-1">
                     {det.cantidad}x {det.nombreProducto}
                   </span>
-                  <span className="font-bold ml-2 text-primary">${det.total.toFixed(2)}</span>
+                  <span className="text-outline text-[10px] block">
+                    @ {fmtMoneda(det.precioUnitario)}
+                  </span>
                 </div>
-
+                <span className="font-bold text-primary shrink-0">{fmtMoneda(det.total)}</span>
               </div>
             ))}
           </div>
 
-          <div className="border-t border-outline/20 pt-2 space-y-0.5 text-right font-bold text-sm">
-            <div className="text-primary text-base font-black">TOTAL: ${venta.total.toFixed(2)}</div>
-            <div className="text-[11px] font-normal text-outline">
-              Método: {(pago.metodo || 'EFECTIVO').toUpperCase()}
+          {/* Línea separadora */}
+          <div className="border-t border-outline/20" />
+
+          {/* Subtotal + Descuentos */}
+          {venta.subtotal !== undefined && (
+            <div className="space-y-0.5">
+              <div className="flex justify-between text-on-surface-variant text-[11px]">
+                <span>Subtotal</span>
+                <span>{fmtMoneda(venta.subtotal)}</span>
+              </div>
+              {(venta.descuento ?? 0) > 0 && (
+                <>
+                  {descProductos > 0 && (
+                    <div className="flex justify-between text-success text-[11px]">
+                      <span>Descuento</span>
+                      <span>-{fmtMoneda(descProductos)}</span>
+                    </div>
+                  )}
+                  {(venta.descuentoNivel ?? 0) > 0 && (
+                    <div className="flex justify-between text-success text-[11px]">
+                      <span>Dto. nivel cliente</span>
+                      <span>-{fmtMoneda(venta.descuentoNivel!)}</span>
+                    </div>
+                  )}
+                  {(venta.descuentoCanje ?? 0) > 0 && (
+                    <div className="flex justify-between text-success text-[11px]">
+                      <span>Canje puntos</span>
+                      <span>-{fmtMoneda(venta.descuentoCanje!)}</span>
+                    </div>
+                  )}
+                </>
+              )}
+              {(venta.impuestos ?? 0) > 0 && (
+                <div className="flex justify-between text-on-surface-variant text-[11px]">
+                  <span>Impuestos</span>
+                  <span>{fmtMoneda(venta.impuestos!)}</span>
+                </div>
+              )}
             </div>
+          )}
+
+          {/* Total */}
+          <div className="border-t border-outline/20 pt-1.5">
+            <div className="flex justify-between font-bold text-primary text-base font-black">
+              <span>TOTAL</span>
+              <span>{fmtMoneda(venta.total)}</span>
+            </div>
+          </div>
+
+          {/* Métodos de pago */}
+          <div className="border-t border-outline/20 pt-1.5 space-y-1">
+            {pagos.map((p: VentaPago, i: number) => (
+              <div key={i} className="flex justify-between text-[11px] text-on-surface-variant">
+                <span className="capitalize">
+                  {p.metodo}
+                  {p.referencia ? ` (${p.referencia})` : ''}
+                </span>
+                <span className="font-medium text-on-surface">
+                  {fmtMoneda(p.montoPagado)}
+                  {p.cambio > 0 && (
+                    <span className="text-outline"> → Recibido {fmtMoneda(p.montoRecibido)}, cambio {fmtMoneda(p.cambio)}</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Pie */}
+          <div className="border-t border-outline/20 pt-2 text-center text-[10px] text-outline">
+            ¡Gracias por tu compra!
           </div>
         </div>
 

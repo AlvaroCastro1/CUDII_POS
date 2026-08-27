@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CrearVentaDto } from './dto/crear-venta.dto';
@@ -11,6 +12,16 @@ import {
   redondearSegunUnidad,
   validarCantidadSegunUnidad,
 } from '../common/validators/unidad.util';
+import {
+  construirRespuestaPaginada,
+  normalizarPaginacion,
+} from '../common/helpers/pagination.helper';
+import {
+  calcularPuntos,
+  descuentoDeNivel,
+  pesosEquivalentesDePuntos,
+  resolverNivel,
+} from '../customers/loyalty.util';
 
 @Injectable()
 export class SalesService {
@@ -45,6 +56,86 @@ export class SalesService {
       );
     }
 
+    // Validar cliente si viene especificado (para lealtad o venta a crédito)
+    let cliente: {
+      id: string;
+      estaActivo: boolean;
+      puntosActuales: number;
+      puntosHistoricos: number;
+      nivelLealtadId: string | null;
+      cuentaCredito: {
+        limiteCredito: number;
+        saldoPendiente: number;
+        diasMaximoVencimiento: number;
+        estaActivo: boolean;
+      } | null;
+    } | null = null;
+
+    if (dto.clienteId) {
+      cliente = await this.prisma.cliente.findFirst({
+        where: { id: dto.clienteId, empresaId },
+        include: { cuentaCredito: true },
+      });
+      if (!cliente || !cliente.estaActivo) {
+        throw new NotFoundException('Cliente no encontrado o inactivo');
+      }
+    }
+
+    // D10: Cargar la configuración del programa de lealtad de la empresa
+    const programa = await this.prisma.programaLealtad.findUnique({
+      where: { empresaId },
+      include: { niveles: true },
+    });
+    const programaActivo = programa?.habilitado ? programa : null;
+
+    // D10: Validar canje de puntos (antes de la transacción)
+    const puntosACanjear = dto.puntosACanjear ?? 0;
+    if (puntosACanjear > 0) {
+      if (!programaActivo || !programaActivo.permitirCanje) {
+        throw new UnprocessableEntityException(
+          'El canje de puntos no está habilitado',
+        );
+      }
+      if (!cliente) {
+        throw new BadRequestException(
+          'El canje de puntos requiere un cliente registrado',
+        );
+      }
+      if (puntosACanjear < programaActivo.canjeMinimoPuntos) {
+        throw new UnprocessableEntityException(
+          `El canje mínimo es de ${programaActivo.canjeMinimoPuntos} puntos`,
+        );
+      }
+      if (puntosACanjear > cliente.puntosActuales) {
+        throw new UnprocessableEntityException(
+          `El cliente solo tiene ${cliente.puntosActuales} puntos disponibles`,
+        );
+      }
+    }
+
+    // Validar pagos a crédito: requieren cliente con cuenta activa y saldo disponible
+    const pagosCredito = dto.pagos.filter((p) => p.metodo === MetodoPago.credito);
+    if (pagosCredito.length > 0) {
+      if (!cliente) {
+        throw new BadRequestException(
+          'La venta a crédito requiere un cliente registrado',
+        );
+      }
+      if (pagosCredito.length > 1) {
+        throw new BadRequestException(
+          'Solo se permite un pago a crédito por venta',
+        );
+      }
+      if (
+        !cliente.cuentaCredito ||
+        !cliente.cuentaCredito.estaActivo
+      ) {
+        throw new UnprocessableEntityException(
+          'El cliente no tiene una cuenta de crédito activa',
+        );
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
       // 2. Incrementar la secuencia de folio de la caja atómicamente
       const cajaActualizada = await tx.caja.update({
@@ -52,9 +143,7 @@ export class SalesService {
         data: { secuenciaFolio: { increment: 1 } },
       });
 
-      const codigoCaja =
-        cajaActualizada.codigo ||
-        `CJ${cajaActualizada.id.slice(0, 4).toUpperCase()}`;
+      const codigoCaja = `CJ${cajaActualizada.id.slice(0, 4).toUpperCase()}`;
       const numeroSecuencia = String(cajaActualizada.secuenciaFolio).padStart(
         6,
         '0',
@@ -73,10 +162,28 @@ export class SalesService {
       >();
       const detallesList = dto.detalles;
 
+      // Fetch de todos los productos en una sola query (evita N+1)
+      const productosIds = [...new Set(detallesList.map((i) => i.productoId))];
+      const productosEncontrados = await tx.producto.findMany({
+        where: { id: { in: productosIds }, empresaId },
+      });
+      const productosMap = new Map(
+        productosEncontrados.map((p) => [p.id, p]),
+      );
+
+      // Pre-fetch de inventarios de la sucursal para los productos (evita N+1)
+      const inventariosExistentes = await tx.inventarioSucursal.findMany({
+        where: { sucursalId, productoId: { in: productosIds } },
+      });
+      const inventariosMap = new Map(
+        inventariosExistentes.map((i) => [i.productoId, i]),
+      );
+
+      // Acumulador de movimientos de inventario para insertarlos en lote
+      const movimientosData: Prisma.MovimientoInventarioCreateManyInput[] = [];
+
       for (const item of detallesList) {
-        const producto = await tx.producto.findFirst({
-          where: { id: item.productoId, empresaId },
-        });
+        const producto = productosMap.get(item.productoId);
 
         if (!producto) {
           throw new NotFoundException(
@@ -106,14 +213,7 @@ export class SalesService {
         let costoHistorico = producto.precioCompra || 0;
 
         if (producto.manejaInventario) {
-          let inventario = await tx.inventarioSucursal.findUnique({
-            where: {
-              sucursalId_productoId: {
-                sucursalId,
-                productoId: item.productoId,
-              },
-            },
-          });
+          let inventario = inventariosMap.get(item.productoId);
 
           if (!inventario) {
             inventario = await tx.inventarioSucursal.create({
@@ -123,6 +223,7 @@ export class SalesService {
                 stockActual: 0,
               },
             });
+            inventariosMap.set(item.productoId, inventario);
           }
 
           const stockAnterior = inventario.stockActual;
@@ -166,36 +267,32 @@ export class SalesService {
 
             // Un movimiento por lote para trazabilidad
             for (const lote of lotesConsumidos) {
-              await tx.movimientoInventario.create({
-                data: {
-                  productoId: item.productoId,
-                  sucursalId,
-                  loteId: lote.loteId,
-                  tipo: TipoMovimientoInventario.venta,
-                  cantidad: lote.cantidad,
-                  stockAnterior,
-                  stockNuevo,
-                  referencia: folio,
-                  motivo: `Venta POS - Folio ${folio} - Lote ${lote.codigoLote}`,
-                  usuarioId: cajeroId,
-                },
+              movimientosData.push({
+                productoId: item.productoId,
+                sucursalId,
+                loteId: lote.loteId,
+                tipo: TipoMovimientoInventario.venta,
+                cantidad: lote.cantidad,
+                stockAnterior,
+                stockNuevo,
+                referencia: folio,
+                motivo: `Venta POS - Folio ${folio} - Lote ${lote.codigoLote}`,
+                usuarioId: cajeroId,
               });
             }
           }
 
           if (lotesConsumidos.length === 0) {
-            await tx.movimientoInventario.create({
-              data: {
-                productoId: item.productoId,
-                sucursalId,
-                tipo: TipoMovimientoInventario.venta,
-                cantidad: item.cantidad,
-                stockAnterior,
-                stockNuevo,
-                referencia: folio,
-                motivo: `Venta POS - Folio ${folio}`,
-                usuarioId: cajeroId,
-              },
+            movimientosData.push({
+              productoId: item.productoId,
+              sucursalId,
+              tipo: TipoMovimientoInventario.venta,
+              cantidad: item.cantidad,
+              stockAnterior,
+              stockNuevo,
+              referencia: folio,
+              motivo: `Venta POS - Folio ${folio}`,
+              usuarioId: cajeroId,
             });
           }
         }
@@ -214,35 +311,85 @@ export class SalesService {
         });
       }
 
-      const totalVenta = subtotalVenta - descuentoVenta + impuestosVenta;
+      // Insertar todos los movimientos de inventario en una sola query
+      if (movimientosData.length > 0) {
+        await tx.movimientoInventario.createMany({ data: movimientosData });
+      }
+
+      // #4: redondear acumulados a centavos para evitar artefactos de punto flotante
+      subtotalVenta = Math.round(subtotalVenta * 100) / 100;
+      descuentoVenta = Math.round(descuentoVenta * 100) / 100;
+
+      // D10: Descuento por nivel de lealtad según la configuración del programa
+      let descuentoLealtad = 0;
+      if (programaActivo && cliente) {
+        const nivelActual = cliente.nivelLealtadId
+          ? programaActivo.niveles.find((n) => n.id === cliente.nivelLealtadId) ??
+            resolverNivel(cliente.puntosHistoricos, programaActivo.niveles)
+          : resolverNivel(cliente.puntosHistoricos, programaActivo.niveles);
+        const pct = descuentoDeNivel(nivelActual);
+        const baseDescuento = subtotalVenta - descuentoVenta;
+        if (pct > 0 && baseDescuento > 0) {
+          descuentoLealtad =
+            Math.round(baseDescuento * pct) / 100;
+        }
+      }
+
+      // D10: Canje de puntos → equivale a un descuento adicional sobre la venta
+      let montoCanje = 0;
+      if (puntosACanjear > 0 && programaActivo) {
+        montoCanje = pesosEquivalentesDePuntos(puntosACanjear, programaActivo);
+        const restante = subtotalVenta - descuentoVenta - descuentoLealtad;
+        if (montoCanje > restante) {
+          throw new BadRequestException(
+            `El canje ($${montoCanje.toFixed(2)}) excede el total de la venta ($${restante.toFixed(2)})`,
+          );
+        }
+      }
+
+      const totalVenta =
+        Math.round(
+          (subtotalVenta - descuentoVenta - descuentoLealtad - montoCanje +
+            impuestosVenta) *
+            100,
+        ) / 100;
 
       // 4. Procesar pagos y actualizar acumulación en SesionCaja
+      // Los pagos a crédito no se registran como PagoVenta: generan deuda (VentaCredito)
       let acumuladoEfectivo = 0;
       let acumuladoTarjeta = 0;
       let acumuladoOtros = 0;
 
-      const pagosData = dto.pagos.map((pago) => {
-        const metodoEnum = pago.metodo;
-        const montoRecibido = pago.montoRecibido;
-        const montoPagado = pago.montoPagado;
-        const cambio = pago.cambio ?? 0;
+      const pagosData = dto.pagos
+        .filter((pago) => pago.metodo !== MetodoPago.credito)
+        .map((pago) => {
+          const metodoEnum = pago.metodo;
+          const montoRecibido = pago.montoRecibido;
+          const montoPagado = pago.montoPagado;
+          const cambio = pago.cambio ?? 0;
 
-        if (metodoEnum === MetodoPago.efectivo) {
-          acumuladoEfectivo += montoPagado;
-        } else if (metodoEnum === MetodoPago.tarjeta) {
-          acumuladoTarjeta += montoPagado;
-        } else {
-          acumuladoOtros += montoPagado;
-        }
+          if (metodoEnum === MetodoPago.efectivo) {
+            acumuladoEfectivo += montoPagado;
+          } else if (metodoEnum === MetodoPago.tarjeta) {
+            acumuladoTarjeta += montoPagado;
+          } else {
+            acumuladoOtros += montoPagado;
+          }
 
-        return {
-          metodo: metodoEnum,
-          montoRecibido,
-          montoPagado,
-          cambio,
-          referencia: pago.referencia || undefined,
-        };
-      });
+          return {
+            metodo: metodoEnum,
+            montoRecibido,
+            montoPagado,
+            cambio,
+            referencia: pago.referencia || undefined,
+          };
+        });
+
+      const pagoCredito =
+        pagosCredito.length > 0 ? pagosCredito[0] : null;
+      if (pagoCredito) {
+        acumuladoOtros += pagoCredito.montoPagado;
+      }
 
       await tx.sesionCaja.update({
         where: { id: dto.sesionCajaId },
@@ -261,14 +408,16 @@ export class SalesService {
           cajaId,
           sesionCajaId: dto.sesionCajaId,
           cajeroId,
+          clienteId: cliente?.id ?? null,
           folio,
           secuenciaFolio: cajaActualizada.secuenciaFolio,
           subtotal: subtotalVenta,
-          descuento: descuentoVenta,
+          descuento: descuentoVenta + descuentoLealtad + montoCanje,
+          descuentoNivel: descuentoLealtad,
+          descuentoCanje: montoCanje,
           impuestos: impuestosVenta,
           total: totalVenta,
           estado: 'completada',
-          notas: dto.notas,
           detalles: {
             create: detallesData,
           },
@@ -288,6 +437,16 @@ export class SalesService {
           cajero: {
             select: { id: true, nombre: true },
           },
+          cliente: {
+            select: {
+              id: true,
+              nombre: true,
+              apellidoPaterno: true,
+              cuentaCredito: {
+                select: { id: true, limiteCredito: true, saldoPendiente: true, estaActivo: true },
+              },
+            },
+          },
           caja: true,
         },
       });
@@ -298,41 +457,143 @@ export class SalesService {
           venta.detalles.map((d) => [d.productoId, d.id]),
         );
 
+        const trazabilidadData: Prisma.DetalleVentaLoteCreateManyInput[] = [];
         for (const [productoId, lotes] of lotesPorProducto) {
           const detalleVentaId = detallePorProducto.get(productoId);
           if (!detalleVentaId) continue;
 
-          await tx.detalleVentaLote.createMany({
-            data: lotes.map((l) => ({
+          for (const l of lotes) {
+            trazabilidadData.push({
               detalleVentaId,
               loteId: l.loteId,
               cantidad: l.cantidad,
               costoUnitario: l.costoUnitario,
-            })),
-          });
+            });
+          }
+        }
+
+        if (trazabilidadData.length > 0) {
+          await tx.detalleVentaLote.createMany({ data: trazabilidadData });
         }
       }
 
-      // 5c. Re-leer la venta para incluir la trazabilidad por lote en la respuesta
-      const ventaFinal = await tx.venta.findUnique({
-        where: { id: venta.id },
-        include: {
-          detalles: {
-            include: {
-              lotes: {
-                include: { lote: { select: { id: true, codigoLote: true } } },
-              },
-            },
-          },
-          pagos: true,
-          cajero: {
-            select: { id: true, nombre: true },
-          },
-          caja: true,
-        },
-      });
+      // 5d. Venta a crédito: crear la deuda (VentaCredito) e incrementar saldo
+      if (pagoCredito && cliente?.cuentaCredito) {
+        const cuenta = cliente.cuentaCredito;
+        const saldoDisponible = cuenta.limiteCredito - cuenta.saldoPendiente;
 
-      return ventaFinal;
+        if (pagoCredito.montoPagado > saldoDisponible + 0.001) {
+          throw new UnprocessableEntityException(
+            `Límite de crédito insuficiente. Disponible: $${saldoDisponible.toFixed(2)}, solicitado: $${pagoCredito.montoPagado.toFixed(2)}`,
+          );
+        }
+
+        const fechaVencimiento = new Date();
+        fechaVencimiento.setDate(
+          fechaVencimiento.getDate() + cuenta.diasMaximoVencimiento,
+        );
+
+        await tx.ventaCredito.create({
+          data: {
+            ventaId: venta.id,
+            clienteId: cliente.id,
+            montoTotal: pagoCredito.montoPagado,
+            saldoPendiente: pagoCredito.montoPagado,
+            estado: 'pendiente',
+            fechaVencimiento,
+          },
+        });
+
+        await tx.cuentaCreditoCliente.update({
+          where: { clienteId: cliente.id },
+          data: { saldoPendiente: { increment: pagoCredito.montoPagado } },
+        });
+      }
+
+      // 5e. D10/D11: Programa de lealtad — canje, acumulación y ledger de movimientos
+      if (cliente && programaActivo) {
+        const netoSinDescuentoLealtad = subtotalVenta - descuentoVenta;
+        const puntosGanados = calcularPuntos(
+          netoSinDescuentoLealtad,
+          totalVenta,
+          programaActivo,
+        );
+        const nuevosHistoricos = cliente.puntosHistoricos + puntosGanados;
+        const nuevoNivel = resolverNivel(
+          nuevosHistoricos,
+          programaActivo.niveles,
+        );
+
+        // D11: registrar el lote de puntos ganados con su fecha de vencimiento
+        if (puntosGanados > 0) {
+          const meses = programaActivo.mesesExpiracionPuntos ?? 0;
+          let expiraEn: Date | null = null;
+          if (meses > 0) {
+            expiraEn = new Date();
+            expiraEn.setMonth(expiraEn.getMonth() + meses);
+          }
+          await tx.movimientoPuntos.create({
+            data: {
+              clienteId: cliente.id,
+              ventaId: venta.id,
+              tipo: 'GANADO',
+              puntos: puntosGanados,
+              expiraEn,
+            },
+          });
+        }
+
+        // D11: canje — consumir lotes FIFO/FEFO (los más viejos o próximos a
+        // vencer primero) y registrar. Se excluye el lote ganado en ESTA misma
+        // venta: dentro de la transacción todos comparten now() idéntico y el
+        // orden sería indeterminado; además los puntos recién ganados no deben
+        // poder gastarse en la misma compra.
+        if (puntosACanjear > 0) {
+          const lotes = await tx.movimientoPuntos.findMany({
+            where: {
+              clienteId: cliente.id,
+              tipo: 'GANADO',
+              ventaId: { not: venta.id },
+            },
+            orderBy: [
+              { expiraEn: { sort: 'asc', nulls: 'last' } },
+              { creadoEn: 'asc' },
+              { id: 'asc' },
+            ],
+          });
+          let porConsumir = puntosACanjear;
+          for (const lote of lotes) {
+            if (porConsumir <= 0) break;
+            const disponible = lote.puntos - lote.puntosConsumidos;
+            if (disponible <= 0) continue;
+            const consumo = Math.min(disponible, porConsumir);
+            await tx.movimientoPuntos.update({
+              where: { id: lote.id },
+              data: { puntosConsumidos: { increment: consumo } },
+            });
+            porConsumir -= consumo;
+          }
+          await tx.movimientoPuntos.create({
+            data: {
+              clienteId: cliente.id,
+              ventaId: venta.id,
+              tipo: 'CANJEADO',
+              puntos: -puntosACanjear,
+            },
+          });
+        }
+
+        await tx.cliente.update({
+          where: { id: cliente.id },
+          data: {
+            puntosActuales: { increment: puntosGanados - puntosACanjear },
+            puntosHistoricos: { increment: puntosGanados },
+            nivelLealtadId: nuevoNivel?.id ?? null,
+          },
+        });
+      }
+
+      return venta;
     });
   }
 
@@ -347,13 +608,11 @@ export class SalesService {
       cajeroId?: string;
       fechaInicio?: string;
       fechaFin?: string;
-      pagina?: number;
-      limite?: number;
+      page?: number;
+      limit?: number;
     },
   ) {
-    const pagina = Number(query.pagina) || 1;
-    const limite = Number(query.limite) || 20;
-    const skip = (pagina - 1) * limite;
+    const { page, limit, skip } = normalizarPaginacion(query.page, query.limit);
 
     const where: Prisma.VentaWhereInput = { empresaId };
 
@@ -372,26 +631,18 @@ export class SalesService {
       this.prisma.venta.findMany({
         where,
         skip,
-        take: limite,
+        take: limit,
         orderBy: { creadoEn: 'desc' },
         include: {
           detalles: true,
           pagos: true,
           cajero: { select: { id: true, nombre: true } },
-          caja: { select: { id: true, nombre: true, codigo: true } },
+          caja: { select: { id: true, nombre: true } },
         },
       }),
     ]);
 
-    return {
-      datos: ventas,
-      meta: {
-        total,
-        pagina,
-        limite,
-        totalPaginas: Math.ceil(total / limite),
-      },
-    };
+    return construirRespuestaPaginada(ventas, total, page, limit);
   }
 
   /**
@@ -421,6 +672,21 @@ export class SalesService {
         cajero: { select: { id: true, nombre: true } },
         caja: true,
         sucursal: true,
+        cliente: {
+          select: { id: true, nombre: true, apellidoPaterno: true },
+        },
+        movimientosPuntos: {
+          select: { tipo: true, puntos: true, expiraEn: true },
+        },
+        ventaCredito: {
+          select: {
+            montoTotal: true,
+            montoPagado: true,
+            saldoPendiente: true,
+            estado: true,
+            fechaVencimiento: true,
+          },
+        },
       },
     });
 

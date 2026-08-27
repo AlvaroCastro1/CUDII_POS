@@ -22,6 +22,10 @@ export class CompanySettingsController {
     private readonly companySettingsService: CompanySettingsService,
   ) {}
 
+  /**
+   * Configuración completa del sitio (solo ADMIN/SUPER_ADMIN).
+   * Incluye el bloque del Programa de Lealtad (D10) con sus niveles.
+   */
   @Get()
   @Roles(Rol.ADMIN, Rol.SUPER_ADMIN)
   async getSettings(@CurrentUser() user: CurrentUserPayload) {
@@ -36,5 +40,15 @@ export class CompanySettingsController {
     @CurrentUser() user: CurrentUserPayload,
   ) {
     return this.companySettingsService.updateSettings(user.empresaId, dto);
+  }
+
+  /**
+   * D10: Configuración del Programa de Lealtad accesible a todos los roles
+   * autenticados. El POS la necesita para mostrar puntos, niveles y descuentos.
+   * Solo lectura; la edición sigue restringida al PATCH anterior.
+   */
+  @Get('lealtad')
+  async getProgramaLealtad(@CurrentUser() user: CurrentUserPayload) {
+    return this.companySettingsService.getProgramaLealtad(user.empresaId);
   }
 }

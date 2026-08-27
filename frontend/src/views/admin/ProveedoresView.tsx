@@ -157,7 +157,7 @@ export default function ProveedoresView() {
 
   const handleReactivate = async (id: string) => {
     try {
-      await api.patch(`/suppliers/${id}/reactivate`);
+      await api.patch(`/suppliers/${id}/reactivate-status`);
       toast.success('Proveedor reactivado');
       fetchProveedores();
     } catch {

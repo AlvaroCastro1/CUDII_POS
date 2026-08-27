@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   UseGuards,
@@ -127,6 +128,21 @@ export class InventoryController {
     @CurrentUser() user: CurrentUserPayload,
   ) {
     return this.inventoryService.findLoteById(user.empresaId, id);
+  }
+
+  /** #9: actualizar la fecha de caducidad de un lote ya registrado */
+  @Patch('lotes/:id/fecha-caducidad')
+  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.ALMACEN)
+  actualizarFechaCaducidad(
+    @Param('id') id: string,
+    @Body() body: { fechaCaducidad?: string | null },
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.inventoryService.actualizarFechaCaducidad(
+      user.empresaId,
+      id,
+      body?.fechaCaducidad ?? null,
+    );
   }
 
   @Get('vencimientos')

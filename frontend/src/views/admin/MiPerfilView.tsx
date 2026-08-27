@@ -205,10 +205,10 @@ export default function MiPerfilView() {
       setIsLoadingVentas(true);
       try {
         const res = await api.get('/sales', {
-          params: { cajeroId: user.id, limite: 50 },
+          params: { cajeroId: user.id, limit: 50 },
         });
-        // Soportar respuesta { datos, meta } o array directo
-        const lista = Array.isArray(res.data) ? res.data : (res.data?.datos || []);
+        // Soportar respuesta { data, meta } o array directo
+        const lista = Array.isArray(res.data) ? res.data : (res.data?.data || []);
         const total = res.data?.meta?.total ?? lista.length;
         setVentas(lista);
         setTotalVentas(total);

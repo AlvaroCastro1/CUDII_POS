@@ -30,12 +30,4 @@ export class CrearLogDto {
   @IsOptional()
   @IsString()
   severidad?: string;
-
-  @IsOptional()
-  @IsString()
-  direccionIP?: string;
-
-  @IsOptional()
-  @IsString()
-  agenteUsuario?: string;
 }

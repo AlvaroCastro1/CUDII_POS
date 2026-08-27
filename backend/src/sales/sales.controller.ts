@@ -41,8 +41,8 @@ export class SalesController {
       cajeroId?: string;
       fechaInicio?: string;
       fechaFin?: string;
-      pagina?: number;
-      limite?: number;
+      page?: number;
+      limit?: number;
     },
   ) {
     return this.salesService.findAllSales(req.user.empresaId, query);

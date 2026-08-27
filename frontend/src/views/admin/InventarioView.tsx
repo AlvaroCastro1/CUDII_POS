@@ -61,6 +61,22 @@ interface InventarioItem {
   sucursal: Sucursal;
 }
 
+interface RecepcionResumen {
+  id: string;
+  folio: string;
+  proveedor?: string | null;
+  notas?: string | null;
+  fechaHora: string;
+  sucursal: { id: string; nombre: string };
+  usuario: { id: string; nombre: string };
+  detalles: {
+    id: string;
+    cantidad: number;
+    costoUnitario: number;
+    producto: { id: string; nombre: string; codigoBarras: string };
+  }[];
+}
+
 // ============================================================
 // Vista principal: Control de Inventario
 // ============================================================
@@ -75,6 +91,11 @@ export default function InventarioView() {
 
   // Recepción de mercancía (GRN)
   const [isRecepcionOpen, setIsRecepcionOpen] = useState(false);
+
+  // Historial de recepciones
+  const [isHistRecepcionesOpen, setIsHistRecepcionesOpen] = useState(false);
+  const [recepciones, setRecepciones] = useState<RecepcionResumen[]>([]);
+  const [loadingRecepciones, setLoadingRecepciones] = useState(false);
 
   // Widget de lotes por vencer
   const [vencimientos, setVencimientos] = useState<VencimientoInfo | null>(null);
@@ -252,6 +273,26 @@ export default function InventarioView() {
     }
   }, []);
 
+  // ----------------------------------------------------------------
+  // Historial de recepciones de mercancía (GET /inventory/recepciones)
+  // ----------------------------------------------------------------
+  const cargarHistorialRecepciones = useCallback(async () => {
+    try {
+      setLoadingRecepciones(true);
+      const res = await api.get('/inventory/recepciones');
+      setRecepciones(res.data.data || res.data);
+    } catch {
+      toast.error('Error al cargar el historial de recepciones');
+    } finally {
+      setLoadingRecepciones(false);
+    }
+  }, []);
+
+  const abrirHistorialRecepciones = () => {
+    setIsHistRecepcionesOpen(true);
+    cargarHistorialRecepciones();
+  };
+
   // Cargar lotes activos cuando se selecciona un producto para salida
   useEffect(() => {
     if (tipoAjuste !== 'salida' || !formData.productoId) {
@@ -299,6 +340,10 @@ export default function InventarioView() {
           <p className="text-sm text-on-surface-variant mt-0.5">Consulta el inventario actual, recepciones y ajustes de stock.</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={abrirHistorialRecepciones}>
+            <span className="material-symbols-outlined mr-2 !text-[18px]">history</span>
+            Historial de Recepciones
+          </Button>
           <Button variant="outline" onClick={() => setIsRecepcionOpen(true)}>
             <span className="material-symbols-outlined mr-2 !text-[18px]">move_to_inbox</span>
             Recepción de Mercancía
@@ -364,6 +409,94 @@ export default function InventarioView() {
         sucursales={sucursales}
         sucursalDefaultId={sucursales[0]?.id || ''}
       />
+
+      {/* ===================== DIÁLOGO HISTORIAL DE RECEPCIONES ===================== */}
+      <Dialog open={isHistRecepcionesOpen} onOpenChange={setIsHistRecepcionesOpen}>
+        <DialogContent className="sm:max-w-[720px] max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Historial de Recepciones de Mercancía</DialogTitle>
+            <p className="text-sm text-on-surface-variant mt-1">
+              Todas las recepciones registradas, de la más reciente a la más antigua.
+            </p>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-2 px-2">
+            {loadingRecepciones ? (
+              <div className="flex items-center justify-center py-12 gap-3 text-on-surface-variant">
+                <span className="material-symbols-outlined animate-spin">progress_activity</span>
+                Cargando recepciones...
+              </div>
+            ) : recepciones.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
+                <span className="material-symbols-outlined !text-[56px] mb-3 opacity-30">local_shipping</span>
+                <p className="font-medium">Aún no hay recepciones registradas</p>
+                <p className="text-sm mt-1">
+                  Usa el botón «Recepción de Mercancía» para registrar la primera.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 pb-2">
+                {recepciones.map((rec: RecepcionResumen) => {
+                  const totalItems = rec.detalles.reduce((acc, d) => acc + d.cantidad, 0);
+                  const costoTotal = rec.detalles.reduce(
+                    (acc, d) => acc + d.cantidad * d.costoUnitario,
+                    0,
+                  );
+                  return (
+                    <div
+                      key={rec.id}
+                      className="rounded-xl border border-outline/20 bg-surface-container-low p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div>
+                          <p className="font-semibold text-sm font-mono">{rec.folio}</p>
+                          <p className="text-xs text-on-surface-variant mt-0.5">
+                            {new Date(rec.fechaHora).toLocaleString('es-MX')} • {rec.usuario?.nombre}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs text-on-surface-variant">
+                            {rec.detalles.length} producto{rec.detalles.length !== 1 ? 's' : ''} •{' '}
+                            {totalItems} unidad{totalItems !== 1 ? 'es' : ''}
+                          </p>
+                          <p className="text-sm font-bold">
+                            ${costoTotal.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                      {(rec.proveedor || rec.sucursal?.nombre) && (
+                        <p className="text-xs text-on-surface-variant mb-1">
+                          {rec.proveedor && <span>Proveedor: {rec.proveedor}</span>}
+                          {rec.proveedor && rec.sucursal?.nombre && <span> • </span>}
+                          {rec.sucursal?.nombre && <span>Sucursal: {rec.sucursal.nombre}</span>}
+                        </p>
+                      )}
+                      {rec.notas && (
+                        <p className="text-xs italic text-on-surface-variant mb-1">«{rec.notas}»</p>
+                      )}
+                      <details className="mt-1">
+                        <summary className="text-xs text-primary cursor-pointer select-none hover:underline">
+                          Ver detalle de productos
+                        </summary>
+                        <ul className="mt-2 space-y-1 border-l border-outline/20 pl-3">
+                          {rec.detalles.map((det) => (
+                            <li key={det.id} className="text-xs text-on-surface-variant flex justify-between gap-3">
+                              <span>
+                                {det.producto.nombre}{' '}
+                                <span className="font-mono opacity-70">({det.cantidad})</span>
+                              </span>
+                              <span className="font-mono shrink-0">${det.costoUnitario.toFixed(2)} c/u</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ===================== MODAL DE AJUSTE ===================== */}
       <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open) handleCerrarModal(); }}>

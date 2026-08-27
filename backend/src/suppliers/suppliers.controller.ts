@@ -86,7 +86,7 @@ export class SuppliersController {
   }
 
   /** Reactivar un proveedor */
-  @Patch(':id/reactivate')
+  @Patch(':id/reactivate-status')
   @Roles(Rol.ADMIN, Rol.SUPER_ADMIN)
   reactivate(
     @Param('id') id: string,

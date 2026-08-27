@@ -19,7 +19,7 @@ export class AuditController {
 
   /**
    * Listar logs de auditoría de la empresa con filtros y paginación.
-   * GET /audit?accion=CORTE_Z&severidad=critical&entidadTipo=corte_z&fechaInicio=...&fechaFin=...&limite=50&pagina=1
+   * GET /audit?accion=CORTE_Z&severidad=critical&entidadTipo=corte_z&fechaInicio=...&fechaFin=...&limit=50&page=1
    */
   @Get()
   @Roles(Rol.SUPER_ADMIN, Rol.ADMIN, Rol.GERENTE)
@@ -30,8 +30,8 @@ export class AuditController {
     @Query('entidadTipo') entidadTipo?: string,
     @Query('fechaInicio') fechaInicio?: string,
     @Query('fechaFin') fechaFin?: string,
-    @Query('limite') limite?: string,
-    @Query('pagina') pagina?: string,
+    @Query('limit') limit?: string,
+    @Query('page') page?: string,
   ) {
     return this.auditService.buscarPorEmpresa(user.empresaId, {
       accion,
@@ -39,8 +39,8 @@ export class AuditController {
       entidadTipo,
       fechaInicio,
       fechaFin,
-      limite: limite ? parseInt(limite, 10) : undefined,
-      pagina: pagina ? parseInt(pagina, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      page: page ? parseInt(page, 10) : undefined,
     });
   }
 }

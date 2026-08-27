@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { api, errorMessage } from '@/lib/api';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
+import { useAuthStore } from '@/store/useAuthStore';
 import type { EstadoLote, Lote, LoteDetalle, MotivoMerma } from '@/types/pos';
 
 const MOTIVOS_MERMA: { valor: MotivoMerma; label: string; desc: string }[] = [
@@ -60,6 +61,16 @@ export default function LotesView() {
   const [mermaMotivo, setMermaMotivo] = useState<MotivoMerma>('caducado');
   const [mermaNotas, setMermaNotas] = useState('');
   const [mermaSubmitting, setMermaSubmitting] = useState(false);
+  const [verificando, setVerificando] = useState(false);
+
+  // #9: edición de la fecha de caducidad del lote
+  const { user } = useAuthStore();
+  const puedeEditarCaducidad = ['ADMIN', 'GERENTE', 'ALMACEN'].includes(
+    user?.rol || '',
+  );
+  const [editandoCaducidad, setEditandoCaducidad] = useState(false);
+  const [fechaCaducidadEdit, setFechaCaducidadEdit] = useState('');
+  const [guardandoCaducidad, setGuardandoCaducidad] = useState(false);
 
   const fetchLotes = useCallback(async () => {
     try {
@@ -93,6 +104,7 @@ export default function LotesView() {
     setMermaCantidad('');
     setMermaMotivo('caducado');
     setMermaNotas('');
+    setEditandoCaducidad(false);
     try {
       const res = await api.get(`/inventory/lotes/${lote.id}`);
       setLoteSeleccionado(res.data.lote || res.data);
@@ -100,6 +112,30 @@ export default function LotesView() {
       toast.error('Error al cargar el detalle del lote');
     } finally {
       setDetalleLoading(false);
+    }
+  };
+
+  /** #9: guarda la nueva fecha de caducidad del lote */
+  const guardarCaducidad = async () => {
+    if (!loteSeleccionado) return;
+    try {
+      setGuardandoCaducidad(true);
+      await api.patch(
+        `/inventory/lotes/${loteSeleccionado.id}/fecha-caducidad`,
+        { fechaCaducidad: fechaCaducidadEdit || null },
+      );
+      toast.success('Fecha de caducidad guardada correctamente');
+      setEditandoCaducidad(false);
+      fetchLotes();
+      openDetalle(loteSeleccionado);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        toast.error(errorMessage(err, 'Error al guardar la fecha de caducidad'));
+      } else {
+        toast.error('Error al guardar la fecha de caducidad');
+      }
+    } finally {
+      setGuardandoCaducidad(false);
     }
   };
 
@@ -191,6 +227,27 @@ export default function LotesView() {
             Por vencer (30 días)
           </Label>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={verificando}
+          onClick={async () => {
+            try {
+              setVerificando(true);
+              const res = await api.post('/inventory/vencimientos/verificar');
+              toast.success(
+                `${res.data?.revisados ?? 0} lote(s) revisados. Se notificó a administración si hay alertas.`,
+              );
+              fetchLotes();
+            } catch (err) {
+              toast.error(errorMessage(err, 'Error al verificar vencimientos'));
+            } finally {
+              setVerificando(false);
+            }
+          }}
+        >
+          {verificando ? 'Verificando...' : 'Verificar vencidos'}
+        </Button>
       </div>
 
       {/* Tabla */}
@@ -347,11 +404,66 @@ export default function LotesView() {
                 </div>
                 <div className="p-3 rounded-xl bg-surface-variant/40 border border-outline/20">
                   <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Caducidad</p>
-                  <p className="text-sm font-semibold mt-0.5">
-                    {loteSeleccionado.fechaCaducidad
-                      ? new Date(loteSeleccionado.fechaCaducidad).toLocaleDateString()
-                      : 'Sin caducidad'}
-                  </p>
+                  {editandoCaducidad ? (
+                    <div className="mt-1 space-y-2">
+                      <Input
+                        type="date"
+                        value={fechaCaducidadEdit}
+                        onChange={(e) => setFechaCaducidadEdit(e.target.value)}
+                        className="text-sm h-8"
+                      />
+                      <p className="text-[10px] text-yellow-600 font-medium leading-snug">
+                        Debes presionar Guardar para que la nueva fecha quede aplicada.
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={guardandoCaducidad}
+                          onClick={guardarCaducidad}
+                        >
+                          {guardandoCaducidad ? 'Guardando...' : 'Guardar'}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          disabled={guardandoCaducidad}
+                          onClick={() => setEditandoCaducidad(false)}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <p className="text-sm font-semibold">
+                        {loteSeleccionado.fechaCaducidad
+                          ? new Date(loteSeleccionado.fechaCaducidad).toLocaleDateString()
+                          : 'Sin caducidad'}
+                      </p>
+                      {puedeEditarCaducidad && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-xs text-primary underline underline-offset-2"
+                          onClick={() => {
+                            setFechaCaducidadEdit(
+                              loteSeleccionado.fechaCaducidad
+                                ? new Date(loteSeleccionado.fechaCaducidad).toISOString().slice(0, 10)
+                                : '',
+                            );
+                            setEditandoCaducidad(true);
+                          }}
+                        >
+                          Editar
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="p-3 rounded-xl bg-surface-variant/40 border border-outline/20">
                   <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Proveedor</p>

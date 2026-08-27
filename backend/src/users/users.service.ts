@@ -140,6 +140,42 @@ export class UsersService {
     return usuario;
   }
 
+  /**
+   * #10: obtener las preferencias del dashboard del usuario.
+   */
+  async obtenerDashboard(userId: string) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id: userId },
+      select: { preferenciasDashboard: true },
+    });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
+    return { preferencias: usuario.preferenciasDashboard ?? null };
+  }
+
+  /**
+   * #10: guardar las preferencias del dashboard (orden, tamaños, widgets
+   * ocultos y lista personal de pendientes). Se valida que sea un objeto
+   * JSON de tamaño razonable antes de persistirlo.
+   */
+  async actualizarDashboard(userId: string, preferencias: unknown) {
+    if (
+      preferencias === null ||
+      typeof preferencias !== 'object' ||
+      Array.isArray(preferencias)
+    ) {
+      throw new ForbiddenException('Las preferencias deben ser un objeto');
+    }
+    const serializado = JSON.stringify(preferencias);
+    if (serializado.length > 20_000) {
+      throw new ForbiddenException('Las preferencias exceden el tamaño permitido');
+    }
+    await this.prisma.usuario.update({
+      where: { id: userId },
+      data: { preferenciasDashboard: preferencias as Prisma.InputJsonValue },
+    });
+    return { preferencias };
+  }
+
   async update(id: string, updateUserDto: UpdateUserDto, empresaId: string) {
     const usuario = await this.findOne(id, empresaId);
 

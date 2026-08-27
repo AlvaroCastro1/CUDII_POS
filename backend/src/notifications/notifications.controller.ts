@@ -21,19 +21,19 @@ export class NotificationsController {
 
   /**
    * Listar notificaciones del usuario autenticado.
-   * GET /notifications?soloNoLeidas=true&limite=20&pagina=1
+   * GET /notifications?soloNoLeidas=true&limit=20&page=1
    */
   @Get()
   async obtenerNotificaciones(
     @Request() req: { user: { id: string } },
     @Query('soloNoLeidas') soloNoLeidas?: string,
-    @Query('limite') limite?: string,
-    @Query('pagina') pagina?: string,
+    @Query('limit') limit?: string,
+    @Query('page') page?: string,
   ) {
     return this.notificationsService.obtenerNotificaciones(req.user.id, {
       soloNoLeidas: soloNoLeidas === 'true',
-      limite: limite ? parseInt(limite, 10) : undefined,
-      pagina: pagina ? parseInt(pagina, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      page: page ? parseInt(page, 10) : undefined,
     });
   }
 
@@ -60,9 +60,9 @@ export class NotificationsController {
 
   /**
    * Marcar todas las notificaciones como leídas.
-   * PATCH /notifications/read-all
+   * PATCH /notifications/mark-all-read
    */
-  @Patch('read-all')
+  @Patch('mark-all-read')
   async marcarTodasComoLeidas(@Request() req: { user: { id: string } }) {
     return this.notificationsService.marcarTodasComoLeidas(req.user.id);
   }

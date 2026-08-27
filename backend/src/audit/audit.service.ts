@@ -31,8 +31,6 @@ export class AuditService {
         entidadId: datos.entidadId,
         detalles: datos.detalles,
         severidad: datos.severidad || 'info',
-        direccionIP: datos.direccionIP || null,
-        agenteUsuario: datos.agenteUsuario || null,
       },
     });
   }
@@ -69,8 +67,8 @@ export class AuditService {
       entidadTipo?: string;
       fechaInicio?: string;
       fechaFin?: string;
-      limite?: number;
-      pagina?: number;
+      limit?: number;
+      page?: number;
     },
   ) {
     const where: Prisma.LogActividadWhereInput = { empresaId };
@@ -91,8 +89,8 @@ export class AuditService {
       if (filtros.fechaFin) where.fechaHora.lte = new Date(filtros.fechaFin);
     }
 
-    const limite = Math.min(filtros?.limite || 50, 100);
-    const pagina = filtros?.pagina || 1;
+    const limite = Math.min(filtros?.limit || 50, 100);
+    const pagina = filtros?.page || 1;
     const skip = (pagina - 1) * limite;
 
     const [total, datos] = await Promise.all([
@@ -113,7 +111,7 @@ export class AuditService {
     const totalPaginas = Math.ceil(total / limite) || 1;
 
     return {
-      datos,
+      data: datos,
       meta: {
         total,
         page: pagina,

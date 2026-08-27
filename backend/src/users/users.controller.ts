@@ -79,6 +79,23 @@ export class UsersController {
     return this.usersService.update(user.id, updateUserDto, user.empresaId);
   }
 
+  /**
+   * #10: preferencias del dashboard personalizable del usuario autenticado.
+   * Disponible para cualquier rol (cada usuario personaliza su propia vista).
+   */
+  @Get('profile/dashboard')
+  obtenerDashboard(@CurrentUser() user: CurrentUserPayload) {
+    return this.usersService.obtenerDashboard(user.id);
+  }
+
+  @Patch('profile/dashboard')
+  actualizarDashboard(
+    @Body() body: { preferencias?: unknown },
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.usersService.actualizarDashboard(user.id, body?.preferencias);
+  }
+
   @Patch(':id')
   @Roles(Rol.ADMIN)
   update(

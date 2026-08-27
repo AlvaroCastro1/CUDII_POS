@@ -11,6 +11,7 @@ import {
   MotivoDevolucion,
   MotivoMerma,
   TipoMovimientoInventario,
+  Prisma,
 } from '@prisma/client';
 import {
   distribuirProporcional,
@@ -37,7 +38,7 @@ export class ReturnsService {
       },
       include: {
         detalles: {
-          include: { lotes: true },
+          include: { lotes: { include: { lote: true } } },
         },
         devoluciones: {
           include: { productos: true },
@@ -72,6 +73,18 @@ export class ReturnsService {
 
       let totalDevuelto = 0;
       const itemsDevolucionData = [];
+
+      // Mapa de estados de lote desde el include de la venta (evita N+1)
+      const estadoLoteMap = new Map<string, EstadoLote>();
+      for (const d of venta.detalles) {
+        for (const dl of d.lotes || []) {
+          if (dl.lote) estadoLoteMap.set(dl.loteId, dl.lote.estado);
+        }
+      }
+
+      // Acumuladores para inserciones en lote (evita N+1)
+      const movimientosData: Prisma.MovimientoInventarioCreateManyInput[] = [];
+      const mermasData: Prisma.MermaCreateManyInput[] = [];
 
       for (const item of dto.productos) {
         const detalleOriginal = venta.detalles.find(
@@ -160,52 +173,46 @@ export class ReturnsService {
               const cantidadRestaurar = cantidades[idx];
               if (cantidadRestaurar <= 0) continue;
 
-              const loteActual = await tx.lote.findUnique({
-                where: { id: lote.loteId },
-              });
-              if (!loteActual) continue;
+              const estadoLoteActual =
+                estadoLoteMap.get(lote.loteId) || EstadoLote.activo;
 
               await tx.lote.update({
                 where: { id: lote.loteId },
                 data: {
                   cantidadRestante: { increment: cantidadRestaurar },
                   estado:
-                    loteActual.estado === EstadoLote.agotado
+                    estadoLoteActual === EstadoLote.agotado
                       ? EstadoLote.activo
-                      : loteActual.estado,
+                      : estadoLoteActual,
                   actualizadoEn: new Date(),
                 },
               });
 
-              await tx.movimientoInventario.create({
-                data: {
-                  productoId: item.productoId,
-                  sucursalId: venta.sucursalId,
-                  loteId: lote.loteId,
-                  tipo: TipoMovimientoInventario.devolucion_venta,
-                  cantidad: cantidadRestaurar,
-                  stockAnterior,
-                  stockNuevo,
-                  referencia: folio,
-                  motivo: `Devolución a stock - Venta ${venta.folio} - Lote`,
-                  usuarioId,
-                },
+              movimientosData.push({
+                productoId: item.productoId,
+                sucursalId: venta.sucursalId,
+                loteId: lote.loteId,
+                tipo: TipoMovimientoInventario.devolucion_venta,
+                cantidad: cantidadRestaurar,
+                stockAnterior,
+                stockNuevo,
+                referencia: folio,
+                motivo: `Devolución a stock - Venta ${venta.folio} - Lote`,
+                usuarioId,
               });
             }
             loteAsociadoId = lotesVenta[0].loteId;
           } else {
-            await tx.movimientoInventario.create({
-              data: {
-                productoId: item.productoId,
-                sucursalId: venta.sucursalId,
-                tipo: TipoMovimientoInventario.devolucion_venta,
-                cantidad: item.cantidadDevuelta,
-                stockAnterior,
-                stockNuevo,
-                referencia: folio,
-                motivo: `Devolución a stock - Venta ${venta.folio}`,
-                usuarioId,
-              },
+            movimientosData.push({
+              productoId: item.productoId,
+              sucursalId: venta.sucursalId,
+              tipo: TipoMovimientoInventario.devolucion_venta,
+              cantidad: item.cantidadDevuelta,
+              stockAnterior,
+              stockNuevo,
+              referencia: folio,
+              motivo: `Devolución a stock - Venta ${venta.folio}`,
+              usuarioId,
             });
           }
         } else {
@@ -233,65 +240,57 @@ export class ReturnsService {
 
               const loteCostoUnitario = lote.costoUnitario || costoUnitario;
 
-              await tx.merma.create({
-                data: {
-                  empresaId,
-                  sucursalId: venta.sucursalId,
-                  productoId: item.productoId,
-                  loteId: lote.loteId,
-                  cantidad: cantidadMerma,
-                  motivo: motivoMerma,
-                  costoUnitario: loteCostoUnitario,
-                  costoTotal: loteCostoUnitario * cantidadMerma,
-                  notas: `Devolución ${folio} - Venta ${venta.folio} - Lote`,
-                  usuarioId,
-                },
-              });
-
-              await tx.movimientoInventario.create({
-                data: {
-                  productoId: item.productoId,
-                  sucursalId: venta.sucursalId,
-                  loteId: lote.loteId,
-                  tipo: TipoMovimientoInventario.merma,
-                  cantidad: cantidadMerma,
-                  stockAnterior,
-                  stockNuevo: stockAnterior,
-                  referencia: folio,
-                  motivo: `Devolución a merma (${item.motivo}) - Venta ${venta.folio} - Lote`,
-                  usuarioId,
-                },
-              });
-            }
-          } else {
-            await tx.merma.create({
-              data: {
+              mermasData.push({
                 empresaId,
                 sucursalId: venta.sucursalId,
                 productoId: item.productoId,
-                loteId: loteAsociadoId,
-                cantidad: item.cantidadDevuelta,
+                loteId: lote.loteId,
+                cantidad: cantidadMerma,
                 motivo: motivoMerma,
-                costoUnitario,
-                costoTotal: costoUnitario * item.cantidadDevuelta,
-                notas: `Devolución ${folio} - Venta ${venta.folio}`,
+                costoUnitario: loteCostoUnitario,
+                costoTotal: loteCostoUnitario * cantidadMerma,
+                notas: `Devolución ${folio} - Venta ${venta.folio} - Lote`,
                 usuarioId,
-              },
-            });
+              });
 
-            await tx.movimientoInventario.create({
-              data: {
+              movimientosData.push({
                 productoId: item.productoId,
                 sucursalId: venta.sucursalId,
-                loteId: loteAsociadoId,
+                loteId: lote.loteId,
                 tipo: TipoMovimientoInventario.merma,
-                cantidad: item.cantidadDevuelta,
+                cantidad: cantidadMerma,
                 stockAnterior,
                 stockNuevo: stockAnterior,
                 referencia: folio,
-                motivo: `Devolución a merma (${item.motivo}) - Venta ${venta.folio}`,
+                motivo: `Devolución a merma (${item.motivo}) - Venta ${venta.folio} - Lote`,
                 usuarioId,
-              },
+              });
+            }
+          } else {
+            mermasData.push({
+              empresaId,
+              sucursalId: venta.sucursalId,
+              productoId: item.productoId,
+              loteId: loteAsociadoId,
+              cantidad: item.cantidadDevuelta,
+              motivo: motivoMerma,
+              costoUnitario,
+              costoTotal: costoUnitario * item.cantidadDevuelta,
+              notas: `Devolución ${folio} - Venta ${venta.folio}`,
+              usuarioId,
+            });
+
+            movimientosData.push({
+              productoId: item.productoId,
+              sucursalId: venta.sucursalId,
+              loteId: loteAsociadoId,
+              tipo: TipoMovimientoInventario.merma,
+              cantidad: item.cantidadDevuelta,
+              stockAnterior,
+              stockNuevo: stockAnterior,
+              referencia: folio,
+              motivo: `Devolución a merma (${item.motivo}) - Venta ${venta.folio}`,
+              usuarioId,
             });
           }
         }
@@ -305,6 +304,14 @@ export class ReturnsService {
           motivo: item.motivo,
           destino: item.destino,
         });
+      }
+
+      // Insertar mermas y movimientos en una sola query cada uno
+      if (mermasData.length > 0) {
+        await tx.merma.createMany({ data: mermasData });
+      }
+      if (movimientosData.length > 0) {
+        await tx.movimientoInventario.createMany({ data: movimientosData });
       }
 
       // 2. Crear cabecera Devolución

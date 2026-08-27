@@ -81,11 +81,21 @@ export class CrearVentaDto {
   pagos: ItemPagoVentaDto[];
 
   @IsOptional()
+  @IsUUID()
+  clienteId?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   descuentoGeneral?: number;
 
+  /**
+   * D10: Puntos de lealtad a canjear en esta venta.
+   * Solo aplica si el programa está habilitado con canje activo y
+   * el cliente tiene saldo suficiente. Equivale a un descuento adicional.
+   */
   @IsOptional()
-  @IsString()
-  notas?: string;
+  @IsNumber()
+  @Min(0)
+  puntosACanjear?: number;
 }

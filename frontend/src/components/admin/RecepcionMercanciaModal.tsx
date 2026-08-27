@@ -399,6 +399,17 @@ export function RecepcionMercanciaModal({
                           onChange={(e) => updateLinea(linea.key, 'fechaCaducidad', e.target.value)}
                           className="h-9 text-sm"
                         />
+                        {linea.fechaCaducidad ? (
+                          <p className="text-[10px] text-yellow-600 leading-snug">
+                            La fecha se guardará al registrar la recepción.
+                          </p>
+                        ) : (
+                          linea.producto.tieneCaducidad && (
+                            <p className="text-[10px] text-error/80 leading-snug">
+                              Este producto requiere fecha de caducidad para guardar el lote.
+                            </p>
+                          )
+                        )}
                       </div>
                     </div>
 
