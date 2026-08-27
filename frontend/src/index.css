@@ -255,4 +255,13 @@
   }
 }
 
+/* ── Estilos del Dashboard dinámico CUDII ───────────── */
+.dashboard-view-container {
+  width: 100%;
+}
+.widget-card-transition {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
 
