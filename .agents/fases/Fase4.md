@@ -425,6 +425,89 @@ const menuItems = allItems.filter(item =>
 
 ---
 
+### D10 — Programa de Lealtad Configurable (añadido durante la implementación)
+
+> **¿Por qué se hizo?** Durante la implementación de D5/D6 se detectó que el programa de lealtad
+> quedó **hardcodeado**: umbrales fijos en `tier.util.ts` (bronce 100 / plata 500 / oro 1500 /
+> platino 5000), sin descuentos por nivel, sin canje de puntos y sin posibilidad de apagarlo.
+> El usuario solicitó que todo esto sea gestionable desde **"Configuración del sitio"** por parte
+> del ADMIN/SUPER_ADMIN, con la mayor granularidad posible: habilitar/deshabilitar el programa,
+> regla de asignación de puntos, rangos totalmente personalizados (nombre, umbral, descuento y
+> color ilimitados), canje opcional y base de cálculo de puntos configurable. Adicionalmente se
+> pidió que la información del cliente (puntos, rango, descuento) sea visible en ClientesView y
+> en el POS. **Requisito transversal:** cada control de esta configuración debe llevar tooltips
+> explicativos reutilizando el componente `AyudaTooltip` ya existente en `ConfiguracionView.tsx`.
+
+**Decisiones de diseño (validadas con el usuario):**
+
+| Decisión | Elección | Razón |
+|----------|----------|-------|
+| Modelo de rangos | Totalmente personalizados (tabla `NivelLealtad` dinámica) | El admin define cuántos rangos quiere, con nombre/umbral/descuento/color propios |
+| Canje de puntos | Incluido, activable/desactivable desde configuración | El admin decide si el programa permite redención |
+| Base de puntos | Configurable: sobre total con o sin descuento aplicado | El admin decide la política según su negocio |
+
+**Schema (migración headless):**
+
+```prisma
+model ProgramaLealtad {
+  id         String   @id @default(uuid())
+  empresaId  String   @unique
+  habilitado Boolean  @default(true)
+
+  // Acumulación
+  puntosPorMonto        Float      @default(10)   // cada $X gastados = 1 punto
+  montoMinimoParaPuntos Float      @default(0)
+  basePuntos            BasePuntos @default(CON_DESCUENTO)
+
+  // Canje
+  permitirCanje     Boolean @default(false)
+  puntosPorPesos    Float   @default(100) // 100 pts = $1 canjeable
+  canjeMinimoPuntos Int     @default(100)
+
+  niveles NivelLealtad[]
+}
+
+enum BasePuntos { CON_DESCUENTO SIN_DESCUENTO }
+
+model NivelLealtad {
+  id           String  @id @default(uuid())
+  programaId   String
+  nombre       String
+  umbralPuntos Int
+  descuentoPct Float   @default(0)
+  colorHex     String?
+}
+```
+
+- `Cliente.tier` (enum `TierLealtad`) se **reemplaza** por `Cliente.nivelLealtadId String?`.
+- La migración siembra 4 niveles default por empresa existente (Bronce 100/0%, Plata 500/3%,
+  Oro 1500/5%, Platino 5000/10%) y mapea los tiers actuales de los clientes antes de eliminar
+  la columna y el enum.
+
+**Backend:**
+- `customers/loyalty.util.ts`: `resolverNivel(puntos, niveles[])` (nivel con mayor umbral ≤ puntos,
+  null = sin nivel) y `calcularPuntos(total, config)` respetando `basePuntos`. Sustituye a `tier.util.ts`.
+- `sales.service.createSale`: carga config+niveles; si `habilitado=false` no acumula puntos ni aplica
+  descuento/canje; aplica `venta.descuento` según el nivel del cliente; nuevo campo opcional
+  `puntosACanjear` en `CrearVentaDto` validado contra `permitirCanje`, saldo de puntos y mínimo.
+- `company-settings`: GET/PATCH extendidos con bloque `programaLealtad` (ADMIN/SUPER_ADMIN,
+  reemplazo atómico de niveles, validación de umbrales ascendentes únicos y % 0–100) +
+  endpoint `GET /company-settings/lealtad` accesible a **todos los roles autenticados**
+  (CAJERO necesita leer la config en el POS).
+- `customers.service`: detalle completo del cliente (puntos, nivel+color, descuento efectivo,
+  cuenta crédito, últimas ventas) y filtro `estaActivo` para el selector del POS.
+
+**Frontend:**
+- `ConfiguracionView.tsx`: sección "Programa de Lealtad" — toggle general, regla de puntos,
+  monto mínimo, base de puntos, canje (toggle + reglas), editor dinámico de niveles.
+  **Todos los controles con `AyudaTooltip`.** Integrada al guard de cambios sin guardar.
+- `ClientesView.tsx`: badges de nivel (color propio), puntos disponibles/históricos,
+  % descuento, panel de detalle, acciones de crédito/abonos.
+- `CheckoutModal.tsx` (POS): buscador de cliente, chip con nivel/puntos/descuento/saldo,
+  línea de descuento automática y campo de canje cuando está habilitado.
+
+---
+
 ## Entregables
 
 - [ ] Migración `cleanup_dead_fields` aplicada
@@ -446,6 +529,10 @@ const menuItems = allItems.filter(item =>
 - [ ] RBAC en sidebar filtrado por rol
 - [ ] Integración de `clienteId` en la terminal POS
 - [ ] Acumulación de puntos al finalizar la venta
+- [ ] D10: Migración `add_programa_lealtad_configurable` aplicada (siembra + mapeo de tiers)
+- [ ] D10: Configuración de lealtad editable desde Configuración del sitio (con tooltips)
+- [ ] D10: Descuento por nivel y canje de puntos operativos en ventas
+- [ ] D10: Puntos/nivel/descuento visibles en ClientesView y en el POS
 
 ---
 
@@ -463,6 +550,9 @@ const menuItems = allItems.filter(item =>
 9. `GET /sales?page=1&limit=10` → respuesta con formato `{ data, meta }` consistente.
 10. DevolucionesView muestra historial de devoluciones previas.
 11. Un usuario CAJERO no ve Usuarios ni Auditoría en el sidebar.
+12. D10: Configurar nivel "Oro" con 5% de descuento → venta de $1,000 a cliente Oro aplica $50 de descuento.
+13. D10: Deshabilitar el programa en Configuración → nuevas ventas no acumulan puntos ni descuentos.
+14. D10: Canje habilitado con mínimo 100 pts → cliente con 250 pts canjea 200 pts ($2) y su saldo queda en 50.
 
 ### Pruebas de performance
 1. Venta con 10+ items → verificar que no se ejecutan más de 20 queries (vs 80+ actual).

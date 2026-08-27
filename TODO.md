@@ -37,9 +37,8 @@
 - [x] **Histórico de actividad:** `AuditController` (`GET /audit` con filtros accion/severidad/entidadTipo/fechas + paginación, RBAC SUPER_ADMIN/ADMIN/GERENTE) y vista `AuditoriaView.tsx` en `/admin/auditoria` con filtros y tabla paginada.
 - [x] **Corte Z en frontend:** `CloseRegisterModal` con diferencia en vivo (cuadre/sobrante/faltante), notas obligatorias cuando hay discrepancia, selector de autorizador para faltantes críticos y pantalla de resumen del resultado.
 
-## Pendientes / Mejoras Futuras (Backlog)
-- [ ] **Errores de lint preexistentes en backend:** `npm run lint` reporta errores `@typescript-eslint/no-unsafe-*` en módulos de Fase 3 (`auth`, `cash-register`, `sales`, `returns`, e2e tests) y falta de `ValidationPipe` global en `main.ts` (los DTOs no se validan de forma global; solo el módulo `company-settings` valida localmente).
-- [ ] **Tests unitarios preexistentes rotos:** Los specs de `categories`, `products`, `users` y `app.controller` fallan por no inyectar `PrismaService` mock (o por assert desactualizado). El spec nuevo `company-settings.service.spec.ts` pasa.
+- [x] **Mejora del Dashboard Personalizable:** Solucionado bloqueo estricto de arrastre cuando la edición está desactivada (`static: !personalizando`), habilitado redimensionamiento interactivo de paneles con `WidthProvider(Responsive)`, implementado layout canónico por defecto con botón "↺ Restaurar predeterminados" y acotamiento de estilos responsivos aislados en `.dashboard-view-container`.
+
 
 
 
