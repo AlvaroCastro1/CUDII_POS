@@ -18,6 +18,9 @@ import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MermaModule } from './merma/merma.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
+import { CustomersModule } from './customers/customers.module';
+import { ReportsModule } from './reports/reports.module';
+import { CompaniesModule } from './companies/companies.module';
 
 @Module({
   imports: [
@@ -43,6 +46,9 @@ import { SuppliersModule } from './suppliers/suppliers.module';
     CompanySettingsModule,
     MermaModule,
     SuppliersModule,
+    CustomersModule,
+    ReportsModule,
+    CompaniesModule,
   ],
   controllers: [AppController],
   providers: [

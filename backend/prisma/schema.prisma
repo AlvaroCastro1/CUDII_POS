@@ -39,6 +39,8 @@ model Empresa {
   recepciones    RecepcionMercancia[]
   mermas         Merma[]
   proveedores    Proveedor[]
+  clientes       Cliente[]
+  programaLealtad ProgramaLealtad?
 }
 
 enum ModoCorteZ {
@@ -55,17 +57,19 @@ model Sucursal {
   empresaId  String
   empresa    Empresa  @relation(fields: [empresaId], references: [id])
   nombre     String
-  direccion  String?
   estaActivo Boolean  @default(true)
   creadoEn   DateTime @default(now())
 
   // Relaciones
-  cajas       Caja[]
-  inventario  InventarioSucursal[]
-  ventas      Venta[]
-  lotes       Lote[]
-  recepciones RecepcionMercancia[]
-  mermas      Merma[]
+  cajas                 Caja[]
+  inventario            InventarioSucursal[]
+  ventas                Venta[]
+  lotes                 Lote[]
+  recepciones           RecepcionMercancia[]
+  mermas                Merma[]
+  movimientosInventario MovimientoInventario[]
+
+  @@index([empresaId])
 }
 
 model Caja {
@@ -73,13 +77,14 @@ model Caja {
   sucursalId     String
   sucursal       Sucursal @relation(fields: [sucursalId], references: [id])
   nombre         String
-  codigo         String? // ej: "CAJA-01"
   secuenciaFolio Int      @default(0) // Secuencia de folios para esta caja
   estaActivo     Boolean  @default(true)
 
   // Relaciones
   sesiones SesionCaja[]
   ventas   Venta[]
+
+  @@index([sucursalId])
 }
 
 // ---------------------------------------------------------
@@ -95,6 +100,10 @@ model Usuario {
   passwordHash  String
   rol           Rol      @default(CAJERO)
   estaActivo    Boolean  @default(true)
+
+  // #10: layout personalizable del dashboard (orden, tamaños, widgets ocultos y TODOs)
+  preferenciasDashboard Json?
+
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
@@ -104,15 +113,19 @@ model Usuario {
   retirosParciales        RetiroParcial[]
   cortesX                 CorteX[]
   cortesZ                 CorteZ[]
-  cortesZAutorizados      CorteZ[]                  @relation("cortesZAutorizados")
+  cortesZAutorizados      CorteZ[]               @relation("cortesZAutorizados")
   ventas                  Venta[]
   devoluciones            Devolucion[]
   logsActividad           LogActividad[]
-  notificacionesRecibidas Notificacion[]            @relation("notificacionesRecibidas")
-  lotesCreados            Lote[]                    @relation("lotesCreados")
+  notificacionesRecibidas Notificacion[]         @relation("notificacionesRecibidas")
+  lotesCreados            Lote[]                 @relation("lotesCreados")
   recepciones             RecepcionMercancia[]
-  mermasRegistradas       Merma[]                   @relation("mermasRegistradas")
+  mermasRegistradas       Merma[]                @relation("mermasRegistradas")
+  abonosCredito           AbonoCredito[]
+
+  @@index([empresaId])
 }
+
 enum Rol {
   SUPER_ADMIN
   ADMIN
@@ -158,6 +171,9 @@ model Producto {
   lotes                Lote[]
   recepcionesDetalle   RecepcionDetalle[]
   mermas               Merma[]
+
+  @@index([empresaId, estaActivo])
+  @@index([empresaId, codigoBarras])
 }
 
 model PrecioPorUnidad {
@@ -170,6 +186,8 @@ model PrecioPorUnidad {
   cantidadMaxima    Float?
   precio            Float
   esDefault         Boolean  @default(false)
+
+  @@index([productoId])
 }
 
 // ---------------------------------------------------------
@@ -197,6 +215,7 @@ model MovimientoInventario {
   productoId    String
   producto      Producto                 @relation(fields: [productoId], references: [id])
   sucursalId    String
+  sucursal      Sucursal                 @relation(fields: [sucursalId], references: [id])
   loteId        String?
   lote          Lote?                    @relation(fields: [loteId], references: [id])
   tipo          TipoMovimientoInventario
@@ -208,6 +227,12 @@ model MovimientoInventario {
   usuarioId     String
   usuario       Usuario                  @relation(fields: [usuarioId], references: [id])
   fechaHora     DateTime                 @default(now())
+
+  @@index([productoId])
+  @@index([loteId])
+  @@index([sucursalId])
+  @@index([usuarioId])
+  @@index([fechaHora])
 }
 
 model Categoria {
@@ -223,6 +248,8 @@ model Categoria {
   actualizadoEn DateTime @updatedAt
 
   productos Producto[]
+
+  @@index([empresaId])
 }
 
 enum TipoMovimientoInventario {
@@ -271,13 +298,13 @@ model Lote {
   sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
 
   codigoLote       String // Código único (auto-generado si no se captura)
-  fechaRecepcion   DateTime  @default(now())
+  fechaRecepcion   DateTime   @default(now())
   fechaFabricacion DateTime?
   fechaCaducidad   DateTime? // null = sin caducidad
   cantidadInicial  Float
   cantidadRestante Float
   costoUnitario    Float
-  proveedor        String?  // Nombre libre del proveedor (legacy)
+  proveedor        String? // Nombre libre del proveedor (legacy)
   proveedorId      String?
   proveedorRef     Proveedor? @relation(fields: [proveedorId], references: [id])
 
@@ -296,6 +323,7 @@ model Lote {
 
   @@index([sucursalId, productoId, fechaCaducidad])
   @@index([empresaId, estado])
+  @@index([productoId])
 }
 
 model RecepcionMercancia {
@@ -315,6 +343,7 @@ model RecepcionMercancia {
 
   @@index([empresaId])
   @@index([sucursalId])
+  @@index([usuarioId])
 }
 
 model RecepcionDetalle {
@@ -329,6 +358,9 @@ model RecepcionDetalle {
   codigoLote       String? // null => se genera automáticamente
   fechaFabricacion DateTime?
   fechaCaducidad   DateTime?
+
+  @@index([recepcionId])
+  @@index([productoId])
 }
 
 model DetalleVentaLote {
@@ -341,6 +373,7 @@ model DetalleVentaLote {
   cantidad      Float
   costoUnitario Float
 
+  @@index([detalleVentaId])
   @@index([loteId])
 }
 
@@ -366,6 +399,9 @@ model Merma {
 
   @@index([empresaId])
   @@index([sucursalId, productoId])
+  @@index([loteId])
+  @@index([usuarioId])
+  @@index([fechaHora])
 }
 
 // ---------------------------------------------------------
@@ -401,6 +437,9 @@ model SesionCaja {
   retiros RetiroParcial[]
   cortesX CorteX[]
   corteZ  CorteZ?
+
+  @@index([cajaId, estado])
+  @@index([cajeroId])
 }
 
 enum EstadoSesionCaja {
@@ -417,6 +456,9 @@ model RetiroParcial {
   monto        Float
   motivo       String
   fechaHora    DateTime   @default(now())
+
+  @@index([sesionCajaId])
+  @@index([usuarioId])
 }
 
 model CorteX {
@@ -431,6 +473,9 @@ model CorteX {
   montoRetiros        Float
   efectivoEnCaja      Float
   fechaHora           DateTime   @default(now())
+
+  @@index([sesionCajaId])
+  @@index([usuarioId])
 }
 
 model CorteZ {
@@ -456,6 +501,9 @@ model CorteZ {
   autorizadoPor   Usuario? @relation("cortesZAutorizados", fields: [autorizadoPorId], references: [id])
 
   fechaHora DateTime @default(now())
+
+  @@index([usuarioId])
+  @@index([autorizadoPorId])
 }
 
 // ---------------------------------------------------------
@@ -474,6 +522,8 @@ model Venta {
   sesionCaja   SesionCaja @relation(fields: [sesionCajaId], references: [id])
   cajeroId     String
   cajero       Usuario    @relation(fields: [cajeroId], references: [id])
+  clienteId    String?
+  cliente      Cliente?   @relation(fields: [clienteId], references: [id])
 
   folio          String // Ej: "CJ01-000001"
   secuenciaFolio Int // Secuencial numérico per caja
@@ -483,16 +533,29 @@ model Venta {
   impuestos Float @default(0)
   total     Float
 
+  // Desglose del descuento total (#5): nivel de lealtad y canje de puntos
+  descuentoNivel Float @default(0)
+  descuentoCanje Float @default(0)
+
   estado         EstadoVenta @default(completada)
   esDemostracion Boolean     @default(false)
-  notas          String?
 
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
-  detalles     DetalleVenta[]
-  pagos        PagoVenta[]
-  devoluciones Devolucion[]
+  detalles          DetalleVenta[]
+  pagos             PagoVenta[]
+  devoluciones      Devolucion[]
+  ventaCredito      VentaCredito?
+  movimientosPuntos MovimientoPuntos[]
+
+  @@unique([empresaId, folio])
+  @@index([empresaId, creadoEn])
+  @@index([sucursalId, creadoEn])
+  @@index([sesionCajaId])
+  @@index([cajeroId])
+  @@index([cajaId])
+  @@index([clienteId])
 }
 
 enum EstadoVenta {
@@ -519,6 +582,9 @@ model DetalleVenta {
   total          Float
 
   lotes DetalleVentaLote[]
+
+  @@index([ventaId])
+  @@index([productoId])
 }
 
 model PagoVenta {
@@ -530,6 +596,8 @@ model PagoVenta {
   montoPagado   Float
   cambio        Float      @default(0)
   referencia    String? // Ej: Autorización de tarjeta
+
+  @@index([ventaId])
 }
 
 enum MetodoPago {
@@ -559,6 +627,10 @@ model Devolucion {
   fechaHora      DateTime                 @default(now())
 
   productos DevolucionProducto[]
+
+  @@index([ventaId])
+  @@index([fechaHora])
+  @@index([usuarioId])
 }
 
 enum TipoResolucionDevolucion {
@@ -581,6 +653,9 @@ model DevolucionProducto {
   subtotal         Float
   motivo           MotivoDevolucion
   destino          DestinoDevolucion
+
+  @@index([devolucionId])
+  @@index([loteId])
 }
 
 enum MotivoDevolucion {
@@ -614,9 +689,7 @@ model LogActividad {
   detalles    Json // Payload completo del evento (montos, diferencias, justificación, etc.)
   severidad   String @default("info") // 'info', 'warning', 'critical'
 
-  direccionIP   String?
-  agenteUsuario String?
-  fechaHora     DateTime @default(now())
+  fechaHora DateTime @default(now())
 
   @@index([empresaId])
   @@index([usuarioId])
@@ -634,14 +707,14 @@ model Proveedor {
   empresaId String
   empresa   Empresa @relation(fields: [empresaId], references: [id])
 
-  nombre      String
-  rfc         String?
-  telefono    String?
-  email       String?
-  direccion   String?
-  contacto    String? // Nombre del contacto principal
-  notas       String?
-  estaActivo  Boolean @default(true)
+  nombre     String
+  rfc        String?
+  telefono   String?
+  email      String?
+  direccion  String?
+  contacto   String? // Nombre del contacto principal
+  notas      String?
+  estaActivo Boolean @default(true)
 
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
@@ -675,4 +748,186 @@ model Notificacion {
   @@index([destinatarioId, leida])
   @@index([empresaId])
   @@index([fechaHora])
+}
+
+// ---------------------------------------------------------
+// CLIENTES, LEALTAD Y CRÉDITO (FIADOS)
+// ---------------------------------------------------------
+
+model Cliente {
+  id        String  @id @default(uuid())
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  nombre          String
+  apellidoPaterno String?
+  email           String?
+  telefono        String?
+  rfc             String?
+
+  // Programa de lealtad
+  puntosActuales   Int            @default(0)
+  puntosHistoricos Int            @default(0)
+  nivelLealtadId   String?
+  nivelLealtad     NivelLealtad?  @relation(fields: [nivelLealtadId], references: [id])
+
+  estaActivo    Boolean  @default(true)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  // Relaciones
+  ventas            Venta[]
+  cuentaCredito     CuentaCreditoCliente?
+  ventasCredito     VentaCredito[]
+  movimientosPuntos MovimientoPuntos[]
+
+  @@index([empresaId])
+  @@index([empresaId, estaActivo])
+  @@index([nivelLealtadId])
+}
+
+enum BasePuntos {
+  CON_DESCUENTO
+  SIN_DESCUENTO
+}
+
+// Configuración del programa de lealtad por empresa (editable desde Configuración del sitio)
+model ProgramaLealtad {
+  id        String  @id @default(uuid())
+  empresaId String  @unique
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  habilitado Boolean @default(true)
+
+  // Reglas de acumulación de puntos
+  puntosPorMonto        Float      @default(10) // Cada $X de compra equivalen a 1 punto
+  montoMinimoParaPuntos Float      @default(0)  // Venta mínima ($) para ganar puntos
+  basePuntos            BasePuntos @default(CON_DESCUENTO) // Base sobre la que se calculan los puntos
+
+  // Canje (redención) de puntos
+  permitirCanje     Boolean @default(false)
+  puntosPorPesos    Float   @default(100) // Cuántos puntos equivalen a $1 canjeable
+  canjeMinimoPuntos Int     @default(100) // Mínimo de puntos para poder canjear
+
+  // Caducidad de puntos (D11): 0 = nunca vencen
+  mesesExpiracionPuntos Int @default(0)
+
+  creadoEn      DateTime       @default(now())
+  actualizadoEn DateTime       @updatedAt
+  niveles       NivelLealtad[]
+
+  @@index([empresaId])
+}
+
+// Niveles (rangos) personalizables del programa de lealtad
+model NivelLealtad {
+  id           String          @id @default(uuid())
+  programaId   String
+  programa     ProgramaLealtad @relation(fields: [programaId], references: [id])
+
+  nombre       String // Nombre visible (ej. "Bronce", "VIP")
+  umbralPuntos Int    // Puntos históricos requeridos para alcanzar el nivel
+  descuentoPct Float  @default(0) // % de descuento aplicado al comprar
+  colorHex     String?            // Color para badges en la interfaz
+
+  clientes Cliente[]
+
+  @@index([programaId])
+}
+
+enum TipoMovimientoPuntos {
+  GANADO
+  CANJEADO
+  EXPIRADO
+  AJUSTE
+}
+
+// Historial de movimientos de puntos (D11): origen de datos para caducidad
+// por lote y auditoría de cómo se ganan, gastan y vencen los puntos.
+model MovimientoPuntos {
+  id        String               @id @default(uuid())
+  clienteId String
+  cliente   Cliente              @relation(fields: [clienteId], references: [id])
+  ventaId   String? // Venta que originó el movimiento (si aplica)
+  venta     Venta?               @relation(fields: [ventaId], references: [id])
+
+  tipo      TipoMovimientoPuntos
+  puntos    Int // GANADO: positivo. CANJEADO/EXPIRADO/AJUSTE: negativo.
+
+  // Solo aplica a GANADO: cuándo vence este lote. null = nunca vence.
+  expiraEn DateTime?
+  // Solo aplica a GANADO: puntos del lote ya consumidos (por canje o expiración),
+  // usados por el cálculo FIFO de caducidad.
+  puntosConsumidos Int @default(0)
+
+  creadoEn DateTime @default(now())
+
+  @@index([clienteId, creadoEn])
+  @@index([tipo, expiraEn])
+}
+
+model CuentaCreditoCliente {
+  id        String  @id @default(uuid())
+  clienteId String  @unique
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+
+  limiteCredito         Float
+  saldoPendiente        Float   @default(0)
+  diasMaximoVencimiento Int     @default(30)
+  estaActivo            Boolean @default(true)
+
+  creadoEn      DateTime       @default(now())
+  ventasCredito VentaCredito[] @relation("VentaCreditoCuentaCredito")
+
+  @@index([clienteId])
+}
+
+model VentaCredito {
+  id        String  @id @default(uuid())
+  ventaId   String  @unique
+  venta     Venta   @relation(fields: [ventaId], references: [id])
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id])
+
+  montoTotal     Float
+  montoPagado    Float         @default(0)
+  saldoPendiente Float
+  estado         EstadoCredito @default(pendiente)
+
+  fechaVencimiento DateTime
+  fechaLiquidacion DateTime?
+
+  // Relaciones
+  abonos AbonoCredito[]
+
+  cuentaCreditoClienteId String?
+  cuentaCreditoCliente   CuentaCreditoCliente? @relation("VentaCreditoCuentaCredito", fields: [cuentaCreditoClienteId], references: [id])
+
+  @@index([clienteId])
+  @@index([estado])
+  @@index([fechaVencimiento])
+}
+
+enum EstadoCredito {
+  pendiente
+  parcialmente_pagada
+  liquidada
+  vencida
+}
+
+model AbonoCredito {
+  id             String       @id @default(uuid())
+  ventaCreditoId String
+  ventaCredito   VentaCredito @relation(fields: [ventaCreditoId], references: [id])
+
+  monto      Float
+  metodoPago MetodoPago @default(efectivo)
+  referencia String?
+  notas      String?
+
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  fechaHora DateTime @default(now())
+
+  @@index([ventaCreditoId])
 }
