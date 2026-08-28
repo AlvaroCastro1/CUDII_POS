@@ -3,16 +3,16 @@ import {
   Controller,
   Get,
   Post,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import { ReturnsService } from './returns.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../auth/interfaces/jwt-payload.interface';
 import { Rol } from '@prisma/client';
 import { CrearDevolucionDto } from './dto/crear-devolucion.dto';
-import { CurrentUserPayload } from '../auth/interfaces/jwt-payload.interface';
 
 @Controller('returns')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -22,19 +22,19 @@ export class ReturnsController {
   @Post()
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO)
   async createReturn(
-    @Request() req: { user: CurrentUserPayload },
+    @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CrearDevolucionDto,
   ) {
     return this.returnsService.createReturn(
-      req.user.id,
-      req.user.empresaId,
+      user.id,
+      user.empresaId,
       dto,
     );
   }
 
   @Get()
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CONTADOR)
-  async findAllReturns(@Request() req: { user: CurrentUserPayload }) {
-    return this.returnsService.findAllReturns(req.user.empresaId);
+  async findAllReturns(@CurrentUser() user: CurrentUserPayload) {
+    return this.returnsService.findAllReturns(user.empresaId);
   }
 }

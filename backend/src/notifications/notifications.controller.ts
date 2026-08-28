@@ -4,11 +4,12 @@ import {
   Param,
   Patch,
   Query,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../auth/interfaces/jwt-payload.interface';
 
 /**
  * Controlador de Notificaciones Internas.
@@ -25,12 +26,12 @@ export class NotificationsController {
    */
   @Get()
   async obtenerNotificaciones(
-    @Request() req: { user: { id: string } },
+    @CurrentUser() user: CurrentUserPayload,
     @Query('soloNoLeidas') soloNoLeidas?: string,
     @Query('limit') limit?: string,
     @Query('page') page?: string,
   ) {
-    return this.notificationsService.obtenerNotificaciones(req.user.id, {
+    return this.notificationsService.obtenerNotificaciones(user.id, {
       soloNoLeidas: soloNoLeidas === 'true',
       limit: limit ? parseInt(limit, 10) : undefined,
       page: page ? parseInt(page, 10) : undefined,
@@ -42,8 +43,8 @@ export class NotificationsController {
    * GET /notifications/count
    */
   @Get('count')
-  async contarNoLeidas(@Request() req: { user: { id: string } }) {
-    return this.notificationsService.contarNoLeidas(req.user.id);
+  async contarNoLeidas(@CurrentUser() user: CurrentUserPayload) {
+    return this.notificationsService.contarNoLeidas(user.id);
   }
 
   /**
@@ -53,9 +54,9 @@ export class NotificationsController {
   @Patch(':id/read')
   async marcarComoLeida(
     @Param('id') id: string,
-    @Request() req: { user: { id: string } },
+    @CurrentUser() user: CurrentUserPayload,
   ) {
-    return this.notificationsService.marcarComoLeida(id, req.user.id);
+    return this.notificationsService.marcarComoLeida(id, user.id);
   }
 
   /**
@@ -63,7 +64,7 @@ export class NotificationsController {
    * PATCH /notifications/mark-all-read
    */
   @Patch('mark-all-read')
-  async marcarTodasComoLeidas(@Request() req: { user: { id: string } }) {
-    return this.notificationsService.marcarTodasComoLeidas(req.user.id);
+  async marcarTodasComoLeidas(@CurrentUser() user: CurrentUserPayload) {
+    return this.notificationsService.marcarTodasComoLeidas(user.id);
   }
 }

@@ -4,13 +4,14 @@ import {
   Get,
   Post,
   Query,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import { CashRegisterService } from './cash-register.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../auth/interfaces/jwt-payload.interface';
 import { Rol } from '@prisma/client';
 import { AbrirCajaDto } from './dto/abrir-caja.dto';
 import { RetiroParcialDto } from './dto/retiro-parcial.dto';
@@ -33,8 +34,8 @@ export class CashRegisterController {
    */
   @Get('settings')
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO)
-  async getSettings(@Request() req: { user: { empresaId: string } }) {
-    return this.cashRegisterService.getSettings(req.user.empresaId);
+  async getSettings(@CurrentUser() user: CurrentUserPayload) {
+    return this.cashRegisterService.getSettings(user.empresaId);
   }
 
   /**
@@ -44,10 +45,10 @@ export class CashRegisterController {
   @Get('current')
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO)
   async getCurrentSession(
-    @Request() req: { user: { id: string; empresaId: string } },
+    @CurrentUser() user: CurrentUserPayload,
     @Query('cajaId') cajaId?: string,
   ) {
-    return this.cashRegisterService.getCurrentSession(req.user.id, cajaId);
+    return this.cashRegisterService.getCurrentSession(user.id, cajaId);
   }
 
   /**
@@ -57,12 +58,12 @@ export class CashRegisterController {
   @Post('open')
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO)
   async openSession(
-    @Request() req: { user: { id: string; empresaId: string } },
+    @CurrentUser() user: CurrentUserPayload,
     @Body() dto: AbrirCajaDto,
   ) {
     return this.cashRegisterService.openSession(
-      req.user.id,
-      req.user.empresaId,
+      user.id,
+      user.empresaId,
       dto,
     );
   }
@@ -74,12 +75,12 @@ export class CashRegisterController {
   @Post('withdrawal')
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO)
   async addWithdrawal(
-    @Request() req: { user: { id: string; empresaId: string } },
+    @CurrentUser() user: CurrentUserPayload,
     @Body() dto: RetiroParcialDto,
   ) {
     return this.cashRegisterService.addWithdrawal(
-      req.user.id,
-      req.user.empresaId,
+      user.id,
+      user.empresaId,
       dto,
     );
   }
@@ -91,12 +92,12 @@ export class CashRegisterController {
   @Post('close-x')
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO)
   async generateCorteX(
-    @Request() req: { user: { id: string; empresaId: string } },
+    @CurrentUser() user: CurrentUserPayload,
     @Body('sesionCajaId') sesionCajaId: string,
   ) {
     return this.cashRegisterService.generateCorteX(
-      req.user.id,
-      req.user.empresaId,
+      user.id,
+      user.empresaId,
       sesionCajaId,
     );
   }
@@ -108,12 +109,12 @@ export class CashRegisterController {
   @Post('close-z')
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO)
   async closeSessionZ(
-    @Request() req: { user: { id: string; empresaId: string } },
+    @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CorteZDto,
   ) {
     return this.cashRegisterService.closeSessionZ(
-      req.user.id,
-      req.user.empresaId,
+      user.id,
+      user.empresaId,
       dto,
     );
   }

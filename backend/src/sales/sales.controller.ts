@@ -5,16 +5,16 @@ import {
   Param,
   Post,
   Query,
-  Request,
   UseGuards,
 } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { CurrentUserPayload } from '../auth/interfaces/jwt-payload.interface';
 import { Rol } from '@prisma/client';
 import { CrearVentaDto } from './dto/crear-venta.dto';
-import { CurrentUserPayload } from '../auth/interfaces/jwt-payload.interface';
 
 @Controller('sales')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -24,16 +24,16 @@ export class SalesController {
   @Post()
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO)
   async createSale(
-    @Request() req: { user: CurrentUserPayload },
+    @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CrearVentaDto,
   ) {
-    return this.salesService.createSale(req.user.id, req.user.empresaId, dto);
+    return this.salesService.createSale(user.id, user.empresaId, dto);
   }
 
   @Get()
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.CONTADOR)
   async findAllSales(
-    @Request() req: { user: CurrentUserPayload },
+    @CurrentUser() user: CurrentUserPayload,
     @Query()
     query: {
       sucursalId?: string;
@@ -45,15 +45,15 @@ export class SalesController {
       limit?: number;
     },
   ) {
-    return this.salesService.findAllSales(req.user.empresaId, query);
+    return this.salesService.findAllSales(user.empresaId, query);
   }
 
   @Get(':idOrFolio')
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.CONTADOR)
   async findOneSale(
-    @Request() req: { user: CurrentUserPayload },
+    @CurrentUser() user: CurrentUserPayload,
     @Param('idOrFolio') idOrFolio: string,
   ) {
-    return this.salesService.findOneSale(req.user.empresaId, idOrFolio);
+    return this.salesService.findOneSale(user.empresaId, idOrFolio);
   }
 }

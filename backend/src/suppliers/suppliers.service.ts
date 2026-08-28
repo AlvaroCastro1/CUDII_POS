@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
@@ -41,7 +42,7 @@ export class SuppliersService {
     search = '',
     incluirInactivos = false,
   ) {
-    const where: any = { empresaId };
+    const where: Prisma.ProveedorWhereInput = { empresaId };
     if (!incluirInactivos) where.estaActivo = true;
     if (search) {
       where.OR = [
