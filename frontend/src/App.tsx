@@ -70,6 +70,21 @@ function AnalisisRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Guard genérico por roles. SUPER_ADMIN siempre tiene acceso.
+function RequireRol({
+  roles,
+  children,
+}: {
+  roles: string[];
+  children: React.ReactNode;
+}) {
+  const user = useAuthStore((state) => state.user);
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.rol === 'SUPER_ADMIN') return <>{children}</>;
+  if (roles.includes(user.rol)) return <>{children}</>;
+  return <Navigate to="/" replace />;
+}
+
 // Configuración de Rutas base
 const router = createBrowserRouter([
   {
@@ -94,15 +109,27 @@ const router = createBrowserRouter([
       },
       {
         path: 'pos',
-        element: <PosView />,
+        element: (
+          <RequireRol roles={['ADMIN', 'GERENTE', 'CAJERO']}>
+            <PosView />
+          </RequireRol>
+        ),
       },
       {
         path: 'clientes',
-        element: <ClientesView />,
+        element: (
+          <RequireRol roles={['ADMIN', 'GERENTE', 'CAJERO']}>
+            <ClientesView />
+          </RequireRol>
+        ),
       },
       {
         path: 'fiados',
-        element: <FiadosView />,
+        element: (
+          <RequireRol roles={['ADMIN', 'GERENTE', 'CAJERO']}>
+            <FiadosView />
+          </RequireRol>
+        ),
       },
       {
         path: 'reportes',
@@ -115,15 +142,71 @@ const router = createBrowserRouter([
       {
         path: 'admin',
         children: [
-          { path: 'categorias', element: <CategoriasView /> },
-          { path: 'productos', element: <ProductosView /> },
-          { path: 'productos/:id', element: <ProductoDetalleView /> },
-          { path: 'inventario', element: <InventarioView /> },
-          { path: 'lotes', element: <LotesView /> },
-          { path: 'proveedores', element: <ProveedoresView /> },
-          { path: 'usuarios', element: <UsuariosView /> },
+          {
+            path: 'categorias',
+            element: (
+              <RequireRol roles={['ADMIN', 'GERENTE', 'CAJERO', 'ALMACEN', 'CONTADOR']}>
+                <CategoriasView />
+              </RequireRol>
+            ),
+          },
+          {
+            path: 'productos',
+            element: (
+              <RequireRol roles={['ADMIN', 'GERENTE', 'CAJERO', 'ALMACEN', 'CONTADOR']}>
+                <ProductosView />
+              </RequireRol>
+            ),
+          },
+          {
+            path: 'productos/:id',
+            element: (
+              <RequireRol roles={['ADMIN', 'GERENTE', 'CAJERO', 'ALMACEN', 'CONTADOR']}>
+                <ProductoDetalleView />
+              </RequireRol>
+            ),
+          },
+          {
+            path: 'inventario',
+            element: (
+              <RequireRol roles={['ADMIN', 'GERENTE', 'CAJERO', 'ALMACEN', 'CONTADOR']}>
+                <InventarioView />
+              </RequireRol>
+            ),
+          },
+          {
+            path: 'lotes',
+            element: (
+              <RequireRol roles={['ADMIN', 'GERENTE', 'CAJERO', 'ALMACEN', 'CONTADOR']}>
+                <LotesView />
+              </RequireRol>
+            ),
+          },
+          {
+            path: 'proveedores',
+            element: (
+              <RequireRol roles={['ADMIN', 'GERENTE', 'ALMACEN']}>
+                <ProveedoresView />
+              </RequireRol>
+            ),
+          },
+          {
+            path: 'usuarios',
+            element: (
+              <RequireRol roles={['ADMIN', 'GERENTE']}>
+                <UsuariosView />
+              </RequireRol>
+            ),
+          },
           { path: 'ventas/:id', element: <VentaDetalleView /> },
-          { path: 'devoluciones', element: <DevolucionesView /> },
+          {
+            path: 'devoluciones',
+            element: (
+              <RequireRol roles={['ADMIN', 'GERENTE', 'CAJERO']}>
+                <DevolucionesView />
+              </RequireRol>
+            ),
+          },
           { path: 'perfil', element: <MiPerfilView /> },
           {
             path: 'auditoria',
