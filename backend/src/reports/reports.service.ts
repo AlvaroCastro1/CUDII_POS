@@ -336,7 +336,7 @@ export class ReportsService {
       };
     }
 
-    const condiciones = [Prisma.empty];
+    const condiciones: Prisma.Sql[] = [];
     if (rango.fechaInicio) {
       condiciones.push(
         Prisma.sql` AND v."creadoEn" >= ${new Date(rango.fechaInicio)} `,
@@ -350,6 +350,9 @@ export class ReportsService {
     if (rango.sucursalId) {
       condiciones.push(Prisma.sql` AND v."sucursalId" = ${rango.sucursalId} `);
     }
-    return { whereSql: Prisma.join(condiciones), params: [] };
+    if (condiciones.length === 0) {
+      return { whereSql: Prisma.empty, params: [] };
+    }
+    return { whereSql: Prisma.join(condiciones, ' '), params: [] };
   }
 }
