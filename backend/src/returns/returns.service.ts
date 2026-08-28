@@ -18,10 +18,14 @@ import {
   redondearSegunUnidad,
   validarCantidadSegunUnidad,
 } from '../common/validators/unidad.util';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class ReturnsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   /**
    * Procesar una devolución de venta
@@ -64,7 +68,7 @@ export class ReturnsService {
     });
     const unidadMap = new Map(productos.map((p) => [p.id, p.unidadMedida]));
 
-    return this.prisma.$transaction(async (tx) => {
+    const devolucion = await this.prisma.$transaction(async (tx) => {
       // 1. Generar folio para la devolución
       const totalDevolucionesPrevias = await tx.devolucion.count({
         where: { venta: { empresaId } },
@@ -336,6 +340,26 @@ export class ReturnsService {
 
       return devolucion;
     });
+
+    // Auditoría: registrar la devolución (posterior a la transacción)
+    await this.auditService.registrarEvento({
+      empresaId,
+      sucursalId: devolucion.venta?.sucursalId ?? devolucion.sesionCajaId ?? null,
+      usuarioId,
+      accion: 'DEVOLUCION_REGISTRADA',
+      entidadTipo: 'devolucion',
+      entidadId: devolucion.id,
+      detalles: {
+        folio: devolucion.folio,
+        totalDevuelto: devolucion.totalDevuelto,
+        tipoResolucion: devolucion.tipoResolucion,
+        motivoGeneral: dto.motivoGeneral ?? null,
+        ventaFolio: devolucion.venta?.folio ?? dto.ventaId,
+      },
+      severidad: 'info',
+    });
+
+    return devolucion;
   }
 
   /**

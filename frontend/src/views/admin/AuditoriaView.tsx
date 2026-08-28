@@ -44,6 +44,7 @@ const ACCIONES = [
   { valor: 'CORTE_Z', etiqueta: 'Corte Z' },
   { valor: 'VENTA_COMPLETADA', etiqueta: 'Venta completada' },
   { valor: 'VENTA_CANCELADA', etiqueta: 'Venta cancelada' },
+  { valor: 'DEVOLUCION_REGISTRADA', etiqueta: 'Devolución registrada' },
 ];
 
 const SEVERIDADES = [
@@ -66,6 +67,7 @@ const ACCION_LABEL: Record<string, string> = {
   CORTE_Z: 'Corte Z',
   VENTA_COMPLETADA: 'Venta completada',
   VENTA_CANCELADA: 'Venta cancelada',
+  DEVOLUCION_REGISTRADA: 'Devolución registrada',
 };
 
 // Campos relevantes por acción para resumir los detalles JSON
@@ -102,6 +104,26 @@ function resumirDetalles(accion: string, detalles: Record<string, unknown>): str
         d.efectivoEnCaja !== undefined
           ? `Efectivo: $${Number(d.efectivoEnCaja).toFixed(2)}`
           : '',
+      ]
+        .filter(Boolean)
+        .join(' • ');
+    case 'VENTA_COMPLETADA':
+      return [
+        d.folio ? `Folio: ${d.folio}` : '',
+        d.total !== undefined ? `Total: $${Number(d.total).toFixed(2)}` : '',
+        d.metodoPago ? `Pago: ${d.metodoPago}` : '',
+        d.esDemostracion ? 'Demostración' : '',
+      ]
+        .filter(Boolean)
+        .join(' • ');
+    case 'DEVOLUCION_REGISTRADA':
+      return [
+        d.folio ? `Folio: ${d.folio}` : '',
+        d.totalDevuelto !== undefined
+          ? `Devuelto: $${Number(d.totalDevuelto).toFixed(2)}`
+          : '',
+        d.tipoResolucion ? `Resolución: ${d.tipoResolucion}` : '',
+        d.ventaFolio ? `Venta: ${d.ventaFolio}` : '',
       ]
         .filter(Boolean)
         .join(' • ');

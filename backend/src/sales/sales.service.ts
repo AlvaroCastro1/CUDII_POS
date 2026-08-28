@@ -22,10 +22,14 @@ import {
   pesosEquivalentesDePuntos,
   resolverNivel,
 } from '../customers/loyalty.util';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class SalesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   /**
    * Registrar una venta (Transacción atómica POS)
@@ -136,7 +140,7 @@ export class SalesService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const venta = await this.prisma.$transaction(async (tx) => {
       // 2. Incrementar la secuencia de folio de la caja atómicamente
       const cajaActualizada = await tx.caja.update({
         where: { id: cajaId },
@@ -595,6 +599,30 @@ export class SalesService {
 
       return venta;
     });
+
+    // Auditoría: registrar la venta completada (posterior a la transacción)
+    await this.auditService.registrarEvento({
+      empresaId,
+      sucursalId: sucursalId ?? null,
+      usuarioId: cajeroId,
+      accion: 'VENTA_COMPLETADA',
+      entidadTipo: 'venta',
+      entidadId: venta.id,
+      detalles: {
+        folio: venta.folio,
+        total: venta.total,
+        subtotal: venta.subtotal,
+        impuestos: venta.impuestos,
+        descuento: venta.descuento,
+        metodoPago: dto.pagos?.length
+          ? dto.pagos.map((p) => p.metodo).join(', ')
+          : 'publico',
+        esDemostracion: venta.esDemostracion,
+      },
+      severidad: 'info',
+    });
+
+    return venta;
   }
 
   /**
