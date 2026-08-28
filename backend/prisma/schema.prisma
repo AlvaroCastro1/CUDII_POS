@@ -59,6 +59,7 @@ model Sucursal {
   nombre     String
   estaActivo Boolean  @default(true)
   creadoEn   DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   // Relaciones
   cajas                 Caja[]
@@ -79,6 +80,8 @@ model Caja {
   nombre         String
   secuenciaFolio Int      @default(0) // Secuencia de folios para esta caja
   estaActivo     Boolean  @default(true)
+  creadoEn       DateTime @default(now())
+  actualizadoEn  DateTime @updatedAt
 
   // Relaciones
   sesiones SesionCaja[]
@@ -206,6 +209,8 @@ model InventarioSucursal {
   stockMaximo Float @default(100)
 
   ultimoMovimiento DateTime @default(now())
+  creadoEn         DateTime @default(now())
+  actualizadoEn    DateTime @updatedAt
 
   @@unique([sucursalId, productoId])
 }
@@ -372,6 +377,7 @@ model DetalleVentaLote {
 
   cantidad      Float
   costoUnitario Float
+  creadoEn      DateTime @default(now())
 
   @@index([detalleVentaId])
   @@index([loteId])
@@ -431,6 +437,7 @@ model SesionCaja {
 
   fechaApertura DateTime  @default(now())
   fechaCierre   DateTime?
+  actualizadoEn DateTime   @updatedAt
 
   // Relaciones
   ventas  Venta[]
@@ -501,6 +508,7 @@ model CorteZ {
   autorizadoPor   Usuario? @relation("cortesZAutorizados", fields: [autorizadoPorId], references: [id])
 
   fechaHora DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   @@index([usuarioId])
   @@index([autorizadoPorId])
@@ -581,6 +589,8 @@ model DetalleVenta {
   impuestos      Float  @default(0)
   total          Float
 
+  creadoEn DateTime @default(now())
+
   lotes DetalleVentaLote[]
 
   @@index([ventaId])
@@ -596,6 +606,7 @@ model PagoVenta {
   montoPagado   Float
   cambio        Float      @default(0)
   referencia    String? // Ej: Autorización de tarjeta
+  creadoEn      DateTime @default(now())
 
   @@index([ventaId])
 }
@@ -625,6 +636,7 @@ model Devolucion {
   tipoResolucion TipoResolucionDevolucion
   motivoGeneral  String?
   fechaHora      DateTime                 @default(now())
+  actualizadoEn  DateTime                 @updatedAt
 
   productos DevolucionProducto[]
 
@@ -653,6 +665,7 @@ model DevolucionProducto {
   subtotal         Float
   motivo           MotivoDevolucion
   destino          DestinoDevolucion
+  creadoEn         DateTime @default(now())
 
   @@index([devolucionId])
   @@index([loteId])
@@ -829,6 +842,8 @@ model NivelLealtad {
   umbralPuntos Int    // Puntos históricos requeridos para alcanzar el nivel
   descuentoPct Float  @default(0) // % de descuento aplicado al comprar
   colorHex     String?            // Color para badges en la interfaz
+  creadoEn     DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   clientes Cliente[]
 
@@ -861,6 +876,7 @@ model MovimientoPuntos {
   puntosConsumidos Int @default(0)
 
   creadoEn DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   @@index([clienteId, creadoEn])
   @@index([tipo, expiraEn])
@@ -877,6 +893,7 @@ model CuentaCreditoCliente {
   estaActivo            Boolean @default(true)
 
   creadoEn      DateTime       @default(now())
+  actualizadoEn DateTime       @updatedAt
   ventasCredito VentaCredito[] @relation("VentaCreditoCuentaCredito")
 
   @@index([clienteId])
@@ -928,6 +945,7 @@ model AbonoCredito {
   usuarioId String
   usuario   Usuario  @relation(fields: [usuarioId], references: [id])
   fechaHora DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   @@index([ventaCreditoId])
 }
