@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Query,
   UseGuards,
@@ -36,6 +37,32 @@ export class CashRegisterController {
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO)
   async getSettings(@CurrentUser() user: CurrentUserPayload) {
     return this.cashRegisterService.getSettings(user.empresaId);
+  }
+
+  /**
+   * Obtener todas las sesiones de caja abiertas de la empresa (vista de
+   * administración). GET /cash-register/open-sessions
+   */
+  @Get('open-sessions')
+  @Roles(Rol.ADMIN, Rol.GERENTE)
+  async getOpenSessions(@CurrentUser() user: CurrentUserPayload) {
+    return this.cashRegisterService.listarSesionesAbiertas(user.empresaId);
+  }
+
+  /**
+   * Previsualizar el corte Z de una sesión abierta sin cerrarla.
+   * GET /cash-register/sessions/:id/preview
+   */
+  @Get('sessions/:id/preview')
+  @Roles(Rol.ADMIN, Rol.GERENTE)
+  async previewCorteZ(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') sesionCajaId: string,
+  ) {
+    return this.cashRegisterService.previsualizarCorteZ(
+      user.empresaId,
+      sesionCajaId,
+    );
   }
 
   /**

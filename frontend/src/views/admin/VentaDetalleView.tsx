@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -58,6 +58,7 @@ interface VentaDetallePage {
 
 export default function VentaDetalleView() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [venta, setVenta] = useState<VentaDetallePage | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -95,13 +96,17 @@ export default function VentaDetalleView() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <Link
-        to="/clientes"
+      <button
+        type="button"
+        onClick={() => {
+          if (window.history.length > 1) navigate(-1);
+          else navigate('/clientes');
+        }}
         className="inline-flex items-center gap-1 text-sm text-on-surface-variant hover:text-on-surface mb-4"
       >
         <ArrowLeft className="w-4 h-4" />
-        Volver a clientes
-      </Link>
+        Volver
+      </button>
 
       {loading || !venta ? (
         <div className="flex items-center justify-center py-24 gap-3 text-on-surface-variant">

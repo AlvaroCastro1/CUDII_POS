@@ -64,6 +64,109 @@ export class CashRegisterService {
   }
 
   /**
+   * Listar todas las sesiones de caja abiertas de la empresa (vista de
+   * administración). Incluye desglose de ventas, retiros, efectivo esperado,
+   * antigüedad y monto acumulado, útil para monitoreo y corte a distancia.
+   * @param empresaId UUID de la empresa.
+   * @returns Lista de sesiones abiertas con datos de corte.
+   */
+  async listarSesionesAbiertas(empresaId: string) {
+    const sesiones = await this.prisma.sesionCaja.findMany({
+      where: {
+        estado: 'abierta',
+        caja: { sucursal: { empresaId } },
+      },
+      include: {
+        caja: {
+          include: { sucursal: true },
+        },
+        cajero: {
+          select: { id: true, nombre: true, email: true, rol: true },
+        },
+        retiros: { select: { id: true, monto: true, motivo: true } },
+      },
+      orderBy: { fechaApertura: 'asc' },
+    });
+
+    const ahora = new Date();
+    return sesiones.map((s) => {
+      const efectivoEsperado =
+        s.montoInicial + s.totalVentasEfectivo - s.totalRetiros;
+      const minutosAbierta = Math.floor(
+        (ahora.getTime() - new Date(s.fechaApertura).getTime()) / 60000,
+      );
+      return {
+        id: s.id,
+        caja: {
+          id: s.caja.id,
+          nombre: s.caja.nombre,
+          sucursal: {
+            id: s.caja.sucursal.id,
+            nombre: s.caja.sucursal.nombre,
+          },
+        },
+        cajero: s.cajero,
+        modoCorteUsado: s.modoCorteUsado,
+        montoInicial: s.montoInicial,
+        totalVentasEfectivo: s.totalVentasEfectivo,
+        totalVentasTarjeta: s.totalVentasTarjeta,
+        totalVentasOtros: s.totalVentasOtros,
+        totalRetiros: s.totalRetiros,
+        efectivoEsperado,
+        fechaApertura: s.fechaApertura,
+        minutosAbierta,
+      };
+    });
+  }
+
+  /**
+   * Previsualizar el Corte Z de una sesión abierta sin cerrarla.
+   * Calcula el desglose completo que se registraría al momento del cierre.
+   * @param empresaId UUID de la empresa.
+   * @param sesionCajaId UUID de la sesión de caja.
+   * @returns Desglose de la vista previa del corte o null si no existe.
+   */
+  async previsualizarCorteZ(empresaId: string, sesionCajaId: string) {
+    const sesion = await this.prisma.sesionCaja.findFirst({
+      where: { id: sesionCajaId, caja: { sucursal: { empresaId } } },
+      include: {
+        caja: { include: { sucursal: true } },
+        cajero: { select: { id: true, nombre: true, rol: true } },
+        retiros: { select: { id: true, monto: true, motivo: true } },
+      },
+    });
+
+    if (!sesion || sesion.estado !== 'abierta') return null;
+
+    const efectivoEsperado =
+      sesion.montoInicial + sesion.totalVentasEfectivo - sesion.totalRetiros;
+    const totalVentas =
+      sesion.totalVentasEfectivo + sesion.totalVentasTarjeta + sesion.totalVentasOtros;
+
+    return {
+      sesionCajaId: sesion.id,
+      caja: {
+        id: sesion.caja.id,
+        nombre: sesion.caja.nombre,
+        sucursal: { id: sesion.caja.sucursal.id, nombre: sesion.caja.sucursal.nombre },
+      },
+      cajero: sesion.cajero,
+      modoCorteUsado: sesion.modoCorteUsado,
+      fechaApertura: sesion.fechaApertura,
+      montoInicial: sesion.montoInicial,
+      ventas: {
+        efectivo: sesion.totalVentasEfectivo,
+        tarjeta: sesion.totalVentasTarjeta,
+        otros: sesion.totalVentasOtros,
+        total: totalVentas,
+      },
+      retiros: sesion.retiros,
+      totalRetiros: sesion.totalRetiros,
+      efectivoEsperado,
+    };
+  }
+
+  /**
    * Obtener la sesión de caja activa de la sucursal/usuario.
    * @param usuarioId UUID del usuario autenticado.
    * @param cajaId UUID opcional de la caja (si se quiere buscar por caja específica).
@@ -373,6 +476,14 @@ export class CashRegisterService {
     if (!sesion || sesion.estado !== 'abierta') {
       throw new BadRequestException(
         'La sesión de caja no está disponible para cierre o ya fue cerrada',
+      );
+    }
+
+    // Verificar que la sesión pertenezca a la empresa (crítico para cierre a
+    // distancia desde otras sucursales o por otro rol).
+    if (sesion.caja?.sucursal?.empresaId !== empresaId) {
+      throw new BadRequestException(
+        'La sesión de caja no pertenece a esta empresa',
       );
     }
 

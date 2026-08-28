@@ -338,6 +338,46 @@ export class ReturnsService {
         },
       });
 
+      // 3. Cancelar puntos de lealtad ganados por la venta original (si la
+      // venta generó puntos). Solo se revierte el saldo del lote que aún no
+      // ha sido consumido por canje/expiración; no se toca el histórico
+      // acumulado (puntosHistoricos) para no alterar el nivel de lealtad.
+      const lotesPuntos = await tx.movimientoPuntos.findMany({
+        where: {
+          clienteId: devolucion.venta?.clienteId ?? undefined,
+          ventaId: devolucion.ventaId,
+          tipo: 'GANADO',
+        },
+      });
+
+      for (const lote of lotesPuntos) {
+        const disponible = lote.puntos - lote.puntosConsumidos;
+        if (disponible <= 0) continue;
+
+        // Marcar todo el lote como consumido para que el canje FIFO ya no lo
+        // considere disponible y quede trazado como revertido por devolución.
+        await tx.movimientoPuntos.update({
+          where: { id: lote.id },
+          data: { puntosConsumidos: lote.puntos },
+        });
+
+        // Registrar el ajuste negativo por la devolución.
+        await tx.movimientoPuntos.create({
+          data: {
+            clienteId: lote.clienteId,
+            ventaId: devolucion.ventaId,
+            tipo: 'AJUSTE',
+            puntos: -disponible,
+          },
+        });
+
+        // Reducir el saldo actual de puntos del cliente.
+        await tx.cliente.update({
+          where: { id: lote.clienteId },
+          data: { puntosActuales: { decrement: disponible } },
+        });
+      }
+
       return devolucion;
     });
 
@@ -355,6 +395,7 @@ export class ReturnsService {
         tipoResolucion: devolucion.tipoResolucion,
         motivoGeneral: dto.motivoGeneral ?? null,
         ventaFolio: devolucion.venta?.folio ?? dto.ventaId,
+        ventaId: devolucion.venta?.id ?? dto.ventaId,
       },
       severidad: 'info',
     });

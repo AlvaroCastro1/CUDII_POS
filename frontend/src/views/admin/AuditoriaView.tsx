@@ -23,7 +23,8 @@ import {
 } from '@/components/ui/select';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
-import { History, Loader2, RotateCcw } from 'lucide-react';
+import { History, Loader2, RotateCcw, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface LogActividad {
   id: string;
@@ -135,6 +136,12 @@ function resumirDetalles(accion: string, detalles: Record<string, unknown>): str
   }
 }
 
+function detallesFolio(log: LogActividad): string | null {
+  const d = log.detalles || {};
+  const folio = d.folio;
+  return typeof folio === 'string' && folio ? folio : null;
+}
+
 function formatearFecha(iso: string): string {
   const fecha = new Date(iso);
   if (Number.isNaN(fecha.getTime())) return iso;
@@ -155,6 +162,7 @@ export default function AuditoriaView() {
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
   const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(50);
+  const navigate = useNavigate();
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -324,7 +332,32 @@ export default function AuditoriaView() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs text-on-surface-variant">
-                    {resumirDetalles(log.accion, log.detalles)}
+                    {log.accion === 'VENTA_COMPLETADA' && log.entidadId ? (
+                      <button
+                        onClick={() => navigate(`/admin/ventas/${log.entidadId}`)}
+                        className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                        title={`Ver detalle de venta ${String(detallesFolio(log) ?? '')}`}
+                      >
+                        {String(detallesFolio(log) ?? '')}
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    ) : log.accion === 'DEVOLUCION_REGISTRADA' &&
+                      log.detalles?.ventaId ? (
+                      <button
+                        onClick={() =>
+                          navigate(
+                            `/admin/ventas/${String(log.detalles?.ventaId)}`,
+                          )
+                        }
+                        className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                        title={`Ver venta original de la devolución`}
+                      >
+                        {String(detallesFolio(log) ?? '')}
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    ) : (
+                      resumirDetalles(log.accion, log.detalles)
+                    )}
                   </TableCell>
                 </TableRow>
               ))

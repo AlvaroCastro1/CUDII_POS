@@ -586,12 +586,28 @@ export default function ClientesView() {
                         <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
                           {movimientosPuntos.map((mov) => {
                             const esGanado = mov.puntos > 0;
-                            const colorTipo =
+                            const variablePoints =
                               mov.tipo === 'GANADO'
-                                ? 'bg-success/10 text-success'
+                                ? 'GANADO'
                                 : mov.tipo === 'CANJEADO'
+                                  ? 'CANJEADO'
+                                  : mov.tipo === 'AJUSTE'
+                                    ? 'AJUSTE'
+                                    : 'EXPIRADO';
+                            const colorTipo =
+                              variablePoints === 'GANADO'
+                                ? 'bg-success/10 text-success'
+                                : variablePoints === 'CANJEADO'
                                   ? 'bg-primary/10 text-primary'
-                                  : 'bg-error/10 text-error';
+                                  : variablePoints === 'AJUSTE'
+                                    ? 'bg-warning/10 text-warning'
+                                    : 'bg-outline/10 text-on-surface-variant';
+                            const etiquetaTipo: Record<string, string> = {
+                              GANADO: 'Ganados',
+                              CANJEADO: 'Canjeados',
+                              EXPIRADO: 'Expirados',
+                              AJUSTE: 'Ajuste (devolución)',
+                            };
                             return (
                               <div
                                 key={mov.id}
@@ -601,7 +617,7 @@ export default function ClientesView() {
                                   <span
                                     className={`px-1.5 py-0.5 rounded-full font-label-sm font-medium ${colorTipo}`}
                                   >
-                                    {mov.tipo}
+                                    {etiquetaTipo[mov.tipo] || mov.tipo}
                                   </span>
                                   <span className="text-on-surface-variant truncate">
                                     {new Date(mov.creadoEn).toLocaleDateString('es-MX', {
