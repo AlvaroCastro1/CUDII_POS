@@ -87,3 +87,7 @@ typings/
 .DS_Store
 Thumbs.db
 backend/node_modules/@angular-devkit/core/index.d.ts
+
+# Python
+__pycache__/
+*.py[cod]
