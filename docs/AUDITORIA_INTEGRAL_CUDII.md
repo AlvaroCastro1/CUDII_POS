@@ -1,8 +1,12 @@
 # Auditoría Integral y Análisis Estratégico — CUDII POS
 
 **Fecha:** Agosto 2026  
-**Versión analizada:** Post-Fase 3+ (commit `20b350b`)  
+**Versión analizada:** Post-Fase 3+ (commit `20b350b`) — actualizado a Fase 4 (commit `7870d88`): clientes/crédito, lealtad, dashboard personalizable, inventario/mermas/recepciones  
 **Alcance:** Schema, Backend (NestJS), Frontend (React/Vite), Seguridad, Benchmark competitivo
+
+> **Nota de actualización (Fase 4):** Las secciones §1.2/§1.3 se actualizaron para reflejar el estado actual. Se añadió la migración `20260820000005_add_timestamps_audit` (14 tablas con timestamps de auditoría). El dashboard pasó de "placeholder" a rejilla personalizable con react-grid-layout. Los hallazgos de performance/paginación (§2.5, §2.6) y campos muertos (§2.2) siguen siendo válidos como backlog.
+
+> **Nota de actualización (revisión Fase 4 - post-revisión):** Aplicadas las correcciones de la sesión: (1) **sidebar por rol** — la fila **A10** de §4.2 ahora está **resuelta** (`permisos.ts` + `MainLayout.tsx` + `RequireRol` en `App.tsx`); (2) **Reportes** — `top-products`/`margin` ya no arrojan Error 500 al filtrar por fecha (fix de `Prisma.join(condiciones, ' ')` en `reports.service.ts`); (3) **Auditoría** — el módulo ahora registra eventos sensibles `VENTA_COMPLETADA` y `DEVOLUCION_REGISTRADA` además de los de caja, reflejado en `AuditoriaView.tsx`.
 
 ---
 
@@ -32,18 +36,21 @@ CUDII es un **POS SaaS multitenant** diseñado para tiendas de conveniencia y co
 | **Proveedores** | CRUD completo con soft delete | ✅ Completo |
 | **Usuarios** | CRUD con roles, protegido contra escalada de privilegios | ✅ Completo |
 | **Configuración** | Tema visual, modo corte Z, umbrales | ✅ Completo |
-| **Notificaciones** | Backend CRUD + campana en frontend | ✅ Parcial |
-| **Reportes** | 3 reportes básicos (ventas diarias, productos, inventario) | ⚠️ Mínimo |
-| **Auditoría** | Logs de actividad con paginación | ✅ Backend, ❌ Frontend limitado |
-| **Dashboard** | Placeholder "En Implementación" | ❌ No implementado |
+| **Clientes / Crédito (Fase 4)** | CRUD clientes, cuentas de crédito/fiado, abonos, saldo pendiente | ✅ Completo |
+| **Lealtad (Fase 4)** | Programa de puntos, niveles, canje FIFO, configuración | ✅ Completo |
+| **Venta al crédito (Fase 4)** | Cobro de deuda, referencias, indicador cliente/público | ✅ Completo |
+| **Notificaciones** | Backend CRUD + campana en frontend (polling 60s, filtros) | ✅ Completo |
+| **Reportes** | Resumen de ventas, reportes ejecutivos, exportación | ✅ Implementado |
+| **Auditoría** | Logs de actividad con filtros y paginación; registra eventos de caja + `VENTA_COMPLETADA`/`DEVOLUCION_REGISTRADA` | ✅ Completo |
+| **Dashboard (Fase 4)** | KPIs, tendencia, métodos de pago, TOP, mini-TODO — rejilla react-grid-layout personalizable por rol | ✅ Implementado |
 
 ### 1.3 Fuera de Alcance Actual
 
 | Funcionalidad | Estado | Impacto |
 |--------------|--------|---------|
-| Gestión de clientes/CRM | ❌ Sin schema, sin backend, sin frontend | Crítico — no hay fidelización |
-| Reportes avanzados | ❌ Solo 3 reportes básicos | Alto — el gerente no puede tomar decisiones |
-| Dashboard con KPIs | ❌ Placeholder | Alto — sin visibilidad operacional |
+| CRM avanzado (segmentación, campañas) | ✅ Base hecha (CRUD+crédito+lealtad); ❌ segmentación avanzada | Medio |
+| Reportes avanzados | ✅ Resumen/ejecutivos; ❌ analítica profunda | Medio — el gerente no puede tomar decisiones |
+| Dashboard con KPIs | ✅ Rejilla personalizable por rol | Resuelto |
 | Códigos de barras | ❌ Sin escaneo ni generación | Medio — Velocidad de checkout |
 | Modo offline | ❌ Sin soporte | Medio — Resiliencia |
 | Facturación CFDI 4.0 | ❌ Fuera de alcance (Fase 6) | Bajo a corto plazo |
@@ -317,7 +324,7 @@ Shopify POS: ██████████████████████�
 | A7 | **Códigos de barras** | Generación de etiquetas + escaneo en POS | 🟠 Media | Medio | Fase 5 |
 | A8 | **Órdenes de compra** | PO → GRN (no solo GRN directo) | 🟠 Media | Alto | Fase 5 |
 | A9 | **Reportes exportables** | PDF/CSV en todos los reportes | 🟠 Media | Medio | Fase 4 |
-| A10 | **Filtrado por roles en sidebar** | Ocultar links admin a CAJERO | 🟠 Media | Bajo | Inmediato |
+| A10 | ~~**Filtrado por roles en sidebar**~~ | ~~Ocultar links admin a CAJERO~~ → **Resuelto:** `frontend/src/lib/permisos.ts` + `MainLayout.tsx` filtran por `user.rol` (SUPER_ADMIN ve todo) | ✅ Hecho | Bajo | Tan pronto |
 | A11 | **Modo offline** | IndexedDB + sync para ventas básicas | 🟡 Baja | Muy alto | Fase 6 |
 | A12 | **Descuentos programables** | Promociones con reglas (2x1, happy hour, por categoría) | 🟡 Baja | Alto | Fase 5 |
 | A13 | **Notificaciones push** | Email/SMS para alertas de stock, lotes por vencer | 🟡 Baja | Medio | Fase 5 |
