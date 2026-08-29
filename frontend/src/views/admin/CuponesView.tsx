@@ -19,7 +19,7 @@ import {
   Trash2,
   Percent,
   Banknote,
-  ConfirmationNumber,
+  BadgePercent,
   RefreshCw,
 } from 'lucide-react';
 import axios from 'axios';
@@ -260,7 +260,7 @@ export default function CuponesView() {
         </div>
       ) : cupones.length === 0 ? (
         <div className="bg-surface rounded-xl border border-on-surface/10 p-12 text-center text-on-surface-variant font-body-md flex flex-col items-center gap-2">
-          <ConfirmationNumber className="w-8 h-8 text-outline" />
+          <BadgePercent className="w-8 h-8 text-outline" />
           No hay cupones. Crea el primero.
         </div>
       ) : (
