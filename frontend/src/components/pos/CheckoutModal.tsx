@@ -96,7 +96,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     nombre: string;
     tipoDescuento: 'PORCENTAJE' | 'MONTO_FIJO';
     valorDescuento: number;
+    montoMinimoCompra: number | null;
   } | null>(null);
+  // Leyenda que explica por qué un cupón ya no es aplicable tras cambios en el carrito
+  const [cuponInvalido, setCuponInvalido] = useState<string | null>(null);
   const [cuponValidando, setCuponValidando] = useState(false);
   const [cuponError, setCuponError] = useState<string | null>(null);
 
@@ -166,8 +169,34 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // D12: al cambiar de cliente, re-validar el cupón si estaba aplicado
   // (puede dejar de aplicar si exige cliente registrado o límite por cliente)
   useEffect(() => {
-    if (cliente) setCuponAplicado(null);
+    if (cliente) {
+      setCuponAplicado(null);
+      setCuponInvalido(null);
+    }
   }, [cliente]);
+
+  // D12: re-validar el cupón cuando cambia el carrito (subtotal/descuentos).
+  // Si un cupón aplicado deja de cumplir las condiciones (p. ej. montos mínimos),
+  // se quita y se muestra una leyenda con la razón.
+  const baseActiva =
+    cart.reduce((acc, item) => acc + item.cantidad * item.precioUnitario, 0) -
+    (cart.reduce((acc, item) => acc + item.descuento, 0) + descuentoGeneral);
+  useEffect(() => {
+    if (!cuponAplicado) return;
+    const base = Math.max(0, baseActiva);
+    const razon = cuponAplicado.montoMinimoCompra
+      ? base < cuponAplicado.montoMinimoCompra
+        ? `requiere una compra mínima de $${cuponAplicado.montoMinimoCompra.toFixed(2)}`
+        : null
+      : null;
+    if (razon) {
+      setCuponError(null);
+      setCuponInvalido(
+        `El cupón ${cuponAplicado.codigo} no pudo aplicarse por ${razon}`,
+      );
+      setCuponAplicado(null);
+    }
+  }, [baseActiva]);
 
   if (!isOpen) return null;
 
@@ -296,8 +325,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         nombre: res.data.nombre,
         tipoDescuento: res.data.tipoDescuento,
         valorDescuento: res.data.valorDescuento,
+        montoMinimoCompra: res.data.montoMinimoCompra ?? null,
       });
       setCuponError(null);
+      setCuponInvalido(null);
     } catch (err: unknown) {
       setCuponAplicado(null);
       const msg = errorMessage(err, 'El cupón no es válido');
@@ -438,6 +469,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setCodigoCuponInput('');
       setCuponAplicado(null);
       setCuponError(null);
+      setCuponInvalido(null);
     } catch (err: unknown) {
       console.error('Error al procesar cobro:', err);
       setError(errorMessage(err, 'Ocurrió un error al procesar la venta en la caja'));
@@ -660,6 +692,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   {cuponError}
                 </p>
               )}
+              {cuponInvalido && (
+                <p className="text-[11px] font-label-sm text-warning flex items-start gap-1">
+                  <AlertCircle className="w-3 h-3 shrink-0 mt-0.5" />
+                  <span>{cuponInvalido}</span>
+                </p>
+              )}
             </>
           ) : (
             <div className="flex items-center gap-2.5">
@@ -682,6 +720,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 onClick={() => {
                   setCuponAplicado(null);
                   setCuponError(null);
+                  setCuponInvalido(null);
                 }}
                 className="p-1 text-outline hover:text-error transition-colors"
                 aria-label="Quitar cupón"
