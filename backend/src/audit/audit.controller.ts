@@ -43,4 +43,19 @@ export class AuditController {
       page: page ? parseInt(page, 10) : undefined,
     });
   }
+
+  /**
+   * Listar el historial de actividad del usuario autenticado (inicios de
+   * sesión, ventas, devoluciones, cortes, etc.). GET /audit/me.
+   * Accesible por cualquier usuario autenticado: cada quien ve solo sus logs.
+   */
+  @Get('me')
+  async miActividad(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query('limit') limit?: string,
+  ) {
+    return this.auditService.buscarPorUsuario(user.id, {
+      limite: limit ? parseInt(limit, 10) : 50,
+    });
+  }
 }

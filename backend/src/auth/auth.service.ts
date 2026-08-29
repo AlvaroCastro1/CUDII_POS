@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { LoginDto } from './dto/login.dto';
 import * as argon2 from 'argon2';
 
@@ -9,6 +10,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly auditService: AuditService,
   ) {}
 
   async login(loginDto: LoginDto) {
@@ -31,6 +33,17 @@ export class AuthService {
         'Credenciales inválidas o usuario inactivo',
       );
     }
+
+    // Registrar inicio de sesión en el historial de actividad del usuario.
+    await this.auditService.registrarEvento({
+      empresaId: user.empresaId,
+      usuarioId: user.id,
+      accion: 'INICIO_SESION',
+      entidadTipo: 'usuario',
+      entidadId: user.id,
+      detalles: { email: user.email, metodo: 'password' },
+      severidad: 'info',
+    });
 
     const payload = {
       sub: user.id,

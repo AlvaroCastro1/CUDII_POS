@@ -16,6 +16,7 @@ import {
   Banknote,
   Package,
   User,
+  History,
 } from 'lucide-react';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -45,6 +46,109 @@ interface Venta {
   creadoEn: string;
   detalles: DetalleVenta[];
   pagos: PagoVenta[];
+}
+
+interface LogActividad {
+  id: string;
+  accion: string;
+  entidadTipo: string;
+  entidadId: string;
+  detalles: Record<string, unknown>;
+  severidad: string;
+  fechaHora: string;
+  usuario: { id: string; nombre: string; rol: string } | null;
+}
+
+const ACCION_LABEL: Record<string, string> = {
+  INICIO_SESION: 'Inicio de sesión',
+  APERTURA_CAJA: 'Apertura de caja',
+  RETIRO_PARCIAL: 'Retiro parcial',
+  CORTE_X: 'Corte X',
+  CORTE_Z: 'Corte Z',
+  VENTA_COMPLETADA: 'Venta completada',
+  VENTA_CANCELADA: 'Venta cancelada',
+  DEVOLUCION_REGISTRADA: 'Devolución registrada',
+};
+
+const SEVERIDAD_STYLE: Record<string, string> = {
+  info: 'bg-primary/10 text-primary border-primary/20',
+  warning: 'bg-warning/10 text-warning border-warning/20',
+  critical: 'bg-error/10 text-error border-error/20',
+};
+
+function resumirDetalles(accion: string, detalles: Record<string, unknown>): string {
+  const d = detalles || {};
+  switch (accion) {
+    case 'INICIO_SESION':
+      return d.metodo ? `Método: ${d.metodo}` : 'Acceso a la plataforma';
+    case 'CORTE_Z':
+      return [
+        d.cajaNombre ? `Caja: ${d.cajaNombre}` : '',
+        `Esperado: $${Number(d.montoEsperado ?? 0).toFixed(2)}`,
+        `Contado: $${Number(d.montoDeclarado ?? 0).toFixed(2)}`,
+        d.tipoDiscrepancia ? `Tipo: ${d.tipoDiscrepancia}` : '',
+      ]
+        .filter(Boolean)
+        .join(' • ');
+    case 'APERTURA_CAJA':
+      return [
+        d.cajaNombre ? `Caja: ${d.cajaNombre}` : '',
+        `Fondo: $${Number(d.montoInicial ?? 0).toFixed(2)}`,
+      ]
+        .filter(Boolean)
+        .join(' • ');
+    case 'RETIRO_PARCIAL':
+      return [
+        `Monto: $${Number(d.monto ?? 0).toFixed(2)}`,
+        d.motivo ? `Motivo: ${d.motivo}` : '',
+      ]
+        .filter(Boolean)
+        .join(' • ');
+    case 'CORTE_X':
+      return [
+        d.cajaNombre ? `Caja: ${d.cajaNombre}` : '',
+        d.efectivoEnCaja !== undefined
+          ? `Efectivo: $${Number(d.efectivoEnCaja).toFixed(2)}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' • ');
+    case 'VENTA_COMPLETADA':
+      return [
+        d.folio ? `Folio: ${d.folio}` : '',
+        d.total !== undefined ? `Total: $${Number(d.total).toFixed(2)}` : '',
+        d.esDemostracion ? 'Demostración' : '',
+      ]
+        .filter(Boolean)
+        .join(' • ');
+    case 'DEVOLUCION_REGISTRADA':
+      return [
+        d.folio ? `Folio: ${d.folio}` : '',
+        d.totalDevuelto !== undefined
+          ? `Devuelto: $${Number(d.totalDevuelto).toFixed(2)}`
+          : '',
+        d.ventaFolio ? `Venta: ${d.ventaFolio}` : '',
+      ]
+        .filter(Boolean)
+        .join(' • ');
+    default:
+      return Object.entries(d)
+        .slice(0, 4)
+        .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
+        .join(' • ');
+  }
+}
+
+function formatearFecha(iso: string): string {
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return iso;
+  return fecha.toLocaleString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 // ─── Subcomponente: Fila de Venta con detalle expandible ─────────────────────
@@ -219,6 +323,39 @@ export default function MiPerfilView() {
       }
     };
     cargarVentas();
+  }, [user?.id]);
+
+  // Cargar historial de actividad del usuario actual (inicios de sesión,
+  // ventas, cortes, devoluciones, etc.)
+  const [actividad, setActividad] = useState<LogActividad[]>([]);
+  const [isLoadingActividad, setIsLoadingActividad] = useState(true);
+
+  useEffect(() => {
+    const cargarActividad = async () => {
+      if (!user?.id) return;
+      setIsLoadingActividad(true);
+      try {
+        const res = await api.get('/audit/me', {
+          params: { limit: 30 },
+        });
+        const lista = Array.isArray(res.data)
+          ? res.data
+          : res.data?.data || [];
+        setActividad(lista);
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error)) {
+          console.error(
+            'Error al cargar historial de actividad:',
+            error.response?.data?.message || error.message,
+          );
+        } else {
+          console.error('Error al cargar historial de actividad:', error);
+        }
+      } finally {
+        setIsLoadingActividad(false);
+      }
+    };
+    cargarActividad();
   }, [user?.id]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -401,6 +538,71 @@ export default function MiPerfilView() {
             {ventas.map((venta) => (
               <VentaRow key={venta.id} venta={venta} />
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Historial de Actividad del Usuario ─────────────────────── */}
+      <div className="bg-surface border border-outline/10 rounded-2xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="font-bold text-lg text-on-background font-headline-md flex items-center gap-2">
+              <History className="w-5 h-5 text-primary" />
+              Historial de Actividad
+            </h2>
+            <p className="text-xs text-outline font-label-sm mt-0.5">
+              Inicios de sesión, ventas, cortes y otras acciones clave en la plataforma
+            </p>
+          </div>
+          {!isLoadingActividad && (
+            <span className="text-xs font-bold text-outline spatial-glass px-3 py-1 rounded-full border border-outline/20 font-label-sm">
+              {actividad.length} registros
+            </span>
+          )}
+        </div>
+
+        {isLoadingActividad ? (
+          <div className="flex items-center justify-center py-12 gap-3 text-outline">
+            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm font-body-md">Cargando actividad...</span>
+          </div>
+        ) : actividad.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-outline gap-3">
+            <History className="w-12 h-12 opacity-30" />
+            <p className="text-sm font-body-md">Aún no hay actividad registrada para tu cuenta.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {actividad.map((log) => {
+              const etiqueta = ACCION_LABEL[log.accion] || log.accion;
+              const estiloSeveridad =
+                SEVERIDAD_STYLE[log.severidad] || 'bg-outline/10 text-on-surface-variant border-outline/20';
+              return (
+                <div
+                  key={log.id}
+                  className="border border-outline/20 rounded-2xl px-4 py-3 flex items-start justify-between gap-4 bg-surface-container-low"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border font-label-sm shrink-0 ${estiloSeveridad}`}>
+                      {log.severidad === 'warning'
+                        ? 'Advertencia'
+                        : log.severidad === 'critical'
+                          ? 'Crítico'
+                          : 'Info'}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-on-surface">{etiqueta}</div>
+                      <div className="text-[11px] text-outline font-label-sm truncate">
+                        {resumirDetalles(log.accion, log.detalles)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-outline font-label-sm shrink-0 text-right">
+                    {formatearFecha(log.fechaHora)}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
