@@ -26,6 +26,11 @@ interface VentaDetallePage {
   descuento: number;
   descuentoNivel: number;
   descuentoCanje: number;
+  descuentoCupon: number;
+  cuponRedencion?: {
+    id: string;
+    cupon?: { id: string; codigo: string; nombre?: string } | null;
+  } | null;
   impuestos: number;
   total: number;
   cajero?: { nombre: string } | null;
@@ -246,7 +251,8 @@ export default function VentaDetalleView() {
                         Math.round(
                           (venta.descuento -
                             venta.descuentoNivel -
-                            venta.descuentoCanje) *
+                            venta.descuentoCanje -
+                            venta.descuentoCupon) *
                             100,
                         ) / 100;
                       return (
@@ -280,8 +286,20 @@ export default function VentaDetalleView() {
                               </span>
                             </div>
                           )}
+                          {venta.descuentoCupon > 0 && (
+                            <div className="flex justify-between text-success">
+                              <span>
+                                Cupón{' '}
+                                {venta.cuponRedencion?.cupon?.codigo ?? ''}
+                              </span>
+                              <span className="tabular-nums">
+                                -${venta.descuentoCupon.toFixed(2)}
+                              </span>
+                            </div>
+                          )}
                           {venta.descuentoNivel === 0 &&
                             venta.descuentoCanje === 0 &&
+                            venta.descuentoCupon === 0 &&
                             descProductos <= 0 && (
                               <div className="flex justify-between text-success">
                                 <span>Descuento</span>

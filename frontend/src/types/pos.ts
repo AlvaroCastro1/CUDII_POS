@@ -89,8 +89,13 @@ export interface Venta {
   descuento?: number;
   descuentoNivel?: number;
   descuentoCanje?: number;
+  descuentoCupon?: number;
   impuestos?: number;
   descuentoGeneral?: number;
+  cuponRedencion?: {
+    id: string;
+    cupon?: { id: string; codigo: string; nombre?: string } | null;
+  } | null;
   creadoEn?: string;
   cajero?: { id: string; nombre?: string } | null;
   cliente?: { id: string; nombre: string; apellidoPaterno?: string | null; cuentaCredito?: { id: string; limiteCredito: number; saldoPendiente: number; estaActivo: boolean } | null } | null;

@@ -21,6 +21,7 @@ export type ClaveMenu =
   | 'lotes'
   | 'proveedores'
   | 'cajas'
+  | 'cupones'
   | 'usuarios'
   | 'auditoria'
   | 'configuracion'
@@ -43,6 +44,7 @@ const ROLES_POR_MENU: Record<Exclude<ClaveMenu, 'dashboard'>, Rol[]> = {
   lotes: [ROLES.ADMIN, ROLES.GERENTE, ROLES.CAJERO, ROLES.ALMACEN, ROLES.CONTADOR],
   proveedores: [ROLES.ADMIN, ROLES.GERENTE, ROLES.ALMACEN],
   cajas: [ROLES.ADMIN, ROLES.GERENTE],
+  cupones: [ROLES.ADMIN, ROLES.GERENTE],
   usuarios: [ROLES.ADMIN, ROLES.GERENTE],
   auditoria: [ROLES.ADMIN, ROLES.GERENTE],
   configuracion: [ROLES.ADMIN],

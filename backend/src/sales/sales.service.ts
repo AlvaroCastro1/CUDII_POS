@@ -23,12 +23,14 @@ import {
   resolverNivel,
 } from '../customers/loyalty.util';
 import { AuditService } from '../audit/audit.service';
+import { CouponsService } from '../coupons/coupons.service';
 
 @Injectable()
 export class SalesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly couponsService: CouponsService,
   ) {}
 
   /**
@@ -324,6 +326,86 @@ export class SalesService {
       subtotalVenta = Math.round(subtotalVenta * 100) / 100;
       descuentoVenta = Math.round(descuentoVenta * 100) / 100;
 
+      // D12: Cupón de descuento — validación y cálculo atómicos dentro de la transacción
+      // (existencias = límite de usos; se cuentan con la transacción para evitar
+      // condiciones de carrera entre "primeras N personas").
+      let cuponDescuento = 0;
+      let cuponRegistrado: {
+        id: string;
+        codigo: string;
+        nombre: string;
+      } | null = null;
+
+      if (dto.codigoCupon) {
+        const codigoCupon = dto.codigoCupon.trim().toUpperCase();
+        const cupon = await tx.cupon.findFirst({
+          where: { empresaId, codigo: codigoCupon },
+          include: { _count: { select: { redenciones: true } } },
+        });
+        if (!cupon) {
+          throw new BadRequestException('Cupón no encontrado');
+        }
+        if (!cupon.activo) {
+          throw new BadRequestException('El cupón está desactivado');
+        }
+        const ahora = new Date();
+        if (ahora < cupon.fechaInicio) {
+          throw new BadRequestException('El cupón aún no está vigente');
+        }
+        if (cupon.fechaFin && ahora > cupon.fechaFin) {
+          throw new BadRequestException('El cupón ha caducado');
+        }
+        if (cupon.soloClientesRegistrados && !cliente) {
+          throw new BadRequestException(
+            'Este cupón solo aplica para clientes registrados',
+          );
+        }
+
+        // Monto mínimo de compra (base = subtotal sin descuentos)
+        const baseCupon = subtotalVenta - descuentoVenta;
+        if (
+          cupon.montoMinimoCompra &&
+          baseCupon < cupon.montoMinimoCompra
+        ) {
+          throw new BadRequestException(
+            `Este cupón requiere una compra mínima de $${cupon.montoMinimoCompra.toFixed(2)}`,
+          );
+        }
+
+        // Límite total de usos (atómico dentro de la transacción)
+        if (
+          cupon.limiteUsosTotal !== null &&
+          cupon._count.redenciones >= cupon.limiteUsosTotal
+        ) {
+          throw new BadRequestException(
+            'Este cupón ya alcanzó su límite de usos disponibles',
+          );
+        }
+
+        // Límite por cliente (atómico dentro de la transacción)
+        if (cupon.limiteUsosPorCliente && cliente) {
+          const usosCliente = await tx.cuponRedencion.count({
+            where: { cuponId: cupon.id, clienteId: cliente.id },
+          });
+          if (usosCliente >= cupon.limiteUsosPorCliente) {
+            throw new BadRequestException(
+              'Este cliente ya alcanzó el límite de usos de este cupón',
+            );
+          }
+        }
+
+        // Calcular el descuento del cupón (no puede exceder el total de la venta)
+        cuponDescuento = await this.couponsService.calcularDescuento(
+          cupon,
+          baseCupon,
+        );
+        cuponRegistrado = {
+          id: cupon.id,
+          codigo: cupon.codigo,
+          nombre: cupon.nombre,
+        };
+      }
+
       // D10: Descuento por nivel de lealtad según la configuración del programa
       let descuentoLealtad = 0;
       if (programaActivo && cliente) {
@@ -343,7 +425,8 @@ export class SalesService {
       let montoCanje = 0;
       if (puntosACanjear > 0 && programaActivo) {
         montoCanje = pesosEquivalentesDePuntos(puntosACanjear, programaActivo);
-        const restante = subtotalVenta - descuentoVenta - descuentoLealtad;
+        const restante =
+          subtotalVenta - descuentoVenta - descuentoLealtad - cuponDescuento;
         if (montoCanje > restante) {
           throw new BadRequestException(
             `El canje ($${montoCanje.toFixed(2)}) excede el total de la venta ($${restante.toFixed(2)})`,
@@ -353,7 +436,11 @@ export class SalesService {
 
       const totalVenta =
         Math.round(
-          (subtotalVenta - descuentoVenta - descuentoLealtad - montoCanje +
+          (subtotalVenta -
+            descuentoVenta -
+            descuentoLealtad -
+            cuponDescuento -
+            montoCanje +
             impuestosVenta) *
             100,
         ) / 100;
@@ -416,9 +503,10 @@ export class SalesService {
           folio,
           secuenciaFolio: cajaActualizada.secuenciaFolio,
           subtotal: subtotalVenta,
-          descuento: descuentoVenta + descuentoLealtad + montoCanje,
+          descuento: descuentoVenta + descuentoLealtad + cuponDescuento + montoCanje,
           descuentoNivel: descuentoLealtad,
           descuentoCanje: montoCanje,
+          descuentoCupon: cuponDescuento,
           impuestos: impuestosVenta,
           total: totalVenta,
           estado: 'completada',
@@ -479,6 +567,18 @@ export class SalesService {
         if (trazabilidadData.length > 0) {
           await tx.detalleVentaLote.createMany({ data: trazabilidadData });
         }
+      }
+
+      // 5c. Cupón redimido: registrar la redención vinculada a esta venta
+      if (cuponRegistrado && cuponDescuento > 0) {
+        await tx.cuponRedencion.create({
+          data: {
+            cuponId: cuponRegistrado.id,
+            ventaId: venta.id,
+            clienteId: cliente?.id ?? null,
+            montoDescuento: cuponDescuento,
+          },
+        });
       }
 
       // 5d. Venta a crédito: crear la deuda (VentaCredito) e incrementar saldo
@@ -713,6 +813,13 @@ export class SalesService {
             saldoPendiente: true,
             estado: true,
             fechaVencimiento: true,
+          },
+        },
+        cuponRedencion: {
+          include: {
+            cupon: {
+              select: { id: true, codigo: true, nombre: true, tipoDescuento: true },
+            },
           },
         },
       },

@@ -11,6 +11,7 @@ import {
   UserCheck,
   Users,
   Wallet,
+  Ticket,
 } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import { usePosStore } from '../../store/usePosStore';
@@ -87,6 +88,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // #1: cobro de deuda pendiente al seleccionar cliente con crédito
   const [cobrarDeuda, setCobrarDeuda] = useState(false);
 
+  // ── D12: Cupón de descuento ───────────────────────────────────────────
+  const [codigoCuponInput, setCodigoCuponInput] = useState('');
+  const [cuponAplicado, setCuponAplicado] = useState<{
+    id: string;
+    codigo: string;
+    nombre: string;
+    tipoDescuento: 'PORCENTAJE' | 'MONTO_FIJO';
+    valorDescuento: number;
+  } | null>(null);
+  const [cuponValidando, setCuponValidando] = useState(false);
+  const [cuponError, setCuponError] = useState<string | null>(null);
+
   /** Carga la configuración del programa al abrir el modal */
   useEffect(() => {
     if (!isOpen) return;
@@ -150,6 +163,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setCobrarDeuda(false);
   }, [cliente]);
 
+  // D12: al cambiar de cliente, re-validar el cupón si estaba aplicado
+  // (puede dejar de aplicar si exige cliente registrado o límite por cliente)
+  useEffect(() => {
+    if (cliente) setCuponAplicado(null);
+  }, [cliente]);
+
   if (!isOpen) return null;
 
   // #1: deuda pendiente del cliente
@@ -174,6 +193,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       ? Math.round(netoTrasDescuentos * pctNivel) / 100
       : 0;
 
+  // D12: Descuento del cupón aplicado (sobre la base, antes de nivel y canje)
+  const descuentoCupon = cuponAplicado
+    ? cuponAplicado.tipoDescuento === 'PORCENTAJE'
+      ? r2(netoTrasDescuentos * (cuponAplicado.valorDescuento / 100))
+      : Math.min(cuponAplicado.valorDescuento, netoTrasDescuentos)
+    : 0;
+
   // D10: Canje de puntos (limitado por saldo, mínimo configurado y total restante)
   const puntosACanjear = parseInt(puntosACanjearInput, 10) || 0;
   const canjeHabilitado =
@@ -186,12 +212,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     canjeHabilitado && programa && programa.puntosPorPesos > 0
       ? Math.round((puntosACanjear / programa.puntosPorPesos) * 100) / 100
       : 0;
-  const montoCanje = Math.min(montoCanjeBruto, netoTrasDescuentos - descuentoLealtad);
+  const montoCanje = Math.min(
+    montoCanjeBruto,
+    netoTrasDescuentos - descuentoLealtad - descuentoCupon,
+  );
 
   // Techo inteligente de puntos: no más de los disponibles ni más que el resto a pagar
   const restanteParaCanje = Math.max(
     0,
-    netoTrasDescuentos - descuentoLealtad,
+    netoTrasDescuentos - descuentoLealtad - descuentoCupon,
   );
   const maxPuntosCanjeables =
     programa && programa.puntosPorPesos > 0
@@ -204,7 +233,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       : 0;
 
   const totalVenta = r2(
-    Math.max(0, netoTrasDescuentos - descuentoLealtad - montoCanje),
+    Math.max(0, netoTrasDescuentos - descuentoLealtad - descuentoCupon - montoCanje),
   );
   const total = r2(totalVenta + deudaPendiente);
 
@@ -245,6 +274,37 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setResultados([]);
     setMostrarResultados(false);
     setPuntosACanjearInput('');
+  };
+
+  /** D12: Valida y aplica un cupón de descuento por código */
+  const aplicarCupon = async () => {
+    const codigo = codigoCuponInput.trim().toUpperCase();
+    if (!codigo) return;
+    setCuponValidando(true);
+    setCuponError(null);
+    try {
+      const res = await api.get('/coupons/validar', {
+        params: {
+          codigo,
+          ...(cliente ? { clienteId: cliente.id } : {}),
+          ...(netoTrasDescuentos > 0 ? { subtotalBase: netoTrasDescuentos } : {}),
+        },
+      });
+      setCuponAplicado({
+        id: res.data.id,
+        codigo: res.data.codigo,
+        nombre: res.data.nombre,
+        tipoDescuento: res.data.tipoDescuento,
+        valorDescuento: res.data.valorDescuento,
+      });
+      setCuponError(null);
+    } catch (err: unknown) {
+      setCuponAplicado(null);
+      const msg = errorMessage(err, 'El cupón no es válido');
+      setCuponError(msg);
+    } finally {
+      setCuponValidando(false);
+    }
   };
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
@@ -348,6 +408,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       };
       if (cliente) payload.clienteId = cliente.id;
       if (canjeHabilitado) payload.puntosACanjear = puntosACanjear;
+      if (cuponAplicado) payload.codigoCupon = cuponAplicado.codigo;
 
       const res = await api.post('/sales', payload);
 
@@ -374,6 +435,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setMontoTarjeta('');
       setReferenciaTarjeta('');
       setCobrarDeuda(false);
+      setCodigoCuponInput('');
+      setCuponAplicado(null);
+      setCuponError(null);
     } catch (err: unknown) {
       console.error('Error al procesar cobro:', err);
       setError(errorMessage(err, 'Ocurrió un error al procesar la venta en la caja'));
@@ -533,7 +597,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <p className="text-4xl font-black text-primary font-display-lg font-mono">
             ${total.toFixed(2)}
           </p>
-          {(descuentoLealtad > 0 || montoCanje > 0 || deudaPendiente > 0) && (
+          {(descuentoLealtad > 0 || montoCanje > 0 || descuentoCupon > 0 || deudaPendiente > 0) && (
             <div className="space-y-0.5">
               {deudaPendiente > 0 && (
                 <p className="text-[11px] font-label-sm text-error">
@@ -545,11 +609,85 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   Descuento {cliente?.nivelLealtad?.nombre}: -${descuentoLealtad.toFixed(2)}
                 </p>
               )}
+              {descuentoCupon > 0 && (
+                <p className="text-[11px] font-label-sm text-success">
+                  Cupón {cuponAplicado?.codigo}: -${descuentoCupon.toFixed(2)}
+                </p>
+              )}
               {montoCanje > 0 && (
                 <p className="text-[11px] font-label-sm text-success">
                   Canje: -${montoCanje.toFixed(2)}
                 </p>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* ── D12: Cupón de descuento ─────────────────────────────────────── */}
+        <div className="rounded-2xl border border-outline/20 p-3 space-y-2.5">
+          {!cuponAplicado ? (
+            <>
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-primary font-label-sm">
+                <Ticket className="w-3.5 h-3.5" />
+                Cupón de descuento (opcional)
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={codigoCuponInput}
+                  onChange={(e) => setCodigoCuponInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      aplicarCupon();
+                    }
+                  }}
+                  placeholder="Ingresa el código del cupón"
+                  className="flex-1 px-3 py-2 bg-surface-container-low border border-outline/20 rounded-xl text-primary text-sm uppercase focus:outline-none focus:ring-2 focus:ring-primary font-body-md"
+                />
+                <button
+                  type="button"
+                  onClick={aplicarCupon}
+                  disabled={cuponValidando || !codigoCuponInput.trim()}
+                  className="px-4 py-2 rounded-xl text-xs font-bold font-label-sm bg-primary text-on-primary hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  {cuponValidando ? 'Validando...' : 'Aplicar'}
+                </button>
+              </div>
+              {cuponError && (
+                <p className="text-[11px] font-label-sm text-error flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {cuponError}
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <span className="w-8 h-8 rounded-full bg-success/20 text-success flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-4 h-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-on-surface truncate">
+                  Cupón {cuponAplicado.codigo}
+                </p>
+                <p className="text-[11px] text-outline truncate">
+                  {cuponAplicado.nombre} ·{' '}
+                  {cuponAplicado.tipoDescuento === 'PORCENTAJE'
+                    ? `${cuponAplicado.valorDescuento}%`
+                    : `$${cuponAplicado.valorDescuento.toFixed(2)}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCuponAplicado(null);
+                  setCuponError(null);
+                }}
+                className="p-1 text-outline hover:text-error transition-colors"
+                aria-label="Quitar cupón"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           )}
         </div>

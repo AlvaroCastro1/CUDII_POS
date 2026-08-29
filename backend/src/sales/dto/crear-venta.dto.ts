@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -98,4 +99,14 @@ export class CrearVentaDto {
   @IsNumber()
   @Min(0)
   puntosACanjear?: number;
+
+  /**
+   * Cupón de descuento a aplicar en esta venta.
+   * El monto de descuento se valida y registra de forma atómica
+   * dentro de la transacción (CuponRedencion).
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  codigoCupon?: string;
 }

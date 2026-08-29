@@ -21,6 +21,7 @@ import { SuppliersModule } from './suppliers/suppliers.module';
 import { CustomersModule } from './customers/customers.module';
 import { ReportsModule } from './reports/reports.module';
 import { CompaniesModule } from './companies/companies.module';
+import { CouponsModule } from './coupons/coupons.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { CompaniesModule } from './companies/companies.module';
     CustomersModule,
     ReportsModule,
     CompaniesModule,
+    CouponsModule,
   ],
   controllers: [AppController],
   providers: [

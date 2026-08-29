@@ -37,7 +37,13 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
 
   // Desglose de descuentos
   const descProductos =
-    Math.round(((venta.descuento ?? 0) - (venta.descuentoNivel ?? 0) - (venta.descuentoCanje ?? 0)) * 100) / 100;
+    Math.round(
+      ((venta.descuento ?? 0) -
+        (venta.descuentoNivel ?? 0) -
+        (venta.descuentoCanje ?? 0) -
+        (venta.descuentoCupon ?? 0)) *
+        100,
+    ) / 100;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6 sm:p-8 overflow-y-auto">
@@ -141,6 +147,14 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
                     <div className="flex justify-between text-success text-[11px]">
                       <span>Canje puntos</span>
                       <span>-{fmtMoneda(venta.descuentoCanje!)}</span>
+                    </div>
+                  )}
+                  {(venta.descuentoCupon ?? 0) > 0 && (
+                    <div className="flex justify-between text-success text-[11px]">
+                      <span>
+                        Cupón {venta.cuponRedencion?.cupon?.codigo ?? ''}
+                      </span>
+                      <span>-{fmtMoneda(venta.descuentoCupon!)}</span>
                     </div>
                   )}
                 </>

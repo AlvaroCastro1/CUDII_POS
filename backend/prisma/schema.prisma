@@ -41,6 +41,7 @@ model Empresa {
   proveedores    Proveedor[]
   clientes       Cliente[]
   programaLealtad ProgramaLealtad?
+  cupones        Cupon[]
 }
 
 enum ModoCorteZ {
@@ -541,9 +542,10 @@ model Venta {
   impuestos Float @default(0)
   total     Float
 
-  // Desglose del descuento total (#5): nivel de lealtad y canje de puntos
+  // Desglose del descuento total (#5): nivel de lealtad, canje de puntos y cupón
   descuentoNivel Float @default(0)
   descuentoCanje Float @default(0)
+  descuentoCupon Float @default(0)
 
   estado         EstadoVenta @default(completada)
   esDemostracion Boolean     @default(false)
@@ -556,6 +558,7 @@ model Venta {
   devoluciones      Devolucion[]
   ventaCredito      VentaCredito?
   movimientosPuntos MovimientoPuntos[]
+  cuponRedencion    CuponRedencion?
 
   @@unique([empresaId, folio])
   @@index([empresaId, creadoEn])
@@ -617,6 +620,65 @@ enum MetodoPago {
   transferencia
   voucher
   credito
+}
+
+// ---------------------------------------------------------
+// CUPONES DE DESCUENTO
+// ---------------------------------------------------------
+
+enum TipoDescuentoCupon {
+  PORCENTAJE
+  MONTO_FIJO
+}
+
+model Cupon {
+  id        String  @id @default(uuid())
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+
+  codigo      String // Código alfanumérico que escribe el cajero (ej. VERANO2026)
+  nombre      String
+  descripcion String?
+
+  tipoDescuento  TipoDescuentoCupon
+  valorDescuento Float // % (si PORCENTAJE) o monto en $ (si MONTO_FIJO)
+
+  // Condiciones de aplicación
+  montoMinimoCompra        Float?  // Monto mínimo de compra (base) para poder aplicarlo
+  soloClientesRegistrados  Boolean @default(false) // Exige cliente registrado
+
+  // Límites de uso ("primeras N personas... hasta agotar existencias")
+  limiteUsosTotal         Int? // Máximo total de redemptions (null = ilimitado)
+  limiteUsosPorCliente    Int? // Máximo de usos por cliente (null = ilimitado)
+
+  // Vigencia (rango de fechas)
+  fechaInicio DateTime
+  fechaFin    DateTime?
+
+  activo      Boolean @default(true)
+  creadoEn    DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  redenciones CuponRedencion[]
+
+  @@unique([empresaId, codigo])
+  @@index([empresaId])
+  @@index([empresaId, activo])
+}
+
+model CuponRedencion {
+  id      String @id @default(uuid())
+  cuponId String
+  cupon   Cupon  @relation(fields: [cuponId], references: [id])
+  ventaId String @unique
+  venta   Venta  @relation(fields: [ventaId], references: [id])
+
+  clienteId      String?
+  montoDescuento Float
+  creadoEn       DateTime @default(now())
+
+  @@index([cuponId])
+  @@index([cuponId, clienteId])
 }
 
 // ---------------------------------------------------------
