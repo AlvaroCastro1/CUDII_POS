@@ -40,6 +40,10 @@
   --font-display-lg-mobile: "Geist";
   --font-headline-md: "Geist";
   --font-body-lg: "Geist";
+  /* Alinea la utilidad Tailwind font-mono con la fuente mono del sistema de diseño (JetBrains Mono)
+     para que valores data-heavy (precios, SKU, folios, timestamps) usen la tipografía CUDII. */
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 }
 
 @layer base {
