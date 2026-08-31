@@ -508,6 +508,116 @@ model NivelLealtad {
 
 ---
 
+### D11 — Promociones y Combos (Paquetes)
+
+> **¿Por qué se hizo?** El catálogo solo permite vender productos sueltos; el comercio local
+> necesita empaquetar productos para incentivar la compra conjunta. Las reglas de negocio
+> (§4 de `REGLAS_NEGOCIO.md`) ya definen el modelo de paquetes/bundles, pero no existía
+> implementación. El usuario solicitó un módulo para armar promociones/paquetes/combos con
+> una interfaz intuitiva y poder venderlos sin fricción desde el POS.
+
+**Decisiones de diseño (validadas con el usuario):**
+
+| Decisión | Elección | Razón |
+|----------|----------|-------|
+| Alcance | Solo combos/paquetes | Valor acotado; descuentos 2x1/% por categoría quedan fuera (backlog) |
+| Precio del combo | Precio fijo ($) o descuento % sobre la suma individual | El admin decide según su negocio |
+| Venta en POS | Tarjeta de combo en catálogo + auto-detección en carrito | Ambas vías: proactiva y reactiva |
+| Ticket | Combo como bloque (agregar/quitar el combo completo) | Simple y no rompe el precio |
+
+**Schema (migración `add_combos`):**
+
+```prisma
+enum TipoPrecioCombo { MONTO_FIJO DESCUENTO_PCT }
+
+model Combo {
+  id            String            @id @default(uuid())
+  empresaId     String
+  nombre        String
+  descripcion   String?
+  tipoPrecio    TipoPrecioCombo   @default(MONTO_FIJO)
+  valorPrecio   Float
+  activo        Boolean           @default(true)
+  fechaInicio   DateTime?
+  fechaFin      DateTime?
+  creadoPorId   String
+  creadoEn      DateTime          @default(now())
+  actualizadoEn DateTime          @updatedAt
+  productos     ComboProducto[]
+  detallesVenta DetalleVenta[]
+  @@index([empresaId, activo])
+}
+
+model ComboProducto {
+  id         String   @id @default(uuid())
+  comboId    String
+  productoId String
+  cantidad   Float
+  @@unique([comboId, productoId])
+}
+```
+
+- `DetalleVenta` gana `comboId?` + `nombreCombo?` (snapshot) para trazabilidad en tickets/reportes.
+
+**Backend:**
+
+- Módulo `combos`: `GET /combos` (lista, incluye productos), `GET /combos/:id`,
+  `POST /combos`, `PATCH /combos/:id`, `DELETE /combos/:id` (soft).
+  RBAC: listar/consultar ADMIN/GERENTE/CAJERO; crear/editar/eliminar ADMIN/GERENTE.
+- Validaciones: ≥1 producto con cantidad > 0, sin producto duplicado dentro del mismo combo,
+  `MONTO_FIJO` exige `valorPrecio < Σ(precios individuales)` (debe existir ahorro),
+  `DESCUENTO_PCT` acotado a 0–90, rango de fechas correcto.
+- `sales.service.createSale` acepta `combos: [{comboId, cantidad}]`; el servidor **expande**
+  los combos en líneas internas (precio calculado desde BD, ahorro repartido proporcionalmente)
+  y las procesa con el loop estándar (inventario + lotes + `DetalleVenta` con `comboId`/`nombreCombo`).
+  Las posiciones sueltas siguen existiendo; un producto puede coexistir suelto y en combo en el mismo ticket.
+
+**Frontend (POS):**
+
+- `usePosStore`: `CartItem` gana `comboId?`, `comboNombre?`, `grupoCombo?`; acciones `addCombo`,
+  `removeComboGrupo`, `detectarCombosDisponibles`, `applyCombo(combo, K)`; cache de combos activos.
+- Catálogo: chip "Combos" en `ProductSearch.tsx` + grid de `ComboCard.tsx`
+  (precio del combo, suma individual, badge "Ahorras $X") + `ComboDetalleModal.tsx` (desglose + cantidad).
+- Auto-detección: al cubrir el carrito el contenido de un combo vigente, se aplica automáticamente
+  reemplazando las líneas sueltas por el bloque (lógica centralizada en `PosView.tsx` + `aplicarComboSugerido`).
+- Ticket: `CartItem.tsx` agrupa por `grupoCombo` y renderiza el combo como bloque (stepper de bloque).
+- Checkout: el payload envía `detalles` (sueltos) + `combos` agrupados; el servidor cobra precios autoritativos.
+
+**Frontend (Admin):**
+
+- `CombosView.tsx` (`/admin/combos`) estilo `CuponesView.tsx` + `ComboModalForm.tsx` con builder
+  de items (buscador de productos + cantidad, suma individual y ahorro en vivo).
+- Registro en `App.tsx` (ruta protegida ADMIN/GERENTE), `permisos.ts` (clave `combos`) y
+  `MainLayout.tsx`.
+
+**Backend (auditoría y consistencia — añadido en revisión):**
+
+- El CRUD de combos queda bajo auditoría de la plataforma vía `AuditService` (mismo patrón que
+  cupones/cajas): `COMBO_CREADO` (info), `COMBO_ACTUALIZADO` (info) y `COMBO_DESACTIVADO`
+  (warning), con `entidadTipo: 'combo'`, `entidadId` y `detalles` (nombre, tipo de precio, valor,
+  #productos, precios original/combo, ahorro, activo). `AuditoriaView` lista/filtra/muestra estas
+  acciones con resumen legible.
+- Detalle de venta (`findOneSale`): cada línea proveniente de un combo devuelve `comboId`,
+  `nombreCombo` (snapshot), `descuento` y la relación `combo` (id, nombre, tipoPrecio, valorPrecio).
+  `VentaDetalleView` muestra un badge "Combo: {nombre}" y la columna de descuento por línea.
+- Sin campos muertos: `DetalleVenta.comboId`/`nombreCombo` pasan de solo-escritura a mostrarse;
+  el `include` de producto del combo se recorta a lo consumido; tipos `Combo`/`ComboProducto` en
+  `types/pos.ts` sin campos sin uso; se elimina el estado muerto `selectedCajaId` del `usePosStore`.
+
+**Fuentes (tipografía):** todo CUDII usa solo los 3 tipos cargados en `index.html` (Geist,
+JetBrains Mono, Material Symbols Outlined); los combos y sus integraciones reutilizan las
+utilidades del sistema de diseño (`font-body-md`, `font-label-sm`, `font-mono`) sin fuentes
+externas ni valores arbitrarios.
+
+**Sidebar (composición por rol — verificado):** cada opción coincide con `permisos.ts`, el guard
+de ruta de `App.tsx` y los `@Roles()` del backend. Se recompone el menú en secciones temáticas:
+**Operaciones** (POS, Clientes, Fiados, Devoluciones, **Cajas Abiertas**), **Catálogo**
+(Categorías, Productos), **Promociones** (Cupones, Combos — nueva sección), **Control de
+Inventario** (Stock, Lotes, Proveedores), **Administración** (Usuarios, Auditoría, Configuración)
+y **Análisis** (Reportes).
+
+---
+
 ## Entregables
 
 - [ ] Migración `cleanup_dead_fields` aplicada
@@ -533,6 +643,18 @@ model NivelLealtad {
 - [ ] D10: Configuración de lealtad editable desde Configuración del sitio (con tooltips)
 - [ ] D10: Descuento por nivel y canje de puntos operativos en ventas
 - [ ] D10: Puntos/nivel/descuento visibles en ClientesView y en el POS
+- [ ] D11: Migración `add_combos` aplicada (`Combo`, `ComboProducto`, `DetalleVenta.comboId`/`nombreCombo`)
+- [ ] D11: Módulo backend `combos` (CRUD + RBAC + validaciones) registrado en `AppModule`
+- [ ] D11: Integración en `POST /sales` (expansión server-side con precios autoritativos)
+- [ ] D11: POS — chip/grid de combos + `ComboDetalleModal` + auto-aplicación en carrito (auto-detección)
+- [ ] D11: Ticket — combo como bloque (agrupar/stepper/eliminar)
+- [ ] D11: Admin — `CombosView` + `ComboModalForm` con builder de items y ahorro en vivo
+- [ ] D11: Rutas/permisos/menú configurados para combos
+- [ ] D11: Auditoría de combos (`COMBO_CREADO`/`ACTUALIZADO`/`DESACTIVADO`) visible en `AuditoriaView`
+- [ ] D11: Detalle de venta muestra el combo aplicado (badge + descuento por línea)
+- [ ] D11: Sin campos muertos en combos (tipos, store, includes)
+- [ ] D11: Fuentes verificadas — solo Geist / JetBrains Mono / Material Symbols en todo CUDII
+- [ ] D11: Sidebar recomposado en secciones temáticas y filtrado por rol (cajas → Operaciones, Promociones nueva)
 
 ---
 
@@ -553,6 +675,14 @@ model NivelLealtad {
 12. D10: Configurar nivel "Oro" con 5% de descuento → venta de $1,000 a cliente Oro aplica $50 de descuento.
 13. D10: Deshabilitar el programa en Configuración → nuevas ventas no acumulan puntos ni descuentos.
 14. D10: Canje habilitado con mínimo 100 pts → cliente con 250 pts canjea 200 pts ($2) y su saldo queda en 50.
+15. D11: Crear combo "Soda + Papas" con precio fijo $89 (suma individual $103) → ahorro $14.
+16. D11: Crear combo con descuento 20% → precio = Σ individual × 0.8.
+17. D11: Rechazar combo `MONTO_FIJO` con precio ≥ suma individual.
+18. D11: Venta con combo → `DetalleVenta.comboId` poblado y stock decrementado por cada producto del combo.
+19. D11: POS — agregar combo desde catálogo → aparece como bloque en el ticket.
+20. D11: POS — con Soda + Papas ya sueltos en el carrito → el combo se auto-aplica y el ahorro se refleja.
+21. D11: Crear/actualizar/desactivar un combo → se registra en Auditoría (`COMBO_CREADO`/`ACTUALIZADO`/`DESACTIVADO`) con su resumen y se ve en `AuditoriaView`.
+22. D11: Venta con combo → el detalle de venta muestra el badge "Combo" y el descuento por línea.
 
 ### Pruebas de performance
 1. Venta con 10+ items → verificar que no se ejecutan más de 20 queries (vs 80+ actual).
@@ -576,6 +706,10 @@ model NivelLealtad {
 - [ ] Los 5 reportes principales están disponibles y el formato CSV funciona.
 - [ ] Los 9 endpoints huérfanos están consumidos o eliminados.
 - [ ] El sidebar muestra menú filtrado por el rol del usuario.
+- [ ] D11: Los combos se crean/editan desde el frontend con validación de ahorro positivo.
+- [ ] D11: La venta con combo genera `DetalleVenta.comboId` y descuenta inventario por producto.
+- [ ] D11: El POS permite vender combos por catálogo y por auto-detección (bloque).
+- [ ] D11: El ahorro del combo se refleja en el desglose del ticket y del cobro.
 
 ---
 
@@ -603,6 +737,7 @@ model NivelLealtad {
 | Estructura de DTOs y endpoints documentada | La migración asistida de Fase 5 importa clientes y productos usando los mismos módulos |
 | Paginación estandarizada | La IA y los reportes de Fase 5 usan el mismo formato consistente |
 | Endpoint `GET /companies/my/sucursales` | El módulo de importación de Fase 5 lo usa para filtrar por sucursal |
+| Modelo `Combo` y `DetalleVenta.comboId` | La IA de sugerencias de Fase 5 usa las asociaciones reales vendidas como combo para proponer promociones |
 
 ---
 
@@ -614,5 +749,8 @@ model NivelLealtad {
 | Las ventas a crédito quedan sin pagar y el límite se satura | Agregar alerta automática cuando el cliente supera el 80% de su límite |
 | Los reportes son lentos con mucho volumen de datos | Los índices de D1 resuelven esto; agregar paginación en reportes si superan 1000 registros |
 | El dashboard se recarga con polling y consume mucha batería en tablets táctiles | Usar SSE (Server-Sent Events) para actualizaciones en lugar de polling agresivo |
-| Fix de N+1 rompe la lógica de negocio existente | Ejecutar tests existentes (39/39) después de cada cambio; comparar resultados de ventas de prueba antes/después |
+| Fix de N+1 rompe la lógica de negocio existente | Ejecutar tests existentes (53/53) después de cada cambio; comparar resultados de ventas de prueba antes/después |
 | La paginación en español→inglés rompe el frontend | Actualizar todos los consumidores frontend en el mismo commit que el backend |
+| El ahorro del combo se duplica al combinar con cupones/lealtad | El descuento del combo forma parte del `descuentoVenta` base; cupón/nivel aplican sobre la base restante (cascada existente no cambia) |
+| Precios desactualizados si cambia `precioVentaBase` después de crear el combo | El precio del combo siempre se recalcula desde BD al vender; el ahorro de catálogo es informativo |
+| Combo con producto sin stock en la sucursal | Se mantiene la política permisiva auditada (stock negativo), igual que los productos sueltos |
