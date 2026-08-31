@@ -480,6 +480,96 @@ async function run() {
     assert('13.12b RECHAZAR venta de combo desactivado', r.status === 400 || r.status === 404, r.status);
   }
 
+  // ── 14 D12 Presupuestos ──────────────────────────────────────────
+  console.log('\n[14] Presupuestos (D12)');
+  let presupuestoId = '';
+
+  // 14.1 Crear presupuesto con producto
+  r = await req('POST', '/presupuestos', {
+    detalles: [{ productoId: P.panBimbo, cantidad: 2, unidadMedida: 'pieza' }],
+    combos: [],
+  });
+  assert('14.1 Crear presupuesto 201', r.status === 201 && r.body && r.body.id, r.status + ' ' + r.raw);
+  if (r.status === 201 && r.body) {
+    presupuestoId = r.body.id;
+    assert('14.1b Folio P-00000X', /^P-\d{6}$/.test(r.body.folio), r.body.folio);
+    assert('14.1c Total = 2 x precio', r.body.total === round2(precioPB * 2), 'got ' + r.body.total + ' expected ' + round2(precioPB * 2));
+    assert('14.1d Estado abierto', r.body.estado === 'abierto', r.body.estado);
+  }
+
+  // 14.2 Crear presupuesto con combo (el backend expande en líneas con comboId)
+  let comboPresId = '';
+  const valorPresCombo = Math.max(1, Math.floor(originalCombo / 2));
+  r = await req('POST', '/combos', {
+    nombre: 'TEST Presupuesto Combo',
+    tipoPrecio: 'MONTO_FIJO',
+    valorPrecio: valorPresCombo,
+    productos: [{ productoId: P.panBimbo, cantidad: 1 }, { productoId: P.coca, cantidad: 1 }],
+  });
+  assert('14.2 Crear combo para presupuesto', r.status === 201 && r.body.combo, r.status + ' ' + r.raw);
+  if (r.status === 201) comboPresId = r.body.combo.id;
+
+  r = await req('POST', '/presupuestos', {
+    detalles: [],
+    combos: [{ comboId: comboPresId, cantidad: 1 }],
+  });
+  assert('14.3 Presupuesto solo combo 201', r.status === 201 && r.body && r.body.id, r.status + ' ' + r.raw);
+  if (r.status === 201 && r.body) {
+    const lineasCombo = (r.body.detalles || []).filter(function (d) { return d.comboId === comboPresId; });
+    assert('14.3b Combos expandidos en líneas con comboId', lineasCombo.length >= 1, 'lineas=' + lineasCombo.length);
+    assert('14.3c Total = precio combo', r.body.total === valorPresCombo, 'got ' + r.body.total + ' expected ' + valorPresCombo);
+  }
+
+  // 14.4 Rechazar presupuesto vacío
+  r = await req('POST', '/presupuestos', { detalles: [], combos: [] });
+  assert('14.4 RECHAZAR presupuesto vacio', r.status === 400, r.status);
+
+  // 14.5 Listar presupuestos
+  r = await req('GET', '/presupuestos?page=1&limit=20');
+  assert('14.5 Listar presupuestos', r.status === 200 && Array.isArray(r.body.data), r.status);
+  if (r.status === 200) {
+    const encontrado = (r.body.data || []).some(function (p) { return p.id === presupuestoId; });
+    assert('14.5b Presupuesto creado en lista', encontrado);
+    assert('14.5c Respuesta paginada con meta', !!r.body.meta && typeof r.body.meta.total === 'number', JSON.stringify(r.body.meta));
+  }
+
+  // 14.6 Detalle con precios congelado/actual/efectivo
+  if (presupuestoId) {
+    r = await req('GET', '/presupuestos/' + presupuestoId);
+    assert('14.6 Detalle 200', r.status === 200 && Array.isArray(r.body.detalles), r.status + ' ' + r.raw);
+    if (r.status === 200 && Array.isArray(r.body.detalles)) {
+      const l = r.body.detalles.find(function (d) { return d.productoId === P.panBimbo; });
+      assert('14.6b Línea trae precioCongelado', !!l && typeof l.precioCongelado === 'number', JSON.stringify(l));
+      assert('14.6c Línea trae precioActual', !!l && typeof l.precioActual === 'number', JSON.stringify(l));
+      assert('14.6d Línea trae precioEfectivo', !!l && typeof l.precioEfectivo === 'number', JSON.stringify(l));
+    }
+  }
+
+  // 14.7 Vender un presupuesto (POST /sales con presupuestoId)
+  if (presupuestoId) {
+    r = await req('POST', '/sales', sale([item(P.panBimbo, 2, precioPB)], [card(round2(precioPB * 2))], { presupuestoId: presupuestoId }));
+    assert('14.7 Venta desde presupuesto 201', r.status === 201, r.status + ' ' + r.raw);
+    // 14.8 Ya no puede revenderse (estado 'vendido')
+    r = await req('POST', '/sales', sale([item(P.panBimbo, 2, precioPB)], [card(round2(precioPB * 2))], { presupuestoId: presupuestoId }));
+    assert('14.8 RECHAZAR reventa de presupuesto vendido', r.status === 400 || r.status === 422, r.status);
+  }
+
+  // 14.9 Cancelar presupuesto abierto (ADMIN/GERENTE)
+  r = await req('POST', '/presupuestos', { detalles: [{ productoId: P.coca, cantidad: 1, unidadMedida: 'pieza' }], combos: [] });
+  const porCancelarId = r.status === 201 && r.body ? r.body.id : '';
+  if (porCancelarId) {
+    r = await req('PATCH', '/presupuestos/' + porCancelarId + '/cancelar');
+    assert('14.9 Cancelar presupuesto', r.status === 200 && r.body.estado === 'cancelado', r.status + ' ' + r.raw);
+  } else {
+    assert('14.9 Cancelar presupuesto', false, 'no se pudo crear presupuesto para cancelar');
+  }
+
+  // 14.10 Cancelar un presupuesto ya vendido debe fallar
+  if (presupuestoId) {
+    r = await req('PATCH', '/presupuestos/' + presupuestoId + '/cancelar');
+    assert('14.10 RECHAZAR cancelar presupuesto vendido', r.status === 400, r.status);
+  }
+
   // ── Summary ──
   console.log('\n' + '='.repeat(50));
   console.log('RESULTS: ' + results.pass + ' passed, ' + results.fail + ' failed');

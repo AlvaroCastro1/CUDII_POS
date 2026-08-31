@@ -48,6 +48,8 @@ interface ConfiguracionEmpresa {
   umbralFaltanteCritico: number;
   stockMinimoGlobal: number;
   stockMaximoGlobal: number;
+  /** D12: al vender un presupuesto, conservar el precio congelado a la fecha de creación. */
+  conservarPrecioPresupuesto?: boolean;
   programaLealtad?: ProgramaLealtadUI | null;
 }
 
@@ -224,6 +226,8 @@ export default function ConfiguracionView() {
   const [umbralFaltanteCritico, setUmbralFaltanteCritico] = useState<number>(50);
   const [stockMinimoGlobal, setStockMinimoGlobal] = useState<number>(5);
   const [stockMaximoGlobal, setStockMaximoGlobal] = useState<number>(100);
+  // D12: al vender un presupuesto, conservar el precio congelado de la cotización.
+  const [conservarPrecioPresupuesto, setConservarPrecioPresupuesto] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isGuardandoYSalir, setIsGuardandoYSalir] = useState(false);
@@ -245,6 +249,7 @@ export default function ConfiguracionView() {
         setUmbralFaltanteCritico(res.data.umbralFaltanteCritico ?? 50);
         setStockMinimoGlobal(res.data.stockMinimoGlobal ?? 5);
         setStockMaximoGlobal(res.data.stockMaximoGlobal ?? 100);
+        setConservarPrecioPresupuesto(res.data.conservarPrecioPresupuesto ?? true);
         const programa = res.data.programaLealtad ?? PROGRAMA_LEALTAD_DEFAULT;
         setLealtad(programa);
         setLealtadOriginal(programa);
@@ -290,7 +295,8 @@ export default function ConfiguracionView() {
       modoCorteZ !== configuracion?.modoCorteZ ||
       umbralFaltanteCritico !== configuracion?.umbralFaltanteCritico ||
       stockMinimoGlobal !== configuracion?.stockMinimoGlobal ||
-      stockMaximoGlobal !== configuracion?.stockMaximoGlobal;
+      stockMaximoGlobal !== configuracion?.stockMaximoGlobal ||
+      conservarPrecioPresupuesto !== configuracion?.conservarPrecioPresupuesto;
     const cambiosLealtad =
       JSON.stringify(lealtad) !== JSON.stringify(lealtadOriginal);
 
@@ -308,6 +314,7 @@ export default function ConfiguracionView() {
               umbralFaltanteCritico,
               stockMinimoGlobal,
               stockMaximoGlobal,
+              conservarPrecioPresupuesto,
             }
           : {}),
         ...(cambiosLealtad
@@ -319,6 +326,7 @@ export default function ConfiguracionView() {
       setUmbralFaltanteCritico(res.data.umbralFaltanteCritico);
       setStockMinimoGlobal(res.data.stockMinimoGlobal);
       setStockMaximoGlobal(res.data.stockMaximoGlobal);
+      setConservarPrecioPresupuesto(res.data.conservarPrecioPresupuesto ?? true);
       const programaGuardado = res.data.programaLealtad ?? lealtad;
       setLealtad(programaGuardado);
       setLealtadOriginal(programaGuardado);
@@ -356,6 +364,7 @@ export default function ConfiguracionView() {
       umbralFaltanteCritico !== configuracion.umbralFaltanteCritico ||
       stockMinimoGlobal !== configuracion.stockMinimoGlobal ||
       stockMaximoGlobal !== configuracion.stockMaximoGlobal ||
+      conservarPrecioPresupuesto !== configuracion.conservarPrecioPresupuesto ||
       hayCambiosLealtad);
 
   const blocker = useBlocker(hayCambiosSinGuardar);
@@ -658,6 +667,61 @@ return (
                   El tipo de corte se aplica a los <strong className="text-on-surface">nuevos turnos de caja</strong>.
                   Los turnos ya abiertos conservan el modo con el que fueron iniciados.
                 </p>
+              </div>
+            </div>
+          </section>
+
+          {/* ── Sección: Presupuestos (D12) ────────────────────────── */}
+          <section className="bg-surface border border-outline/10 rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-outline/10">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Gift className="w-5 h-5 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-bold text-lg text-on-background font-headline-md">
+                  Presupuestos
+                </h2>
+                <p className="text-xs text-outline font-label-sm mt-0.5">
+                  Controla cómo se venden las cotizaciones guardadas desde el POS.
+                </p>
+              </div>
+              <AyudaTooltip etiqueta="¿Qué es?">
+                <p className="font-semibold text-sm">Presupuestos (cotizaciones)</p>
+                <p className="text-xs text-on-surface-variant leading-relaxed">
+                  Un presupuesto congela el desglose de un ticket sin cobrarlo. Al
+                  venderlo después, aquí decides si se usan los precios de la fecha
+                  de creación o los vigentes en el catálogo al momento de vender.
+                </p>
+              </AyudaTooltip>
+            </div>
+
+            <div className="p-6">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <Label htmlFor="conservar-precio-presupuesto">
+                      Conservar precio de la cotización
+                    </Label>
+                    <AyudaTooltip etiqueta="¿Qué controla?">
+                      <p className="font-semibold text-sm">Precio congelado vs. vigente</p>
+                      <p className="text-xs text-on-surface-variant leading-relaxed">
+                        <strong className="text-on-surface">Activado:</strong> al vender un
+                        presupuesto se cobran los precios y descuentos de la fecha en que se
+                        creó la cotización. <strong className="text-on-surface">Desactivado:</strong>{' '}
+                        se recalculan con los precios vigentes del catálogo hoy.
+                      </p>
+                    </AyudaTooltip>
+                  </div>
+                  <p className="text-xs text-on-surface-variant font-label-sm leading-relaxed mt-1">
+                    Si se desactiva, un cliente podría recibir un precio distinto al de su
+                    cotización si el catálogo cambió.
+                  </p>
+                </div>
+                <Switch
+                  id="conservar-precio-presupuesto"
+                  checked={conservarPrecioPresupuesto}
+                  onCheckedChange={setConservarPrecioPresupuesto}
+                />
               </div>
             </div>
           </section>

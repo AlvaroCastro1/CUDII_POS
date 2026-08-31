@@ -30,6 +30,7 @@ import VentaDetalleView from './views/admin/VentaDetalleView';
 import CajasView from './views/admin/CajasView';
 import CuponesView from './views/admin/CuponesView';
 import CombosView from './views/admin/CombosView';
+import PresupuestosView from './views/PresupuestosView';
 
 // Componente para proteger rutas privadas
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -151,6 +152,14 @@ const router = createBrowserRouter([
         element: (
           <RequireRol roles={['ADMIN', 'GERENTE', 'CAJERO']}>
             <FiadosView />
+          </RequireRol>
+        ),
+      },
+      {
+        path: 'presupuestos',
+        element: (
+          <RequireRol roles={['ADMIN', 'GERENTE', 'CAJERO']}>
+            <PresupuestosView />
           </RequireRol>
         ),
       },

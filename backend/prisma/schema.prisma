@@ -23,6 +23,12 @@ model Empresa {
   bloquearVentaVencidos Boolean    @default(true) // Si un lote vencido bloquea su venta en el POS
   stockMinimoGlobal     Int        @default(5) // Stock mínimo default al crear productos nuevos
   stockMaximoGlobal     Int        @default(100) // Stock máximo default al crear productos nuevos
+
+  // D12: Presupuestos. Determina si al vender un presupuesto se conserva el
+  // precio congelado o se recalculan los precios actuales del catálogo.
+  conservarPrecioPresupuesto Boolean @default(true)
+  secuenciaPresupuesto       Int     @default(0) // Folio atómico por empresa (P-000001)
+
   estaActivo            Boolean    @default(true)
   creadoEn              DateTime   @default(now())
   actualizadoEn         DateTime   @updatedAt
@@ -43,6 +49,7 @@ model Empresa {
   programaLealtad ProgramaLealtad?
   cupones        Cupon[]
   combos         Combo[]
+  presupuestos   Presupuesto[]
 }
 
 enum ModoCorteZ {
@@ -128,6 +135,7 @@ model Usuario {
   mermasRegistradas       Merma[]                @relation("mermasRegistradas")
   abonosCredito           AbonoCredito[]
   combosCreados           Combo[]             @relation("combosCreados")
+  presupuestosCreados     Presupuesto[]       @relation("presupuestosCreados")
 
   @@index([empresaId])
 }
@@ -178,6 +186,7 @@ model Producto {
   recepcionesDetalle   RecepcionDetalle[]
   mermas               Merma[]
   combos               ComboProducto[]
+  detallesPresupuesto  PresupuestoDetalle[]
 
   @@index([empresaId, estaActivo])
   @@index([empresaId, codigoBarras])
@@ -720,6 +729,7 @@ model Combo {
 
   productos     ComboProducto[]
   detallesVenta DetalleVenta[]
+  detallesPresupuesto PresupuestoDetalle[]
 
   @@index([empresaId, activo])
   @@index([empresaId, fechaInicio, fechaFin])
@@ -910,6 +920,7 @@ model Cliente {
   cuentaCredito     CuentaCreditoCliente?
   ventasCredito     VentaCredito[]
   movimientosPuntos MovimientoPuntos[]
+  presupuestos      Presupuesto[]
 
   @@index([empresaId])
   @@index([empresaId, estaActivo])
@@ -1065,4 +1076,76 @@ model AbonoCredito {
   actualizadoEn DateTime @updatedAt
 
   @@index([ventaCreditoId])
+}
+
+// ---------------------------------------------------------
+// PRESUPUESTOS (D12)
+// ---------------------------------------------------------
+
+enum EstadoPresupuesto {
+  abierto
+  vendido
+  cancelado
+}
+
+model Presupuesto {
+  id        String  @id @default(uuid())
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  cajeroId  String
+  cajero    Usuario @relation("presupuestosCreados", fields: [cajeroId], references: [id])
+  clienteId String?
+  cliente   Cliente? @relation(fields: [clienteId], references: [id])
+
+  folio          String // Ej: "P-000001"
+  secuenciaFolio Int    // Secuencial numérico por empresa
+
+  estado EstadoPresupuesto @default(abierto)
+
+  // Desglose total (snapshot al crear)
+  subtotal  Float
+  descuento Float @default(0)
+  impuestos Float @default(0)
+  total     Float
+  descuentoNivel Float @default(0)
+  descuentoCanje Float @default(0)
+  descuentoCupon Float @default(0)
+
+  // Snapshots de contexto (no se consumen límites al crear)
+  descuentoGeneral Float @default(0)
+  codigoCupon       String?
+  puntosACanjear    Int    @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+  detalles PresupuestoDetalle[]
+
+  @@unique([empresaId, folio])
+  @@index([empresaId, creadoEn])
+  @@index([empresaId, estado])
+  @@index([clienteId])
+}
+
+model PresupuestoDetalle {
+  id             String       @id @default(uuid())
+  presupuestoId  String
+  presupuesto    Presupuesto  @relation(fields: [presupuestoId], references: [id])
+  productoId     String
+  producto       Producto     @relation(fields: [productoId], references: [id])
+  comboId        String?
+  combo          Combo?       @relation(fields: [comboId], references: [id])
+  nombreCombo    String?
+
+  nombreProducto String // Snapshot del nombre al momento de crear el presupuesto
+  unidadMedida   String
+  cantidad       Float
+  precioUnitario Float // Precio CONGELADO al crear
+  descuento      Float @default(0) // p. ej. ahorro del combo repartido por línea
+  subtotal       Float
+  total          Float
+
+  creadoEn DateTime @default(now())
+
+  @@index([presupuestoId])
+  @@index([productoId])
 }

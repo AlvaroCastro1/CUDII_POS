@@ -140,4 +140,13 @@ export class UpdateSettingsDto {
   @ValidateNested()
   @Type(() => ProgramaLealtadDto)
   programaLealtad?: ProgramaLealtadDto;
+
+  /**
+   * D12: Si es true, al vender un presupuesto se conserva el precio congelado
+   * (el que se ofreció al crear la cotización); si es false, se recalculan los
+   * precios actuales del catálogo.
+   */
+  @IsOptional()
+  @IsBoolean()
+  conservarPrecioPresupuesto?: boolean;
 }

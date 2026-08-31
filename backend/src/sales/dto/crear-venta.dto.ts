@@ -33,6 +33,18 @@ export class ItemDetalleVentaDto {
   @IsNumber()
   @Min(0)
   descuento?: number;
+
+  /**
+   * D12: Marco del combo al que pertenece esta línea (snapshot del nombre),
+   * utilizado cuando el POS envía líneas ya expandidas desde un presupuesto.
+   */
+  @IsOptional()
+  @IsUUID()
+  comboId?: string;
+
+  @IsOptional()
+  @IsString()
+  nombreCombo?: string;
 }
 
 export class ItemPagoVentaDto {
@@ -127,4 +139,14 @@ export class CrearVentaDto {
   @IsString()
   @MaxLength(50)
   codigoCupon?: string;
+
+  /**
+   * D12: Si viene, esta venta se origina a partir de un presupuesto. El backend
+   * decide si conservar el precio congelado del presupuesto (según la config
+   * `Empresa.conservarPrecioPresupuesto`) o recalcular los precios actuales,
+   * y marca el presupuesto como `vendido` en la misma transacción.
+   */
+  @IsOptional()
+  @IsUUID()
+  presupuestoId?: string;
 }

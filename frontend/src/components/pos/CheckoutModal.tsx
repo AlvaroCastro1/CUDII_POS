@@ -68,6 +68,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const clearCart = usePosStore((s) => s.clearCart);
   const descuentoGeneral = usePosStore((s) => s.descuentoGeneral);
   const activeSession = usePosStore((s) => s.activeSession);
+  const presupuestoActivoId = usePosStore((s) => s.presupuestoActivoId);
 
   const [metodoPago, setMetodoPago] = useState<
     'efectivo' | 'tarjeta' | 'mixto' | 'credito'
@@ -103,6 +104,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [cuponInvalido, setCuponInvalido] = useState<string | null>(null);
   const [cuponValidando, setCuponValidando] = useState(false);
   const [cuponError, setCuponError] = useState<string | null>(null);
+
+  // ── D12: Guardar como presupuesto (cotización) ─────────────────────────
+  const [guardandoPresupuesto, setGuardandoPresupuesto] = useState(false);
+  const [presupuestoGuardado, setPresupuestoGuardado] = useState<{
+    folio: string;
+    id: string;
+  } | null>(null);
 
   /** Carga la configuración del programa al abrir el modal */
   useEffect(() => {
@@ -436,6 +444,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           precioUnitario: item.precioUnitario,
           unidadMedida: item.unidadMedida,
           descuento: item.descuento || 0,
+          // D12: líneas cargadas desde un presupuesto conservan el marco del combo.
+          ...(item.comboId
+            ? { comboId: item.comboId, nombreCombo: item.nombreCombo ?? null }
+            : {}),
         })),
         combos: combos.map((c) => ({
           comboId: c.comboId,
@@ -447,6 +459,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       if (cliente) payload.clienteId = cliente.id;
       if (canjeHabilitado) payload.puntosACanjear = puntosACanjear;
       if (cuponAplicado) payload.codigoCupon = cuponAplicado.codigo;
+      // D12: si el ticket proviene de un presupuesto, se cobra por su ID.
+      if (presupuestoActivoId) payload.presupuestoId = presupuestoActivoId;
 
       const res = await api.post('/sales', payload);
 
@@ -482,6 +496,41 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setError(errorMessage(err, 'Ocurrió un error al procesar la venta en la caja'));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  /** D12: Guarda el ticket actual como presupuesto (cotización) sin cobrar. */
+  const guardarComoPresupuesto = async () => {
+    if (cart.length === 0 && combos.length === 0) return;
+    setGuardandoPresupuesto(true);
+    setError(null);
+    setPresupuestoGuardado(null);
+    try {
+      const body: Record<string, unknown> = {
+        detalles: cart.map((item) => ({
+          productoId: item.productoId,
+          cantidad: item.cantidad,
+          unidadMedida: item.unidadMedida,
+        })),
+        combos: combos.map((c) => ({ comboId: c.comboId, cantidad: c.cantidad })),
+        descuentoGeneral,
+      };
+      if (cliente) body.clienteId = cliente.id;
+      if (canjeHabilitado) body.puntosACanjear = puntosACanjear;
+      if (cuponAplicado) body.codigoCupon = cuponAplicado.codigo;
+
+      const res = await api.post('/presupuestos', body);
+      setPresupuestoGuardado({
+        folio: res.data?.folio ?? '',
+        id: res.data?.id ?? '',
+      });
+    } catch (err: unknown) {
+      console.error('Error al guardar presupuesto:', err);
+      setError(
+        errorMessage(err, 'Ocurrió un error al guardar el presupuesto'),
+      );
+    } finally {
+      setGuardandoPresupuesto(false);
     }
   };
 
@@ -999,6 +1048,33 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </span>
             </div>
           )}
+
+          {presupuestoGuardado && (
+            <div className="p-3.5 rounded-2xl border border-success/30 bg-success/10 flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
+              <div className="text-xs text-on-surface font-body-md leading-snug">
+                <span className="font-bold">Presupuesto guardado:</span>{' '}
+                {presupuestoGuardado.folio}. Puedes cobrarlo después desde la
+                lista de presupuestos.
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={guardarComoPresupuesto}
+            disabled={guardandoPresupuesto || (cart.length === 0 && combos.length === 0)}
+            className="w-full py-3 rounded-2xl border border-outline/30 text-primary font-bold font-display-lg text-sm flex items-center justify-center gap-2 transition-all hover:bg-surface-container-low min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {guardandoPresupuesto ? (
+              <span>Guardando presupuesto...</span>
+            ) : (
+              <>
+                <Receipt className="w-4 h-4" />
+                <span>Guardar como presupuesto</span>
+              </>
+            )}
+          </button>
 
           <button
             type="submit"

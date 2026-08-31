@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CrearVentaDto } from './dto/crear-venta.dto';
-import { MetodoPago, Prisma, TipoMovimientoInventario, TipoPrecioCombo } from '@prisma/client';
+import { MetodoPago, Prisma, TipoMovimientoInventario } from '@prisma/client';
 import { consumirLotes } from '../inventory/lotes.helper';
 import {
   redondearSegunUnidad,
@@ -24,46 +24,14 @@ import {
 } from '../customers/loyalty.util';
 import { AuditService } from '../audit/audit.service';
 import { CouponsService } from '../coupons/coupons.service';
+import { expandirCombos, LineaVenta } from './pricing.helper';
 
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
 
-/**
- * Distribuye un monto total (en $) entre partes de forma proporcional (método
- * del mayor residuo), garantizando que la suma de las partes sea exactamente
- * igual al total, trabajando en centavos para evitar artefactos de flotante.
- */
-function distribuirMonto(total: number, shares: number[]): number[] {
-  const n = shares.length;
-  if (total <= 0 || n === 0 || shares.every((s) => s <= 0)) {
-    return shares.map(() => 0);
-  }
-  const suma = shares.reduce((a, b) => a + b, 0);
-  const totalCentavos = Math.round(total * 100);
-  const partes = shares.map((s) => (s / suma) * totalCentavos);
-  const enteros = partes.map(Math.floor);
-  const fracciones = partes
-    .map((p, i) => ({ i, frac: p - enteros[i] }))
-    .sort((a, b) => b.frac - a.frac);
-  const yaAsignado = enteros.reduce((a, b) => a + b, 0);
-  let restante = totalCentavos - yaAsignado;
-  let cursor = 0;
-  while (restante > 0) {
-    enteros[fracciones[cursor % n].i] += 1;
-    restante -= 1;
-    cursor += 1;
-  }
-  return enteros.map((c) => c / 100);
-}
-
-/** Línea interna de venta (producto suelto o expandida desde un combo) */
-interface LineaVenta {
-  productoId: string;
-  cantidad: number;
+/** Precio congelado por producto/lÃ­nea para ventas originadas de un presupuesto. */
+interface PrecioCongelado {
   precioUnitario: number;
-  unidadMedida?: string;
-  descuento?: number;
-  comboId?: string;
-  nombreCombo?: string;
+  descuento: number;
 }
 
 @Injectable()
@@ -75,10 +43,10 @@ export class SalesService {
   ) {}
 
   /**
-   * Registrar una venta (Transacción atómica POS)
+   * Registrar una venta (TransacciÃ³n atÃ³mica POS)
    */
   async createSale(cajeroId: string, empresaId: string, dto: CrearVentaDto) {
-    // 1. Validar que la Sesión de Caja existe y está abierta
+    // 1. Validar que la SesiÃ³n de Caja existe y estÃ¡ abierta
     const sesion = await this.prisma.sesionCaja.findFirst({
       where: {
         id: dto.sesionCajaId,
@@ -89,21 +57,21 @@ export class SalesService {
 
     if (!sesion) {
       throw new BadRequestException(
-        'No hay una sesión de caja abierta válida para esta operación',
+        'No hay una sesiÃ³n de caja abierta vÃ¡lida para esta operaciÃ³n',
       );
     }
 
-    // Derivar cajaId y sucursalId desde la sesión si no vienen en el DTO
+    // Derivar cajaId y sucursalId desde la sesiÃ³n si no vienen en el DTO
     const cajaId = dto.cajaId || sesion.cajaId;
     const sucursalId = dto.sucursalId || sesion.caja?.sucursalId;
 
     if (!cajaId || !sucursalId) {
       throw new BadRequestException(
-        'No se pudo identificar la caja o sucursal asociada a la sesión',
+        'No se pudo identificar la caja o sucursal asociada a la sesiÃ³n',
       );
     }
 
-    // Validar cliente si viene especificado (para lealtad o venta a crédito)
+    // Validar cliente si viene especificado (para lealtad o venta a crÃ©dito)
     let cliente: {
       id: string;
       estaActivo: boolean;
@@ -128,19 +96,19 @@ export class SalesService {
       }
     }
 
-    // D10: Cargar la configuración del programa de lealtad de la empresa
+    // D10: Cargar la configuraciÃ³n del programa de lealtad de la empresa
     const programa = await this.prisma.programaLealtad.findUnique({
       where: { empresaId },
       include: { niveles: true },
     });
     const programaActivo = programa?.habilitado ? programa : null;
 
-    // D10: Validar canje de puntos (antes de la transacción)
+    // D10: Validar canje de puntos (antes de la transacciÃ³n)
     const puntosACanjear = dto.puntosACanjear ?? 0;
     if (puntosACanjear > 0) {
       if (!programaActivo || !programaActivo.permitirCanje) {
         throw new UnprocessableEntityException(
-          'El canje de puntos no está habilitado',
+          'El canje de puntos no estÃ¡ habilitado',
         );
       }
       if (!cliente) {
@@ -150,7 +118,7 @@ export class SalesService {
       }
       if (puntosACanjear < programaActivo.canjeMinimoPuntos) {
         throw new UnprocessableEntityException(
-          `El canje mínimo es de ${programaActivo.canjeMinimoPuntos} puntos`,
+          `El canje mÃ­nimo es de ${programaActivo.canjeMinimoPuntos} puntos`,
         );
       }
       if (puntosACanjear > cliente.puntosActuales) {
@@ -160,17 +128,17 @@ export class SalesService {
       }
     }
 
-    // Validar pagos a crédito: requieren cliente con cuenta activa y saldo disponible
+    // Validar pagos a crÃ©dito: requieren cliente con cuenta activa y saldo disponible
     const pagosCredito = dto.pagos.filter((p) => p.metodo === MetodoPago.credito);
     if (pagosCredito.length > 0) {
       if (!cliente) {
         throw new BadRequestException(
-          'La venta a crédito requiere un cliente registrado',
+          'La venta a crÃ©dito requiere un cliente registrado',
         );
       }
       if (pagosCredito.length > 1) {
         throw new BadRequestException(
-          'Solo se permite un pago a crédito por venta',
+          'Solo se permite un pago a crÃ©dito por venta',
         );
       }
       if (
@@ -178,7 +146,7 @@ export class SalesService {
         !cliente.cuentaCredito.estaActivo
       ) {
         throw new UnprocessableEntityException(
-          'El cliente no tiene una cuenta de crédito activa',
+          'El cliente no tiene una cuenta de crÃ©dito activa',
         );
       }
     }
@@ -193,8 +161,57 @@ export class SalesService {
       );
     }
 
+    // D12: Si la venta proviene de un presupuesto, resolver los precios congelados
+    // segÃºn la configuraciÃ³n de la empresa y guardar el presupuesto a marcar como
+    // vendido (se marca dentro de la misma transacciÃ³n de la venta).
+    const preciosCongelados = new Map<string, PrecioCongelado>();
+    let presupuestoAVender: { id: string } | null = null;
+
+    if (dto.presupuestoId) {
+      const presupuesto = await this.prisma.presupuesto.findFirst({
+        where: { id: dto.presupuestoId, empresaId },
+        include: {
+          detalles: true,
+          empresa: { select: { conservarPrecioPresupuesto: true } },
+        },
+      });
+
+      if (!presupuesto) {
+        throw new NotFoundException('Presupuesto no encontrado');
+      }
+      if (presupuesto.estado !== 'abierto') {
+        throw new UnprocessableEntityException(
+          'El presupuesto no estÃ¡ en estado abierto y no puede venderse',
+        );
+      }
+
+      if (presupuesto.empresa.conservarPrecioPresupuesto) {
+        for (const detalle of presupuesto.detalles) {
+          const clave = `${detalle.productoId}|${detalle.comboId ?? ''}`;
+          preciosCongelados.set(clave, {
+            precioUnitario: detalle.precioUnitario,
+            descuento: detalle.descuento,
+          });
+        }
+      }
+
+      // Completar el contexto de la venta desde el presupuesto si no fue
+      // sobreescrito por el cajero en el POS (cliente/cupÃ³n/descuento general).
+      if (!dto.clienteId && presupuesto.clienteId) {
+        dto.clienteId = presupuesto.clienteId;
+      }
+      if (!dto.codigoCupon && presupuesto.codigoCupon) {
+        dto.codigoCupon = presupuesto.codigoCupon;
+      }
+      if (!dto.descuentoGeneral && presupuesto.descuentoGeneral > 0) {
+        dto.descuentoGeneral = presupuesto.descuentoGeneral;
+      }
+
+      presupuestoAVender = { id: presupuesto.id };
+    }
+
     const venta = await this.prisma.$transaction(async (tx) => {
-      // 2. Incrementar la secuencia de folio de la caja atómicamente
+      // 2. Incrementar la secuencia de folio de la caja atÃ³micamente
       const cajaActualizada = await tx.caja.update({
         where: { id: cajaId },
         data: { secuenciaFolio: { increment: 1 } },
@@ -207,7 +224,7 @@ export class SalesService {
       );
       const folio = `${codigoCaja}-${numeroSecuencia}`;
 
-      // 3. Procesar ítems y calcular totales
+      // 3. Procesar Ã­tems y calcular totales
       let subtotalVenta = 0;
       let descuentoVenta = dto.descuentoGeneral || 0;
       const impuestosVenta = 0;
@@ -218,12 +235,12 @@ export class SalesService {
         { loteId: string; cantidad: number; costoUnitario: number }[]
       >();
 
-      // D11: expandir combos en líneas internas con precios autoritativos de BD.
-      // Las líneas de producto sueltas y las de combo coexisten en el mismo ticket;
-      // el servidor decide precios y descuento (el cliente jamás los envía).
+      // D11: expandir combos en lÃ­neas internas con precios autoritativos de BD.
+      // Las lÃ­neas de producto sueltas y las de combo coexisten en el mismo ticket;
+      // el servidor decide precios y descuento (el cliente jamÃ¡s los envÃ­a).
       const detallesList: LineaVenta[] = [...dto.detalles];
       if (dto.combos && dto.combos.length > 0) {
-        detallesList.push(...(await this.expandirCombos(tx, dto.combos, empresaId)));
+        detallesList.push(...(await expandirCombos(tx, dto.combos, empresaId)));
       }
 
       // Carga de todos los productos en una sola consulta (evita N+1)
@@ -255,7 +272,7 @@ export class SalesService {
           );
         }
 
-        // Validar y redondear cantidad según unidad de medida
+        // Validar y redondear cantidad segÃºn unidad de medida
         validarCantidadSegunUnidad(
           item.cantidad,
           item.unidadMedida || producto.unidadMedida,
@@ -266,8 +283,18 @@ export class SalesService {
           item.unidadMedida || producto.unidadMedida,
         );
 
-        const subtotalItem = item.cantidad * item.precioUnitario;
-        const descuentoItem = item.descuento || 0;
+        // D12: si esta lÃ­nea proviene de un presupuesto y "conservar precio" estÃ¡
+        // activo, se usa el precio y descuento congelados (clave producto|combo).
+        const claveCongelada = `${item.productoId}|${item.comboId ?? ''}`;
+        const precioCongelado = preciosCongelados.get(claveCongelada);
+        const precioUnitario = precioCongelado
+          ? precioCongelado.precioUnitario
+          : item.precioUnitario;
+        const descuentoItem = precioCongelado
+          ? precioCongelado.descuento
+          : (item.descuento || 0);
+
+        const subtotalItem = item.cantidad * precioUnitario;
         const totalItem = subtotalItem - descuentoItem;
 
         subtotalVenta += subtotalItem;
@@ -301,7 +328,7 @@ export class SalesService {
             },
           });
 
-          // Consumo por lote (FEFO/FIFO según producto) — siempre con manejaInventario
+          // Consumo por lote (FEFO/FIFO segÃºn producto) â€” siempre con manejaInventario
           let lotesConsumidos: Awaited<ReturnType<typeof consumirLotes>> = [];
 
           lotesConsumidos = await consumirLotes(
@@ -322,7 +349,7 @@ export class SalesService {
               })),
             );
 
-            // Costo histórico = promedio ponderado por los lotes consumidos
+            // Costo histÃ³rico = promedio ponderado por los lotes consumidos
             costoHistorico =
               lotesConsumidos.reduce(
                 (acc, l) => acc + l.costoUnitario * l.cantidad,
@@ -366,7 +393,7 @@ export class SalesService {
           nombreProducto: producto.nombre,
           unidadMedida: item.unidadMedida || producto.unidadMedida,
           cantidad: item.cantidad,
-          precioUnitario: item.precioUnitario,
+          precioUnitario,
           costoHistorico,
           subtotal: subtotalItem,
           descuento: descuentoItem,
@@ -387,8 +414,8 @@ export class SalesService {
       subtotalVenta = Math.round(subtotalVenta * 100) / 100;
       descuentoVenta = Math.round(descuentoVenta * 100) / 100;
 
-      // D12: Cupón de descuento — validación y cálculo atómicos dentro de la transacción
-      // (existencias = límite de usos; se cuentan con la transacción para evitar
+      // D12: CupÃ³n de descuento â€” validaciÃ³n y cÃ¡lculo atÃ³micos dentro de la transacciÃ³n
+      // (existencias = lÃ­mite de usos; se cuentan con la transacciÃ³n para evitar
       // condiciones de carrera entre "primeras N personas").
       let cuponDescuento = 0;
       let cuponRegistrado: {
@@ -404,58 +431,58 @@ export class SalesService {
           include: { _count: { select: { redenciones: true } } },
         });
         if (!cupon) {
-          throw new BadRequestException('Cupón no encontrado');
+          throw new BadRequestException('CupÃ³n no encontrado');
         }
         if (!cupon.activo) {
-          throw new BadRequestException('El cupón está desactivado');
+          throw new BadRequestException('El cupÃ³n estÃ¡ desactivado');
         }
         const ahora = new Date();
         if (ahora < cupon.fechaInicio) {
-          throw new BadRequestException('El cupón aún no está vigente');
+          throw new BadRequestException('El cupÃ³n aÃºn no estÃ¡ vigente');
         }
         if (cupon.fechaFin && ahora > cupon.fechaFin) {
-          throw new BadRequestException('El cupón ha caducado');
+          throw new BadRequestException('El cupÃ³n ha caducado');
         }
         if (cupon.soloClientesRegistrados && !cliente) {
           throw new BadRequestException(
-            'Este cupón solo aplica para clientes registrados',
+            'Este cupÃ³n solo aplica para clientes registrados',
           );
         }
 
-        // Monto mínimo de compra (base = subtotal sin descuentos)
+        // Monto mÃ­nimo de compra (base = subtotal sin descuentos)
         const baseCupon = subtotalVenta - descuentoVenta;
         if (
           cupon.montoMinimoCompra &&
           baseCupon < cupon.montoMinimoCompra
         ) {
           throw new BadRequestException(
-            `Este cupón requiere una compra mínima de $${cupon.montoMinimoCompra.toFixed(2)}`,
+            `Este cupÃ³n requiere una compra mÃ­nima de $${cupon.montoMinimoCompra.toFixed(2)}`,
           );
         }
 
-        // Límite total de usos (atómico dentro de la transacción)
+        // LÃ­mite total de usos (atÃ³mico dentro de la transacciÃ³n)
         if (
           cupon.limiteUsosTotal !== null &&
           cupon._count.redenciones >= cupon.limiteUsosTotal
         ) {
           throw new BadRequestException(
-            'Este cupón ya alcanzó su límite de usos disponibles',
+            'Este cupÃ³n ya alcanzÃ³ su lÃ­mite de usos disponibles',
           );
         }
 
-        // Límite por cliente (atómico dentro de la transacción)
+        // LÃ­mite por cliente (atÃ³mico dentro de la transacciÃ³n)
         if (cupon.limiteUsosPorCliente && cliente) {
           const usosCliente = await tx.cuponRedencion.count({
             where: { cuponId: cupon.id, clienteId: cliente.id },
           });
           if (usosCliente >= cupon.limiteUsosPorCliente) {
             throw new BadRequestException(
-              'Este cliente ya alcanzó el límite de usos de este cupón',
+              'Este cliente ya alcanzÃ³ el lÃ­mite de usos de este cupÃ³n',
             );
           }
         }
 
-        // Calcular el descuento del cupón (no puede exceder el total de la venta)
+        // Calcular el descuento del cupÃ³n (no puede exceder el total de la venta)
         cuponDescuento = await this.couponsService.calcularDescuento(
           cupon,
           baseCupon,
@@ -467,7 +494,7 @@ export class SalesService {
         };
       }
 
-      // D10: Descuento por nivel de lealtad según la configuración del programa
+      // D10: Descuento por nivel de lealtad segÃºn la configuraciÃ³n del programa
       let descuentoLealtad = 0;
       if (programaActivo && cliente) {
         const nivelActual = cliente.nivelLealtadId
@@ -482,7 +509,7 @@ export class SalesService {
         }
       }
 
-      // D10: Canje de puntos → equivale a un descuento adicional sobre la venta
+      // D10: Canje de puntos â†’ equivale a un descuento adicional sobre la venta
       let montoCanje = 0;
       if (puntosACanjear > 0 && programaActivo) {
         montoCanje = pesosEquivalentesDePuntos(puntosACanjear, programaActivo);
@@ -506,8 +533,8 @@ export class SalesService {
             100,
         ) / 100;
 
-      // 4. Procesar pagos y actualizar acumulación en SesionCaja
-      // Los pagos a crédito no se registran como PagoVenta: generan deuda (VentaCredito)
+      // 4. Procesar pagos y actualizar acumulaciÃ³n en SesionCaja
+      // Los pagos a crÃ©dito no se registran como PagoVenta: generan deuda (VentaCredito)
       let acumuladoEfectivo = 0;
       let acumuladoTarjeta = 0;
       let acumuladoOtros = 0;
@@ -604,7 +631,7 @@ export class SalesService {
         },
       });
 
-      // 5b. Trazabilidad por lote: vincular cada línea con los lotes consumidos
+      // 5b. Trazabilidad por lote: vincular cada lÃ­nea con los lotes consumidos
       if (lotesPorProducto.size > 0) {
         const detallePorProducto = new Map(
           venta.detalles.map((d) => [d.productoId, d.id]),
@@ -630,7 +657,7 @@ export class SalesService {
         }
       }
 
-      // 5c. Cupón redimido: registrar la redención vinculada a esta venta
+      // 5c. CupÃ³n redimido: registrar la redenciÃ³n vinculada a esta venta
       if (cuponRegistrado && cuponDescuento > 0) {
         await tx.cuponRedencion.create({
           data: {
@@ -642,14 +669,14 @@ export class SalesService {
         });
       }
 
-      // 5d. Venta a crédito: crear la deuda (VentaCredito) e incrementar saldo
+      // 5d. Venta a crÃ©dito: crear la deuda (VentaCredito) e incrementar saldo
       if (pagoCredito && cliente?.cuentaCredito) {
         const cuenta = cliente.cuentaCredito;
         const saldoDisponible = cuenta.limiteCredito - cuenta.saldoPendiente;
 
         if (pagoCredito.montoPagado > saldoDisponible + 0.001) {
           throw new UnprocessableEntityException(
-            `Límite de crédito insuficiente. Disponible: $${saldoDisponible.toFixed(2)}, solicitado: $${pagoCredito.montoPagado.toFixed(2)}`,
+            `LÃ­mite de crÃ©dito insuficiente. Disponible: $${saldoDisponible.toFixed(2)}, solicitado: $${pagoCredito.montoPagado.toFixed(2)}`,
           );
         }
 
@@ -675,7 +702,7 @@ export class SalesService {
         });
       }
 
-      // 5e. D10/D11: Programa de lealtad — canje, acumulación y ledger de movimientos
+      // 5e. D10/D11: Programa de lealtad â€” canje, acumulaciÃ³n y ledger de movimientos
       if (cliente && programaActivo) {
         const netoSinDescuentoLealtad = subtotalVenta - descuentoVenta;
         const puntosGanados = calcularPuntos(
@@ -708,10 +735,10 @@ export class SalesService {
           });
         }
 
-        // D11: canje — consumir lotes FIFO/FEFO (los más viejos o próximos a
+        // D11: canje â€” consumir lotes FIFO/FEFO (los mÃ¡s viejos o prÃ³ximos a
         // vencer primero) y registrar. Se excluye el lote ganado en ESTA misma
-        // venta: dentro de la transacción todos comparten now() idéntico y el
-        // orden sería indeterminado; además los puntos recién ganados no deben
+        // venta: dentro de la transacciÃ³n todos comparten now() idÃ©ntico y el
+        // orden serÃ­a indeterminado; ademÃ¡s los puntos reciÃ©n ganados no deben
         // poder gastarse en la misma compra.
         if (puntosACanjear > 0) {
           const lotes = await tx.movimientoPuntos.findMany({
@@ -758,10 +785,18 @@ export class SalesService {
         });
       }
 
+      // D12: marcar el presupuesto como vendido dentro de la misma transacciÃ³n
+      if (presupuestoAVender) {
+        await tx.presupuesto.update({
+          where: { id: presupuestoAVender.id },
+          data: { estado: 'vendido' },
+        });
+      }
+
       return venta;
     });
 
-    // Auditoría: registrar la venta completada (posterior a la transacción)
+    // AuditorÃ­a: registrar la venta completada (posterior a la transacciÃ³n)
     await this.auditService.registrarEvento({
       empresaId,
       sucursalId: sucursalId ?? null,
@@ -787,7 +822,7 @@ export class SalesService {
   }
 
   /**
-   * Listar ventas con paginación y filtros
+   * Listar ventas con paginaciÃ³n y filtros
    */
   async findAllSales(
     empresaId: string,
@@ -894,119 +929,5 @@ export class SalesService {
     }
 
     return venta;
-  }
-
-  /**
-   * D11: Expande los combos del DTO en líneas de producto con precio autoritativo.
-   * - Valida existencia, estado activo y vigencia de cada combo.
-   * - Calcula el precio del paquete (fijo o % sobre la suma individual).
-   * - Reparte el ahorro del combo proporcionalmente al subtotal de cada línea,
-   *   exacto al centavo, para que el ticket muestre el descuento correcto.
-   */
-  private async expandirCombos(
-    tx: Prisma.TransactionClient,
-    combosDto: { comboId: string; cantidad: number }[],
-    empresaId: string,
-  ): Promise<LineaVenta[]> {
-    const acumulador = new Map<string, number>();
-    for (const c of combosDto) {
-      if (!c.cantidad || c.cantidad < 1) {
-        throw new BadRequestException(
-          'La cantidad de cada combo debe ser mayor a cero',
-        );
-      }
-      acumulador.set(c.comboId, (acumulador.get(c.comboId) ?? 0) + c.cantidad);
-    }
-
-    const combos = await tx.combo.findMany({
-      where: { id: { in: [...acumulador.keys()] }, empresaId, activo: true },
-      include: {
-        productos: {
-          include: {
-            producto: {
-              select: {
-                id: true,
-                nombre: true,
-                precioVentaBase: true,
-                unidadMedida: true,
-                estaActivo: true,
-              },
-            },
-          },
-        },
-      },
-    });
-    const combosMap = new Map(combos.map((c) => [c.id, c]));
-    const salida: LineaVenta[] = [];
-
-    for (const [comboId, cantidad] of acumulador) {
-      const combo = combosMap.get(comboId);
-      if (!combo) {
-        throw new NotFoundException(
-          'El combo no fue encontrado o está desactivado',
-        );
-      }
-
-      const ahora = new Date();
-      if (combo.fechaInicio && ahora < combo.fechaInicio) {
-        throw new BadRequestException(
-          `El combo "${combo.nombre}" aún no está vigente`,
-        );
-      }
-      if (combo.fechaFin && ahora > combo.fechaFin) {
-        throw new BadRequestException(
-          `El combo "${combo.nombre}" ha caducado`,
-        );
-      }
-
-      for (const cp of combo.productos) {
-        if (!cp.producto.estaActivo) {
-          throw new BadRequestException(
-            `El producto "${cp.producto.nombre}" está inactivo y no puede venderse en el combo "${combo.nombre}"`,
-          );
-        }
-      }
-
-      const precioOriginalCombo = redondear2(
-        combo.productos.reduce(
-          (acc, cp) => acc + cp.producto.precioVentaBase * cp.cantidad,
-          0,
-        ),
-      );
-      const precioComboUnitario =
-        combo.tipoPrecio === TipoPrecioCombo.MONTO_FIJO
-          ? redondear2(combo.valorPrecio)
-          : redondear2(precioOriginalCombo * (1 - combo.valorPrecio / 100));
-      const ahorroUnitario = redondear2(
-        precioOriginalCombo - precioComboUnitario,
-      );
-      const ahorroTotal = redondear2(ahorroUnitario * cantidad);
-
-      const expansiones = combo.productos.map((cp) => {
-        const producto = cp.producto;
-        const cantidadLinea = cp.cantidad * cantidad;
-        return {
-          subtotal: redondear2(producto.precioVentaBase * cantidadLinea),
-          linea: {
-            productoId: producto.id,
-            cantidad: cantidadLinea,
-            precioUnitario: producto.precioVentaBase,
-            unidadMedida: producto.unidadMedida,
-            comboId: combo.id,
-            nombreCombo: combo.nombre,
-          },
-        };
-      });
-
-      const descuentos = distribuirMonto(
-        ahorroTotal,
-        expansiones.map((e) => e.subtotal),
-      );
-      expansiones.forEach((e, i) => {
-        salida.push({ ...e.linea, descuento: descuentos[i] });
-      });
-    }
-
-    return salida;
   }
 }

@@ -14,6 +14,9 @@ export interface CartItem {
   esGranel: boolean;
   presentacionId?: string;
   presentacionNombre?: string;
+  /** D12: línea cargada desde un presupuesto con combo (snapshot del nombre). */
+  comboId?: string;
+  nombreCombo?: string;
 }
 
 export interface PresentacionCart {
@@ -61,6 +64,8 @@ interface PosStoreState {
   descuentoGeneral: number;
   /** Orden de adición de las líneas (producto/combo) para atajos tipo "quitar último". */
   ordenAdicion: ClaveLinea[];
+  /** D12: ID del presupuesto activo cargado en el ticket (si viene de una cotización). */
+  presupuestoActivoId: string | null;
 
   // Acciones
   addToCart: (producto: {
@@ -83,6 +88,16 @@ interface PosStoreState {
   updateComboQuantity: (comboId: string, cantidad: number) => void;
   removeCombo: (comboId: string) => void;
   aplicarComboSugerido: (combo: ComboConResumen) => void;
+  /** D12: registra el presupuesto del que proviene el ticket (o null al limpiar). */
+  setPresupuestoActivo: (presupuestoId: string | null) => void;
+  /** D12: reemplaza el ticket con las líneas congeladas de un presupuesto. */
+  cargarPresupuesto: (lineas: LineaPresupuesto, descuentoGeneral?: number) => void;
+}
+
+/** D12: Líneas congeladas de un presupuesto listas para cargarse al ticket del POS. */
+export interface LineaPresupuesto {
+  productos: Omit<CartItem, 'comboId' | 'nombreCombo'> & { comboId?: string; nombreCombo?: string }[];
+  combos: CartCombo[];
 }
 
 export const usePosStore = create<PosStoreState>()(
@@ -93,6 +108,7 @@ export const usePosStore = create<PosStoreState>()(
       activeSession: null,
       descuentoGeneral: 0,
       ordenAdicion: [],
+      presupuestoActivoId: null,
 
       addToCart: (producto, cantidad = 1, presentacion) => {
         const currentCart = get().cart;
@@ -168,7 +184,13 @@ export const usePosStore = create<PosStoreState>()(
       },
 
       clearCart: () => {
-        set({ cart: [], combos: [], descuentoGeneral: 0, ordenAdicion: [] });
+        set({
+          cart: [],
+          combos: [],
+          descuentoGeneral: 0,
+          ordenAdicion: [],
+          presupuestoActivoId: null,
+        });
       },
 
       addCombo: (combo, cantidad = 1) => {
@@ -296,6 +318,31 @@ export const usePosStore = create<PosStoreState>()(
 
       setActiveSession: (session) => {
         set({ activeSession: session });
+      },
+
+      /** D12: registra el presupuesto del que proviene el ticket (o null al limpiar). */
+      setPresupuestoActivo: (presupuestoId) => {
+        set({ presupuestoActivoId: presupuestoId });
+      },
+
+      /**
+       * D12: Reemplaza el ticket con las líneas congeladas de un presupuesto.
+       * Restaura el descuento general del presupuesto y el orden de adición,
+       * para que el POdel mismo flujo de cobro (CheckoutModal) lo cobre por `presupuestoId`.
+       */
+      cargarPresupuesto: (lineas, descuentoGeneral = 0) => {
+        const orden: ClaveLinea[] = [
+          ...lineas.productos.map(
+            (p) => `p:${p.productoId}:${p.presentacionId || ''}` as ClaveLinea,
+          ),
+          ...lineas.combos.map((c) => `c:${c.comboId}` as ClaveLinea),
+        ];
+        set({
+          cart: lineas.productos.map((p) => ({ ...p, descuento: p.descuento || 0 })),
+          combos: lineas.combos,
+          descuentoGeneral,
+          ordenAdicion: orden,
+        });
       },
     }),
     {

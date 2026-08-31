@@ -618,6 +618,142 @@ y **Análisis** (Reportes).
 
 ---
 
+### D12 — Presupuestos (Cotizaciones al Cliente)
+
+> **¿Por qué se hizo?** El cajero solo podía vender en el acto; no existía forma de **cotizar** a un
+> cliente (registrado o no) un conjunto de productos/combos sin cobrar aún, con el precio
+> **congelado** en el momento para poder **venderlos después por el ID del presupuesto** aunque el
+> producto suba de precio. El comercio necesita presupuestar antes de la compra (el cliente decide,
+> pedido por teléfono, apartados) y preservar la oferta ofrecida. El usuario solicitó: armar el
+> presupuesto desde el ticket del POS (con descuentos por cliente y cupones aplicando), una
+> **configuración** `conservarPrecioPresupuesto` (por empresa) que decida si al vender se conserva el
+> precio congelado o se recalculan los precios actuales, y que sea **fácil vender según el ID del
+> presupuesto** (cargarlo al ticket del POS y cobrar).
+
+**Decisiones de diseño (validadas con el usuario):**
+
+| Decisión | Elección | Razón |
+|----------|----------|-------|
+| Creación | Desde el ticket del POS ("Guardar como presupuesto" en el cobro) | Reutiliza el flujo/carrito existente; no duplica el picker de productos |
+| Conversión a venta | **Cargar las líneas congeladas al ticket del POS y luego cobrar** | Reutiliza CheckoutModal completo (pagos, cupón, lealtad) |
+| Precios congelados | Precio unitario **de productos y combos** al crearse | Conserva la oferta ofrecida aunque suba `precioVentaBase` |
+| Revalidación al vender | Cupón y nivel/canje **se revalidan** contra el estado actual | Evita abusos (cupón caducado, límites, puntos); el descuento no congelado se recalcula |
+| Config | `Empresa.conservarPrecioPresupuesto` (boolean, default `true`) | La decide el ADMIN según su política comercial |
+| Folio | Secuencial por empresa (`P-000001`), atómico | Buscable y único, independiente de la caja (no exige sesión abierta) |
+| Requisito de caja | **No** exige sesión de caja abierta para crear/ver | Un presupuesto es pre-cobro; no toca `SesionCaja` ni inventario |
+| Snapshots | `Presupuesto`/`PresupuestoDetalle` espejan `Venta`/`DetalleVenta` | Conversión fácilmente mapeable + trazabilidad del precio ofrecido |
+| Refactor | Extraer cálculo de precios/descuentos de `SalesService` a helper compartido + soporte de "precios congelados" | Un solo motor de precios; presupuesto y venta jamás divergen |
+
+**Schema (migración `add_presupuestos`):**
+
+```prisma
+enum EstadoPresupuesto { abierto vendido cancelado }
+
+model Presupuesto {
+  id                    String   @id @default(uuid())
+  empresaId             String
+  empresa               Empresa  @relation(fields: [empresaId], references: [id])
+  cajeroId              String
+  cajero                Usuario  @relation(fields: [cajeroId], references: [id])
+  clienteId             String?
+  cliente               Cliente? @relation(fields: [clienteId], references: [id])
+
+  folio          String // "P-000001"
+  secuenciaFolio Int    // secuencial por empresa (Empresa.secuenciaPresupuesto)
+
+  estado EstadoPresupuesto @default(abierto)
+
+  // Desglose total (snapshot al crear)
+  subtotal  Float
+  descuento Float @default(0)
+  impuestos Float @default(0)
+  total     Float
+  descuentoNivel Float @default(0)
+  descuentoCanje Float @default(0)
+  descuentoCupon Float @default(0)
+
+  // Snapshots de contexto (no se consumen límites al crear)
+  descuentoGeneral Float @default(0)
+  codigoCupon       String?
+  puntosACanjear    Int    @default(0)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+  detalles PresupuestoDetalle[]
+
+  @@unique([empresaId, folio])
+  @@index([empresaId, creadoEn])
+  @@index([empresaId, estado])
+  @@index([clienteId])
+}
+
+model PresupuestoDetalle {
+  id             String       @id @default(uuid())
+  presupuestoId  String
+  presupuesto    Presupuesto  @relation(fields: [presupuestoId], references: [id])
+  productoId     String
+  producto       Producto     @relation(fields: [productoId], references: [id])
+  comboId        String?
+  combo          Combo?       @relation(fields: [comboId], references: [id])
+  nombreCombo    String?
+
+  nombreProducto String // snapshot
+  unidadMedida   String
+  cantidad       Float
+  precioUnitario Float // precio CONGELADO al crear
+  descuento      Float @default(0) // p. ej. ahorro del combo repartido por línea
+  subtotal       Float
+  total          Float
+
+  @@index([presupuestoId])
+  @@index([productoId])
+}
+```
+
+- `Empresa` gana `conservarPrecioPresupuesto Boolean @default(true)` y `secuenciaPresupuesto Int @default(0)`.
+
+**Comportamiento clave — "conservar precio" y revalidación:**
+
+- Al **crear**: el servidor expande combos, valida productos/cupón/cliente (sin redimir cupón ni
+  tocar inventario/sesión) y guarda el desglose como snapshot.
+- Al **vender** (`POST /sales` con `presupuestoId`): si `conservarPrecioPresupuesto=true` usa el
+  `precioUnitario` **congelado** de cada línea original (y su `descuento` por línea); si es `false`,
+  recalcula desde el `precioVentaBase` actual. Cupón/nivel/canje **siempre se revalidan** (se
+  recalculan `descuentoCupon`/`descuentoNivel`/`descuentoCanje` en la venta). El presupuesto pasa a
+  `vendido` **dentro de la misma transacción** de la venta.
+- Las líneas **nuevas/editadas** tras cargar un presupuesto usan el precio actual (los precios
+  congelados solo aplican a los productos que estaban en el presupuesto).
+
+**Backend:**
+
+- Módulo `presupuestos` (controller/service/DTOs) registrado en `AppModule`:
+  - `POST /presupuestos` (ADMIN/GERENTE/CAJERO) — `CrearPresupuestoDto` (`detalles[]`, `combos[]`,
+    `clienteId?`, `descuentoGeneral?`, `codigoCupon?`, `puntosACanjear?`); sin `pagos`/`sesionCajaId`.
+    Folio atómico por empresa.
+  - `GET /presupuestos` (+CONTADOR) — paginado, filtros (estado, fecha, folio/cliente).
+  - `GET /presupuestos/:id` — detalle con `precioCongelado`, `precioActual` y el `precioUnitario`
+    efectivo según la config (lo que se carga al ticket).
+  - `PATCH /presupuestos/:id/cancelar` (ADMIN/GERENTE) — `estado=cancelado`.
+- Refactor de `SalesService`: extraer el cálculo de precios/descuentos a un helper compartido;
+  `CrearVentaDto` + `presupuestoId?`; `ItemDetalleVentaDto` + `comboId?`/`nombreCombo?`; soporte
+  interno de `preciosCongelados` cuando la config lo habilita; marcado atómico `estado=vendido`.
+  La venta sin `presupuestoId` conserva su comportamiento actual (re-precio desde catálogo).
+
+**Frontend:**
+
+- `usePosStore`: `presupuestoActivoId`, `setPresupuestoActivo` y `cargarPresupuesto(lineas, descuentoGeneral)`;
+  `CartItem` gana `comboId?`/`nombreCombo?` para mostrar líneas de combo cargadas.
+- `CheckoutModal`: botón **"Guardar como presupuesto"** (POST, muestra el folio, conserva el ticket)
+  + envía `presupuestoId` en el payload de `/sales`.
+- `PresupuestosView` (`/presupuestos`, ADMIN/GERENTE/CAJERO): lista paginada
+  (folio/cliente/estado/fecha/total) + acciones **Vender** (carga al ticket → ir a `/pos`),
+  **Ver detalle**, **Cancelar**.
+- `ConfiguracionView`: sección **"Presupuestos"** con `<Switch>` `conservarPrecioPresupuesto` (`?? true`).
+- Registro en `App.tsx`, `permisos.ts` (clave `presupuestos`, roles ADMIN/GERENTE/CAJERO) y
+  `MainLayout.tsx` (sección Operaciones).
+
+---
+
 ## Entregables
 
 - [ ] Migración `cleanup_dead_fields` aplicada
@@ -655,6 +791,14 @@ y **Análisis** (Reportes).
 - [ ] D11: Sin campos muertos en combos (tipos, store, includes)
 - [ ] D11: Fuentes verificadas — solo Geist / JetBrains Mono / Material Symbols en todo CUDII
 - [ ] D11: Sidebar recomposado en secciones temáticas y filtrado por rol (cajas → Operaciones, Promociones nueva)
+- [x] D12: Migración `add_presupuestos` aplicada (`Presupuesto`, `PresupuestoDetalle`, `Empresa.conservarPrecioPresupuesto`, `Empresa.secuenciaPresupuesto`)
+- [x] D12: Refactor de `SalesService` — helper compartido de precios/descuentos + soporte `presupuestoId`/`preciosCongelados`
+- [x] D12: Módulo backend `presupuestos` (create/list/detail/cancelar) registrado en `AppModule`
+- [x] D12: `CrearVentaDto` + `presupuestoId` y `ItemDetalleVentaDto` + `comboId`/`nombreCombo`
+- [x] D12: POS — botón "Guardar como presupuesto" + envío de `presupuestoId` en `/sales`
+- [x] D12: `usePosStore.cargarPresupuesto` + `presupuestoActivoId` + `CartItem.comboId`/`nombreCombo`
+- [x] D12: `PresupuestosView` (lista/detalle/vender/cancelar) + ruta + permisos + menú
+- [x] D12: `ConfiguracionView` — switch `conservarPrecioPresupuesto`
 
 ---
 
@@ -683,6 +827,13 @@ y **Análisis** (Reportes).
 20. D11: POS — con Soda + Papas ya sueltos en el carrito → el combo se auto-aplica y el ahorro se refleja.
 21. D11: Crear/actualizar/desactivar un combo → se registra en Auditoría (`COMBO_CREADO`/`ACTUALIZADO`/`DESACTIVADO`) con su resumen y se ve en `AuditoriaView`.
 22. D11: Venta con combo → el detalle de venta muestra el badge "Combo" y el descuento por línea.
+23. D12: [x] Armar un presupuesto desde el POS con un producto suelto ($50) y un combo → se crea con folio P-000001 y total congelado; **NO descuenta inventario ni exige sesión de caja**. *(E2E 14.1–14.3)*
+24. D12: Subir `precioVentaBase` del producto a $60 → con `conservarPrecioPresupuesto=true`, "Vender" por ID del presupuesto cobra $50 (precio congelado).
+25. D12: Con `conservarPrecioPresupuesto=false`, la misma venta cobra $60 (precio actual).
+26. D12: Presupuesto con cupón vencido → al vender se rechaza/revalida (no hereda el descuento vencido) y el presupuesto no queda `vendido`.
+27. D12: [x] Al completar la venta del presupuesto, su estado pasa a `vendido` en la misma transacción; no se puede vender dos veces (rechazo). *(E2E 14.7–14.8, 14.10)*
+28. D12: [x] Cancelar un presupuesto → `estado=cancelado`; no aparece como vendible. *(E2E 14.9)*
+29. D12: Un presupuesto con cliente registrado aplica el descuento por nivel/canje al momento de crear y lo revalida al vender.
 
 ### Pruebas de performance
 1. Venta con 10+ items → verificar que no se ejecutan más de 20 queries (vs 80+ actual).
@@ -710,6 +861,10 @@ y **Análisis** (Reportes).
 - [ ] D11: La venta con combo genera `DetalleVenta.comboId` y descuenta inventario por producto.
 - [ ] D11: El POS permite vender combos por catálogo y por auto-detección (bloque).
 - [ ] D11: El ahorro del combo se refleja en el desglose del ticket y del cobro.
+- [x] D12: Los presupuestos se crean desde el POS sin requerir sesión de caja ni tocar inventario.
+- [x] D12: "Vender por ID" carga el presupuesto al ticket y respeta `conservarPrecioPresupuesto` (congelado vs actual).
+- [x] D12: La venta de un presupuesto lo marca `vendido` atómicamente; los duplicados se rechazan.
+- [x] D12: Configuración `conservarPrecioPresupuesto` visible/editable y aplicada por la empresa.
 
 ---
 
@@ -738,6 +893,7 @@ y **Análisis** (Reportes).
 | Paginación estandarizada | La IA y los reportes de Fase 5 usan el mismo formato consistente |
 | Endpoint `GET /companies/my/sucursales` | El módulo de importación de Fase 5 lo usa para filtrar por sucursal |
 | Modelo `Combo` y `DetalleVenta.comboId` | La IA de sugerencias de Fase 5 usa las asociaciones reales vendidas como combo para proponer promociones |
+| Modelo `Presupuesto` y `PresupuestoDetalle` | La IA y el módulo de apartados/seguimiento de Fase 5 detectan presupuestos abiertos para reactivarlos y ofrecer descuentos |
 
 ---
 
@@ -754,3 +910,6 @@ y **Análisis** (Reportes).
 | El ahorro del combo se duplica al combinar con cupones/lealtad | El descuento del combo forma parte del `descuentoVenta` base; cupón/nivel aplican sobre la base restante (cascada existente no cambia) |
 | Precios desactualizados si cambia `precioVentaBase` después de crear el combo | El precio del combo siempre se recalcula desde BD al vender; el ahorro de catálogo es informativo |
 | Combo con producto sin stock en la sucursal | Se mantiene la política permisiva auditada (stock negativo), igual que los productos sueltos |
+| La venta de un presupuesto conserva el precio pero el inventario/método de pago actual difiere | La revalidación de cupón/nivel al vender + el marcado atómico `vendido` evitan vender dos veces; los precios congelados solo aplican a los productos originales |
+| El refactor del motor de precios rompe la venta normal | Ejecutar E2E (53/53) tras el refactor; la venta sin `presupuestoId` conserva su comportamiento actual (re-precio desde catálogo) |
+| Ambigüedad "conservar o no" para una venta puntual | La config es por empresa; (opcional futuro) override por presupuesto como mejora |

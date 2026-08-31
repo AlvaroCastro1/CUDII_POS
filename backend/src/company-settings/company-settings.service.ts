@@ -26,6 +26,7 @@ export class CompanySettingsService {
         umbralFaltanteCritico: true,
         stockMinimoGlobal: true,
         stockMaximoGlobal: true,
+        conservarPrecioPresupuesto: true,
         programaLealtad: {
           include: {
             niveles: { orderBy: { umbralPuntos: 'asc' } },
@@ -102,6 +103,9 @@ export class CompanySettingsService {
         ...(dto.stockMaximoGlobal !== undefined
           ? { stockMaximoGlobal: dto.stockMaximoGlobal }
           : {}),
+        ...(dto.conservarPrecioPresupuesto !== undefined
+          ? { conservarPrecioPresupuesto: dto.conservarPrecioPresupuesto }
+          : {}),
       },
       select: {
         id: true,
@@ -110,6 +114,7 @@ export class CompanySettingsService {
         umbralFaltanteCritico: true,
         stockMinimoGlobal: true,
         stockMaximoGlobal: true,
+        conservarPrecioPresupuesto: true,
         programaLealtad: {
           include: { niveles: { orderBy: { umbralPuntos: 'asc' } } },
         },
