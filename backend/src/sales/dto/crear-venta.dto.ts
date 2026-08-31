@@ -57,6 +57,19 @@ export class ItemPagoVentaDto {
   referencia?: string;
 }
 
+/**
+ * D11: Combo/paquete vendido. El servidor lo expande en líneas de DetalleVenta
+ * con precios autoritativos tomados de la BD (nunca del cliente).
+ */
+export class ItemComboVentaDto {
+  @IsUUID()
+  comboId: string;
+
+  @IsNumber()
+  @Min(1)
+  cantidad: number;
+}
+
 export class CrearVentaDto {
   @IsUUID()
   sesionCajaId: string;
@@ -70,7 +83,6 @@ export class CrearVentaDto {
   cajaId?: string;
 
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => ItemDetalleVentaDto)
   detalles: ItemDetalleVentaDto[];
@@ -80,6 +92,12 @@ export class CrearVentaDto {
   @ValidateNested({ each: true })
   @Type(() => ItemPagoVentaDto)
   pagos: ItemPagoVentaDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ItemComboVentaDto)
+  combos?: ItemComboVentaDto[];
 
   @IsOptional()
   @IsUUID()

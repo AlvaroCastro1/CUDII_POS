@@ -64,6 +64,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onSuccess,
 }) => {
   const cart = usePosStore((s) => s.cart);
+  const combos = usePosStore((s) => s.combos);
   const clearCart = usePosStore((s) => s.clearCart);
   const descuentoGeneral = usePosStore((s) => s.descuentoGeneral);
   const activeSession = usePosStore((s) => s.activeSession);
@@ -179,7 +180,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // Si un cupón aplicado deja de cumplir las condiciones (p. ej. montos mínimos),
   // se quita y se muestra una leyenda con la razón.
   const baseActiva =
-    cart.reduce((acc, item) => acc + item.cantidad * item.precioUnitario, 0) -
+    cart.reduce((acc, item) => acc + item.cantidad * item.precioUnitario, 0) +
+    combos.reduce((acc, c) => acc + c.cantidad * c.precioUnitario, 0) -
     (cart.reduce((acc, item) => acc + item.descuento, 0) + descuentoGeneral);
   useEffect(() => {
     if (!cuponAplicado) return;
@@ -208,7 +210,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   // ── Totales (el backend recalcula el descuento de lealtad de forma autoritativa) ──
   const subtotal = r2(
-    cart.reduce((acc, item) => acc + item.cantidad * item.precioUnitario, 0),
+    cart.reduce((acc, item) => acc + item.cantidad * item.precioUnitario, 0) +
+      combos.reduce((acc, c) => acc + c.cantidad * c.precioUnitario, 0),
   );
   const totalDescuentos = r2(
     cart.reduce((acc, item) => acc + item.descuento, 0) + descuentoGeneral,
@@ -433,6 +436,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           precioUnitario: item.precioUnitario,
           unidadMedida: item.unidadMedida,
           descuento: item.descuento || 0,
+        })),
+        combos: combos.map((c) => ({
+          comboId: c.comboId,
+          cantidad: c.cantidad,
         })),
         pagos,
         descuentoGeneral,

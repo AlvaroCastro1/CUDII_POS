@@ -42,7 +42,11 @@ interface VentaDetallePage {
     cantidad: number;
     unidadMedida: string;
     precioUnitario: number;
+    descuento: number;
     total: number;
+    comboId?: string | null;
+    nombreCombo?: string | null;
+    combo?: { id: string; nombre: string } | null;
   }>;
   pagos: Array<{
     id: string;
@@ -209,6 +213,9 @@ export default function VentaDetalleView() {
                   <th className="px-3 py-2 font-medium text-right">
                     P. unitario
                   </th>
+                  <th className="px-3 py-2 font-medium text-right">
+                    Desc.
+                  </th>
                   <th className="px-3 py-2 font-medium text-right rounded-tr-lg">
                     Total
                   </th>
@@ -217,12 +224,34 @@ export default function VentaDetalleView() {
               <tbody className="divide-y divide-outline/10">
                 {venta.detalles.map((d) => (
                   <tr key={d.id}>
-                    <td className="px-3 py-2">{d.nombreProducto}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col">
+                        <span>{d.nombreProducto}</span>
+                        {d.nombreCombo && (
+                          <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-semibold text-primary bg-primary/10 border border-primary/25 rounded-full px-2 py-0.5 w-fit">
+                            <span className="material-symbols-outlined !text-[12px]">
+                              redeem
+                            </span>
+                            Combo: {d.nombreCombo}
+                            {d.comboId ? ' (paquete)' : ''}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {d.cantidad} {d.unidadMedida}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       ${d.precioUnitario.toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {d.descuento > 0 ? (
+                        <span className="text-success font-medium">
+                          -${d.descuento.toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-on-surface-variant/40">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium">
                       ${d.total.toFixed(2)}

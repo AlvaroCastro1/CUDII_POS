@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import type { ComboConResumen } from '../types/pos';
 
 export interface CartItem {
   productoId: string;
@@ -22,6 +23,17 @@ export interface PresentacionCart {
   cantidadMinima: number;
 }
 
+/** D11: Combo/paquete agregado al ticket (el backend lo expande en líneas) */
+export interface CartCombo {
+  comboId: string;
+  nombre: string;
+  cantidad: number;
+  precioUnitario: number;
+  precioOriginal: number;
+  ahorro: number;
+  productos: { nombre: string; cantidad: number }[];
+}
+
 export interface SesionCajaState {
   id: string;
   cajaId: string;
@@ -41,8 +53,8 @@ export interface SesionCajaState {
 
 interface PosStoreState {
   cart: CartItem[];
+  combos: CartCombo[];
   activeSession: SesionCajaState | null;
-  selectedCajaId: string | null;
   descuentoGeneral: number;
   
   // Acciones
@@ -60,15 +72,18 @@ interface PosStoreState {
   clearCart: () => void;
   setDescuentoGeneral: (monto: number) => void;
   setActiveSession: (session: SesionCajaState | null) => void;
-  setSelectedCajaId: (cajaId: string | null) => void;
+  addCombo: (combo: Omit<CartCombo, 'cantidad'>, cantidad?: number) => void;
+  updateComboQuantity: (comboId: string, cantidad: number) => void;
+  removeCombo: (comboId: string) => void;
+  aplicarComboSugerido: (combo: ComboConResumen) => void;
 }
 
 export const usePosStore = create<PosStoreState>()(
   persist(
     (set, get) => ({
       cart: [],
+      combos: [],
       activeSession: null,
-      selectedCajaId: null,
       descuentoGeneral: 0,
 
       addToCart: (producto, cantidad = 1, presentacion) => {
@@ -143,7 +158,75 @@ export const usePosStore = create<PosStoreState>()(
       },
 
       clearCart: () => {
-        set({ cart: [], descuentoGeneral: 0 });
+        set({ cart: [], combos: [], descuentoGeneral: 0 });
+      },
+
+      addCombo: (combo, cantidad = 1) => {
+        const combosActuales = get().combos;
+        const existente = combosActuales.find((c) => c.comboId === combo.comboId);
+        if (existente) {
+          set({
+            combos: combosActuales.map((c) =>
+              c.comboId === combo.comboId
+                ? { ...c, cantidad: c.cantidad + cantidad }
+                : c,
+            ),
+          });
+        } else {
+          set({
+            combos: [...combosActuales, { ...combo, cantidad }],
+          });
+        }
+      },
+
+      updateComboQuantity: (comboId, cantidad) => {
+        if (cantidad <= 0) {
+          get().removeCombo(comboId);
+          return;
+        }
+        set({
+          combos: get().combos.map((c) =>
+            c.comboId === comboId ? { ...c, cantidad } : c,
+          ),
+        });
+      },
+
+      removeCombo: (comboId) => {
+        set({ combos: get().combos.filter((c) => c.comboId !== comboId) });
+      },
+
+      aplicarComboSugerido: (combo) => {
+        const aReducir = new Map(
+          combo.productos.map((p) => [p.productoId, p.cantidad]),
+        );
+        const cartFinal = get().cart.filter((item) => {
+          const pendiente = aReducir.get(item.productoId) ?? 0;
+          if (pendiente <= 0) return true;
+          const quitar = Math.min(pendiente, item.cantidad);
+          aReducir.set(item.productoId, pendiente - quitar);
+          return item.cantidad - quitar > 0;
+        });
+        const comboCart: CartCombo = {
+          comboId: combo.id,
+          nombre: combo.nombre,
+          cantidad: 1,
+          precioUnitario: combo.resumen.precioCombo,
+          precioOriginal: combo.resumen.precioOriginal,
+          ahorro: combo.resumen.ahorro,
+          productos: combo.productos.map((p) => ({
+            nombre: p.producto?.nombre ?? '',
+            cantidad: p.cantidad,
+          })),
+        };
+        const existe = get().combos.some((c) => c.comboId === combo.id);
+        set({
+          cart: cartFinal,
+          combos: existe
+            ? get().combos.map((c) =>
+                c.comboId === combo.id ? { ...c, cantidad: c.cantidad + 1 } : c,
+              )
+            : [...get().combos, comboCart],
+        });
       },
 
       setDescuentoGeneral: (monto) => {
@@ -152,10 +235,6 @@ export const usePosStore = create<PosStoreState>()(
 
       setActiveSession: (session) => {
         set({ activeSession: session });
-      },
-
-      setSelectedCajaId: (cajaId) => {
-        set({ selectedCajaId: cajaId });
       },
     }),
     {

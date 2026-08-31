@@ -2,7 +2,7 @@ const http = require('http');
 const BASE = 'http://localhost:3000';
 let TOKEN = '';
 
-const SESION = 'd1809383-19ef-434b-9ec9-e141a392e190';
+let SESION = 'd1809383-19ef-434b-9ec9-e141a392e190';
 
 const P = {
   panBimbo: 'cec97cd4-9dad-4d2e-9f41-0a9147a84627',
@@ -98,6 +98,25 @@ async function run() {
   assert('Token existe', !!(r.body && r.body.access_token));
   TOKEN = (r.body || {}).access_token;
   if (!TOKEN) { console.log('FATAL: No token'); return; }
+
+  // Asegurar una sesión de caja abierta para las ventas (el runner es idempotente:
+  // si un cierre de turno previo dejó la caja cerrada, se abre una nueva sesión).
+  const cur = await req('GET', '/cash-register/current');
+  if (cur.status === 200 && cur.body && cur.body.id) {
+    SESION = cur.body.id;
+    console.log('  \u2139\uFE0F Sesión de caja activa: ' + SESION);
+  } else {
+    const abierta = await req('POST', '/cash-register/open', { montoInicial: 500 });
+    if (abierta.status === 201 && abierta.body && abierta.body.id) {
+      SESION = abierta.body.id;
+      console.log('  \u2139\uFE0F Sesión de caja abierta: ' + SESION);
+    } else if (abierta.body && abierta.body.id) {
+      SESION = abierta.body.id;
+      console.log('  \u2139\uFE0F Reutilizada sesión de caja: ' + SESION);
+    } else {
+      console.log('  \u26A0\uFE0F No se pudo abrir sesión de caja (' + abierta.status + '); usando sesión fija ' + SESION);
+    }
+  }
 
   // ── 01 Venta 1 Producto ──
   console.log('\n[01] Venta 1 Producto');
@@ -322,6 +341,143 @@ async function run() {
     console.log('  \u2705 12.5 PanBimbo auto-create behavior');
   } else {
     assert('12.5 RECHAZAR PanBimbo x9999', r.status === 400 || r.status === 409 || r.status === 422, 'got ' + r.status);
+  }
+
+  // ── 13 Combos / Paquetes (D11) ──
+  console.log('\n[13] Combos / Paquetes (D11)');
+
+  const prodRes = await req('GET', '/products?limit=200');
+  const prodArr =
+    (prodRes.body && (prodRes.body.data || prodRes.body.datos)) ||
+    (Array.isArray(prodRes.body) ? prodRes.body : []);
+  const precioDe = function (id) {
+    const p = prodArr.find(function (x) { return x.id === id; });
+    return p ? p.precioVentaBase : NaN;
+  };
+  const precioPB = precioDe(P.panBimbo);
+  const precioCoca = precioDe(P.coca);
+  const originalCombo = Math.round((precioPB + precioCoca) * 100) / 100;
+  const round2 = function (n) { return Math.round(n * 100) / 100; };
+
+  let comboFijoId = '';
+  let comboPctId = '';
+
+  // 13.1 Crear combo MONTO_FIJO válido (debe generar ahorro real)
+  const valorFijo = Math.max(1, Math.floor(originalCombo / 2));
+  r = await req('POST', '/combos', {
+    nombre: 'TEST Combo Fijo',
+    descripcion: 'test e2e',
+    tipoPrecio: 'MONTO_FIJO',
+    valorPrecio: valorFijo,
+    productos: [
+      { productoId: P.panBimbo, cantidad: 1 },
+      { productoId: P.coca, cantidad: 1 },
+    ],
+  });
+  assert('13.1 Crear combo MONTO_FIJO', r.status === 201 && r.body.combo && r.body.combo.id, r.status + ' ' + r.raw);
+  if (r.status === 201) comboFijoId = r.body.combo.id;
+
+  let resumenFijo = { precioCombo: valorFijo, ahorro: originalCombo - valorFijo };
+  if (comboFijoId) {
+    const g = await req('GET', '/combos/' + comboFijoId);
+    if (g.status === 200 && g.body && g.body.resumen) {
+      resumenFijo = g.body.resumen;
+      assert('13.2 Combo fijo genera ahorro', resumenFijo.precioCombo < resumenFijo.precioOriginal, JSON.stringify(resumenFijo));
+    }
+  }
+
+  // 13.3 Crear combo DESCUENTO_PCT válido
+  r = await req('POST', '/combos', {
+    nombre: 'TEST Combo %',
+    tipoPrecio: 'DESCUENTO_PCT',
+    valorPrecio: 20,
+    productos: [
+      { productoId: P.panBimbo, cantidad: 1 },
+      { productoId: P.coca, cantidad: 1 },
+    ],
+  });
+  assert('13.3 Crear combo DESCUENTO_PCT', r.status === 201 && r.body.combo, r.status + ' ' + r.raw);
+  if (r.status === 201) comboPctId = r.body.combo.id;
+  const precioComboPct = round2(originalCombo * 0.8);
+
+  // 13.4 Rechazar combo sin productos
+  r = await req('POST', '/combos', {
+    nombre: 'TEST vacio',
+    tipoPrecio: 'MONTO_FIJO',
+    valorPrecio: 10,
+    productos: [],
+  });
+  assert('13.4 RECHAZAR combo sin productos', r.status === 400, r.status);
+
+  // 13.5 Rechazar combo con productos duplicados
+  r = await req('POST', '/combos', {
+    nombre: 'TEST duplicado',
+    tipoPrecio: 'MONTO_FIJO',
+    valorPrecio: 10,
+    productos: [
+      { productoId: P.coca, cantidad: 1 },
+      { productoId: P.coca, cantidad: 1 },
+    ],
+  });
+  assert('13.5 RECHAZAR producto duplicado', r.status === 400, r.status);
+
+  // 13.6 Rechazar MONTO_FIJO >= suma individual
+  r = await req('POST', '/combos', {
+    nombre: 'TEST caro',
+    tipoPrecio: 'MONTO_FIJO',
+    valorPrecio: originalCombo,
+    productos: [
+      { productoId: P.panBimbo, cantidad: 1 },
+      { productoId: P.coca, cantidad: 1 },
+    ],
+  });
+  assert('13.6 RECHAZAR sin ahorro real', r.status === 400, r.status);
+
+  // 13.7 Rechazar % > 90
+  r = await req('POST', '/combos', {
+    nombre: 'TEST % alto',
+    tipoPrecio: 'DESCUENTO_PCT',
+    valorPrecio: 95,
+    productos: [{ productoId: P.coca, cantidad: 1 }],
+  });
+  assert('13.7 RECHAZAR % > 90', r.status === 400, r.status);
+
+  // 13.8 Venta con solo combos (detalles vacíos) — el backend expande
+  r = await req('POST', '/sales', sale([], [card(resumenFijo.precioCombo)], {
+    combos: [{ comboId: comboFijoId, cantidad: 1 }],
+  }));
+  assert('13.8 Venta solo combo total OK', r.status === 201 && r.body.total === resumenFijo.precioCombo, r.status + ' expected ' + resumenFijo.precioCombo + ' raw ' + r.raw);
+  if (r.status === 201) {
+    const tieneCombo = (r.body.detalles || []).some(function (d) {
+      return d.comboId === comboFijoId && d.nombreCombo === 'TEST Combo Fijo';
+    });
+    assert('13.8b Detalle registra comboId/nombreCombo', tieneCombo);
+  }
+
+  // 13.9 Venta combinada: producto suelto + combo (coexisten)
+  r = await req('POST', '/sales', sale([item(P.panBimbo, 1, precioPB)], [card(round2(precioPB + resumenFijo.precioCombo))], {
+    combos: [{ comboId: comboFijoId, cantidad: 1 }],
+  }));
+  assert('13.9 Venta suelto + combo total OK', r.status === 201 && r.body.total === round2(precioPB + resumenFijo.precioCombo), r.status + ' raw ' + r.raw);
+
+  // 13.10 Venta combo % vigente con precio descontado
+  r = await req('POST', '/sales', sale([], [card(precioComboPct)], {
+    combos: [{ comboId: comboPctId, cantidad: 1 }],
+  }));
+  assert('13.10 Venta combo % total OK', r.status === 201 && r.body.total === precioComboPct, r.status + ' expected ' + precioComboPct + ' raw ' + r.raw);
+
+  // 13.11 Rechazar venta sin productos ni combos
+  r = await req('POST', '/sales', sale([], [card(0)]));
+  assert('13.11 RECHAZAR venta vacia (sin combos)', r.status === 400, r.status);
+
+  // 13.12 Desactivar (soft delete) y no poder venderlo
+  if (comboFijoId) {
+    r = await req('DELETE', '/combos/' + comboFijoId);
+    assert('13.12 Desactivar combo', r.status === 200 && r.body.activo === false, r.status);
+    r = await req('POST', '/sales', sale([], [card(resumenFijo.precioCombo)], {
+      combos: [{ comboId: comboFijoId, cantidad: 1 }],
+    }));
+    assert('13.12b RECHAZAR venta de combo desactivado', r.status === 400 || r.status === 404, r.status);
   }
 
   // ── Summary ──

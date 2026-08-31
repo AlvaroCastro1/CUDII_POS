@@ -22,6 +22,7 @@ import { CustomersModule } from './customers/customers.module';
 import { ReportsModule } from './reports/reports.module';
 import { CompaniesModule } from './companies/companies.module';
 import { CouponsModule } from './coupons/coupons.module';
+import { CombosModule } from './combos/combos.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { CouponsModule } from './coupons/coupons.module';
     ReportsModule,
     CompaniesModule,
     CouponsModule,
+    CombosModule,
   ],
   controllers: [AppController],
   providers: [

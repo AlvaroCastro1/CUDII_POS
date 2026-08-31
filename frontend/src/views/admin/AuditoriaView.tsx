@@ -46,6 +46,9 @@ const ACCIONES = [
   { valor: 'VENTA_COMPLETADA', etiqueta: 'Venta completada' },
   { valor: 'VENTA_CANCELADA', etiqueta: 'Venta cancelada' },
   { valor: 'DEVOLUCION_REGISTRADA', etiqueta: 'Devolución registrada' },
+  { valor: 'COMBO_CREADO', etiqueta: 'Combo creado' },
+  { valor: 'COMBO_ACTUALIZADO', etiqueta: 'Combo actualizado' },
+  { valor: 'COMBO_DESACTIVADO', etiqueta: 'Combo desactivado' },
 ];
 
 const SEVERIDADES = [
@@ -69,6 +72,9 @@ const ACCION_LABEL: Record<string, string> = {
   VENTA_COMPLETADA: 'Venta completada',
   VENTA_CANCELADA: 'Venta cancelada',
   DEVOLUCION_REGISTRADA: 'Devolución registrada',
+  COMBO_CREADO: 'Combo creado',
+  COMBO_ACTUALIZADO: 'Combo actualizado',
+  COMBO_DESACTIVADO: 'Combo desactivado',
 };
 
 // Campos relevantes por acción para resumir los detalles JSON
@@ -125,6 +131,31 @@ function resumirDetalles(accion: string, detalles: Record<string, unknown>): str
           : '',
         d.tipoResolucion ? `Resolución: ${d.tipoResolucion}` : '',
         d.ventaFolio ? `Venta: ${d.ventaFolio}` : '',
+      ]
+        .filter(Boolean)
+        .join(' • ');
+    case 'COMBO_CREADO':
+    case 'COMBO_ACTUALIZADO':
+    case 'COMBO_DESACTIVADO':
+      return [
+        d.nombre ? `Combo: ${d.nombre}` : '',
+        d.tipoPrecio === 'MONTO_FIJO'
+          ? `Precio: $${Number(d.valorPrecio ?? 0).toFixed(2)}`
+          : d.tipoPrecio === 'DESCUENTO_PCT'
+            ? `Descuento: ${Number(d.valorPrecio ?? 0)}%`
+            : '',
+        d.numeroProductos !== undefined
+          ? `Productos: ${d.numeroProductos}`
+          : '',
+        d.precioOriginal !== undefined && d.precioCombo !== undefined
+          ? `$${Number(d.precioCombo).toFixed(2)} (antes $${Number(d.precioOriginal).toFixed(2)})`
+          : '',
+        d.activo === true
+          ? 'Activo'
+          : d.activo === false
+            ? 'Inactivo'
+            : '',
+        d.cambiaProductos === true ? 'Cambió productos' : '',
       ]
         .filter(Boolean)
         .join(' • ');

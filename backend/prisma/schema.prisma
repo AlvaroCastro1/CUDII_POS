@@ -42,6 +42,7 @@ model Empresa {
   clientes       Cliente[]
   programaLealtad ProgramaLealtad?
   cupones        Cupon[]
+  combos         Combo[]
 }
 
 enum ModoCorteZ {
@@ -126,6 +127,7 @@ model Usuario {
   recepciones             RecepcionMercancia[]
   mermasRegistradas       Merma[]                @relation("mermasRegistradas")
   abonosCredito           AbonoCredito[]
+  combosCreados           Combo[]             @relation("combosCreados")
 
   @@index([empresaId])
 }
@@ -175,6 +177,7 @@ model Producto {
   lotes                Lote[]
   recepcionesDetalle   RecepcionDetalle[]
   mermas               Merma[]
+  combos               ComboProducto[]
 
   @@index([empresaId, estaActivo])
   @@index([empresaId, codigoBarras])
@@ -582,6 +585,11 @@ model DetalleVenta {
   productoId String
   producto   Producto @relation(fields: [productoId], references: [id])
 
+  // D11: marco del combo al que pertenece la línea (snapshot del nombre)
+  comboId      String?
+  combo        Combo?  @relation(fields: [comboId], references: [id])
+  nombreCombo  String?
+
   nombreProducto String // Snapshot del nombre al momento de venta
   unidadMedida   String // 'pieza', 'kilogramo', etc.
   cantidad       Float
@@ -598,6 +606,7 @@ model DetalleVenta {
 
   @@index([ventaId])
   @@index([productoId])
+  @@index([comboId])
 }
 
 model PagoVenta {
@@ -679,6 +688,52 @@ model CuponRedencion {
 
   @@index([cuponId])
   @@index([cuponId, clienteId])
+}
+
+// ---------------------------------------------------------
+// COMBOS Y PAQUETES (Promociones)
+// ---------------------------------------------------------
+
+enum TipoPrecioCombo {
+  MONTO_FIJO // Precio fijo del paquete ($)
+  DESCUENTO_PCT // Descuento % sobre la suma de precios individuales
+}
+
+model Combo {
+  id          String         @id @default(uuid())
+  empresaId   String
+  empresa     Empresa        @relation(fields: [empresaId], references: [id])
+  nombre      String
+  descripcion String?
+  tipoPrecio  TipoPrecioCombo @default(MONTO_FIJO)
+  valorPrecio Float // $ fijo del paquete (MONTO_FIJO) o % de descuento (DESCUENTO_PCT)
+
+  activo      Boolean @default(true)
+  fechaInicio DateTime?
+  fechaFin    DateTime?
+
+  creadoPorId String
+  creadoPor   Usuario @relation("combosCreados", fields: [creadoPorId], references: [id])
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  productos     ComboProducto[]
+  detallesVenta DetalleVenta[]
+
+  @@index([empresaId, activo])
+  @@index([empresaId, fechaInicio, fechaFin])
+}
+
+model ComboProducto {
+  id         String   @id @default(uuid())
+  comboId    String
+  combo      Combo    @relation(fields: [comboId], references: [id])
+  productoId String
+  producto   Producto @relation(fields: [productoId], references: [id])
+  cantidad   Float
+
+  @@unique([comboId, productoId])
 }
 
 // ---------------------------------------------------------

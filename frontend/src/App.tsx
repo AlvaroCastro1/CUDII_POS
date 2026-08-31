@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { useAuthStore } from './store/useAuthStore';
 import { useEffect } from 'react';
@@ -29,6 +29,7 @@ import ReportesView from './views/ReportesView';
 import VentaDetalleView from './views/admin/VentaDetalleView';
 import CajasView from './views/admin/CajasView';
 import CuponesView from './views/admin/CuponesView';
+import CombosView from './views/admin/CombosView';
 
 // Componente para proteger rutas privadas
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -85,6 +86,26 @@ function RequireRol({
   if (user.rol === 'SUPER_ADMIN') return <>{children}</>;
   if (roles.includes(user.rol)) return <>{children}</>;
   return <Navigate to="/" replace />;
+}
+
+// Pantalla 404 para rutas no encontradas (evita el error por defecto del router)
+function NotFoundView() {
+  const navigate = useNavigate();
+  return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[50vh] gap-4 text-center p-6">
+      <span className="material-symbols-outlined !text-6xl text-outline">search_off</span>
+      <h1 className="font-display-lg text-2xl font-bold text-primary">Página no encontrada</h1>
+      <p className="text-on-surface-variant max-w-sm">
+        La dirección que intentas abrir no existe o fue movida.
+      </p>
+      <button
+        onClick={() => navigate('/')}
+        className="mt-2 px-6 py-3 rounded-xl bg-primary text-on-primary font-semibold hover:scale-[1.02] active:scale-95 transition-all"
+      >
+        Ir al inicio
+      </button>
+    </div>
+  );
 }
 
 // Configuración de Rutas base
@@ -216,6 +237,14 @@ const router = createBrowserRouter([
               </RequireRol>
             ),
           },
+          {
+            path: 'combos',
+            element: (
+              <RequireRol roles={['ADMIN', 'GERENTE']}>
+                <CombosView />
+              </RequireRol>
+            ),
+          },
           { path: 'ventas/:id', element: <VentaDetalleView /> },
           {
             path: 'devoluciones',
@@ -242,6 +271,7 @@ const router = createBrowserRouter([
               </AdminRoute>
             ),
           },
+          { path: '*', element: <NotFoundView /> },
         ]
       }
     ]

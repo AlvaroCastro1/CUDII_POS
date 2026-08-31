@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { CreditCard, Trash2 } from 'lucide-react';
 import { usePosStore } from '../../store/usePosStore';
 
@@ -10,13 +10,15 @@ export const CartSummary = memo(function CartSummary({
   onCheckout,
 }: CartSummaryProps) {
   const cart = usePosStore((s) => s.cart);
+  const combos = usePosStore((s) => s.combos);
   const clearCart = usePosStore((s) => s.clearCart);
   const descuentoGeneral = usePosStore((s) => s.descuentoGeneral);
 
-  const subtotal = cart.reduce(
-    (acc, item) => acc + item.cantidad * item.precioUnitario,
-    0,
-  );
+  const subtotal =
+    cart.reduce(
+      (acc, item) => acc + item.cantidad * item.precioUnitario,
+      0,
+    ) + combos.reduce((acc, c) => acc + c.cantidad * c.precioUnitario, 0);
   const totalDescuentos =
     cart.reduce((acc, item) => acc + item.descuento, 0) + descuentoGeneral;
   const total = Math.max(0, subtotal - totalDescuentos);
@@ -49,10 +51,10 @@ export const CartSummary = memo(function CartSummary({
       </div>
 
       <button
-        disabled={cart.length === 0}
+        disabled={cart.length === 0 && combos.length === 0}
         onClick={onCheckout}
         className={`w-full h-16 rounded-2xl font-display-lg text-xl font-bold flex items-center justify-center gap-3 hover:scale-[1.01] active:scale-95 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] ${
-          cart.length === 0
+          cart.length === 0 && combos.length === 0
             ? 'bg-surface-container-high text-outline cursor-not-allowed'
             : 'bg-primary text-on-primary shadow-lg'
         }`}
@@ -61,7 +63,7 @@ export const CartSummary = memo(function CartSummary({
         <span>COBRAR</span>
       </button>
 
-      {cart.length > 0 && (
+      {cart.length > 0 || combos.length > 0 ? (
         <div className="flex justify-end pt-1">
           <button
             onClick={clearCart}
@@ -71,7 +73,7 @@ export const CartSummary = memo(function CartSummary({
             <span>Vaciar Carrito</span>
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 });

@@ -7,10 +7,14 @@ import {
   User,
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { toast } from 'sonner';
 import { usePosStore } from '../store/usePosStore';
 import { ProductSearch } from '../components/pos/ProductSearch';
 import { ProductGrid } from '../components/pos/ProductGrid';
+import { ComboCard } from '../components/pos/ComboCard';
+import { ComboDetalleModal } from '../components/pos/ComboDetalleModal';
 import { CartItem } from '../components/pos/CartItem';
+import { CartComboItem } from '../components/pos/CartComboItem';
 import { CartSummary } from '../components/pos/CartSummary';
 import { CheckoutModal } from '../components/pos/CheckoutModal';
 import { VoucherModal } from '../components/pos/VoucherModal';
@@ -20,12 +24,15 @@ import { CashWithdrawalModal } from '../components/pos/CashWithdrawalModal';
 import { CantidadProductoModal } from '../components/pos/CantidadProductoModal';
 import type { PresentacionSeleccion } from '../components/pos/CantidadProductoModal';
 import { useNavigate } from 'react-router-dom';
-import type { Producto, Venta } from '../types/pos';
+import type { Producto, Venta, ComboConResumen } from '../types/pos';
 
 export const PosView: React.FC = () => {
   const navigate = useNavigate();
   const cart = usePosStore((s) => s.cart);
+  const combosEnTicket = usePosStore((s) => s.combos);
   const addToCart = usePosStore((s) => s.addToCart);
+  const addCombo = usePosStore((s) => s.addCombo);
+  const aplicarComboSugerido = usePosStore((s) => s.aplicarComboSugerido);
   const activeSession = usePosStore((s) => s.activeSession);
   const setActiveSession = usePosStore((s) => s.setActiveSession);
 
@@ -38,6 +45,52 @@ export const PosView: React.FC = () => {
   const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [cantidadProducto, setCantidadProducto] = useState<Producto | null>(null);
+
+  // D11: catálogo de combos vigentes para la tarjeta POS
+  const [combosDisponibles, setCombosDisponibles] = useState<ComboConResumen[]>([]);
+  const [comboSeleccionado, setComboSeleccionado] = useState<ComboConResumen | null>(null);
+
+  // D11: cargar combos vigentes de la empresa
+  useEffect(() => {
+    let vigente = true;
+    api
+      .get('/combos', { params: { soloVigentes: 'true', limit: 24 } })
+      .then((res) => {
+        if (vigente) {
+          setCombosDisponibles(
+            Array.isArray(res.data?.data) ? res.data.data : [],
+          );
+        }
+      })
+      .catch((err) => console.error('Error al cargar combos en POS:', err));
+    return () => {
+      vigente = false;
+    };
+  }, [refreshKey]);
+
+  // D11: auto-aplicación de combos. Si los productos sueltos del carrito cubren
+  // por completo el contenido de un combo vigente (y aún no está en el ticket),
+  // se aplica automáticamente reemplazando esas líneas por el paquete.
+  useEffect(() => {
+    if (combosDisponibles.length === 0 || cart.length === 0) return;
+    const mapa = new Map<string, number>();
+    for (const item of cart) {
+      mapa.set(item.productoId, (mapa.get(item.productoId) ?? 0) + item.cantidad);
+    }
+    const yaAplicado = new Set(combosEnTicket.map((c) => c.comboId));
+    const cubiertos = combosDisponibles
+      .filter((c) => !yaAplicado.has(c.id))
+      .filter((c) =>
+        c.productos.every((p) => (mapa.get(p.productoId) ?? 0) >= p.cantidad),
+      )
+      .sort((a, b) => b.resumen.ahorro - a.resumen.ahorro);
+    const mejor = cubiertos[0];
+    if (!mejor) return;
+    aplicarComboSugerido(mejor);
+    toast.success(
+      `Combo "${mejor.nombre}" aplicado · Ahorras $${mejor.resumen.ahorro.toFixed(2)}`,
+    );
+  }, [cart, combosEnTicket, combosDisponibles, aplicarComboSugerido]);
 
   // Verificar sesión de caja activa al entrar a la POS
   useEffect(() => {
@@ -83,6 +136,28 @@ export const PosView: React.FC = () => {
     [addToCart],
   );
 
+  /** Agrega un combo del catálogo al ticket actual con la cantidad indicada */
+  const handleAddCombo = useCallback(
+    (combo: ComboConResumen, cantidad: number) => {
+      addCombo(
+        {
+          comboId: combo.id,
+          nombre: combo.nombre,
+          precioUnitario: combo.resumen.precioCombo,
+          precioOriginal: combo.resumen.precioOriginal,
+          ahorro: combo.resumen.ahorro,
+          productos: combo.productos.map((p) => ({
+            nombre: p.producto?.nombre ?? '',
+            cantidad: p.cantidad,
+          })),
+        },
+        cantidad,
+      );
+      setComboSeleccionado(null);
+    },
+    [addCombo],
+  );
+
   const handleSaleSuccess = useCallback((venta: Venta) => {
     setIsOpenCheckout(false);
     setCompletedSale(venta);
@@ -90,6 +165,10 @@ export const PosView: React.FC = () => {
   }, []);
 
   const handleCheckout = useCallback(() => setIsOpenCheckout(true), []);
+
+  const totalArticulos =
+    cart.length +
+    combosEnTicket.reduce((acc, c) => acc + c.cantidad, 0);
 
   if (isLoadingSession) {
     return (
@@ -157,8 +236,30 @@ export const PosView: React.FC = () => {
             onSelectCategory={setSelectedCategoriaId}
             refreshKey={refreshKey}
           />
-          {/* Único Scrollbar Maestro para la variedad de productos */}
+          {/* Único Scrollbar Maestro para la variedad de productos + combos */}
           <div className="flex-1 overflow-y-auto min-h-0 pr-2 custom-scrollbar">
+            {combosDisponibles.length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between px-1 mb-2">
+                  <h2 className="font-headline-md text-sm text-primary font-bold flex items-center gap-1.5">
+                    <span className="material-symbols-outlined !text-base shrink-0">redeem</span>
+                    Combos y Paquetes
+                  </h2>
+                  <span className="text-[10px] text-outline font-label-sm">
+                    {combosDisponibles.length} disponibles
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                  {combosDisponibles.map((combo) => (
+                    <ComboCard
+                      key={combo.id}
+                      combo={combo}
+                      onSelect={setComboSeleccionado}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
             <ProductGrid
               onSelectProduct={handleSelectProduct}
               selectedCategoriaId={selectedCategoriaId}
@@ -177,7 +278,7 @@ export const PosView: React.FC = () => {
                   Ticket Actual
                 </h2>
                 <span className="font-label-sm px-3 py-1 bg-surface-container-high rounded-full text-outline text-xs">
-                  {cart.length} artículos
+                  {totalArticulos} artículos
                 </span>
               </div>
               <div className="flex items-center gap-2 text-outline text-xs">
@@ -188,7 +289,7 @@ export const PosView: React.FC = () => {
 
             {/* Ítems del Carrito (Scroll limpio sin barra estática innecesaria) */}
             <div className="flex-1 overflow-y-auto p-6 space-y-3 min-h-0 scrollbar-none">
-              {cart.length === 0 ? (
+              {cart.length === 0 && combosEnTicket.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-outline text-center space-y-2 py-12">
                   <ShoppingBag className="w-12 h-12 stroke-[1.2] opacity-40" />
                   <p className="text-sm font-medium">El carrito está vacío</p>
@@ -197,7 +298,14 @@ export const PosView: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                cart.map((item) => <CartItem key={item.productoId} item={item} />)
+                <>
+                  {combosEnTicket.map((combo) => (
+                    <CartComboItem key={combo.comboId} item={combo} />
+                  ))}
+                  {cart.map((item) => (
+                    <CartItem key={item.productoId} item={item} />
+                  ))}
+                </>
               )}
             </div>
 
@@ -245,6 +353,12 @@ export const PosView: React.FC = () => {
         producto={cantidadProducto}
         onClose={() => setCantidadProducto(null)}
         onConfirm={handleConfirmCantidad}
+      />
+
+      <ComboDetalleModal
+        combo={comboSeleccionado}
+        onClose={() => setComboSeleccionado(null)}
+        onAdd={handleAddCombo}
       />
     </div>
   );

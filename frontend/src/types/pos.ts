@@ -105,6 +105,43 @@ export interface Venta {
   metodoPago?: string;
 }
 
+/** D11: Promociones y combos */
+
+export type TipoPrecioCombo = 'MONTO_FIJO' | 'DESCUENTO_PCT';
+
+export interface ComboProducto {
+  id: string;
+  productoId: string;
+  cantidad: number;
+  producto?: {
+    id: string;
+    nombre: string;
+    precioVentaBase: number;
+  } | null;
+}
+
+export interface Combo {
+  id: string;
+  nombre: string;
+  descripcion?: string | null;
+  tipoPrecio: TipoPrecioCombo;
+  valorPrecio: number;
+  activo: boolean;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
+  productos: ComboProducto[];
+}
+
+export interface ResumenCombo {
+  precioOriginal: number;
+  precioCombo: number;
+  ahorro: number;
+}
+
+export type ComboConResumen = Combo & {
+  resumen: ResumenCombo;
+};
+
 export type TipoResolucionDevolucion =
   | 'reembolso_efectivo'
   | 'cambio_fisico'
