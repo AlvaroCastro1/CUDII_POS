@@ -8,6 +8,8 @@ interface ProductSearchProps {
   selectedCategoriaId?: string | null;
   onSelectCategory?: (categoriaId: string | null) => void;
   refreshKey?: number;
+  /** Ref que permite desde el POS enfocar la búsqueda con atajos (ej. Ctrl+F). */
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 const getUnitIcon = (unidadMedida?: string | null) => {
@@ -31,6 +33,7 @@ export const ProductSearch = memo(function ProductSearch({
   onSelectProduct,
   selectedCategoriaId = null,
   onSelectCategory,
+  searchInputRef,
 }: ProductSearchProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<Producto[]>([]);
@@ -38,6 +41,15 @@ export const ProductSearch = memo(function ProductSearch({
   const [isOpenDropdown, setIsOpenDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Si el padre provee una ref externa (para atajos de teclado como Ctrl+F),
+  // se usa como fuente de verdad del foco; en caso contrario la interna.
+  const refCombinada = (node: HTMLInputElement | null) => {
+    inputRef.current = node;
+    if (searchInputRef && 'current' in searchInputRef) {
+      searchInputRef.current = node;
+    }
+  };
 
   // Cargar Categorías
   useEffect(() => {
@@ -117,7 +129,7 @@ export const ProductSearch = memo(function ProductSearch({
       <div className="relative flex items-center w-full group">
         <Search className="absolute left-4 w-4 h-4 text-outline group-focus-within:text-primary transition-colors pointer-events-none" />
         <input
-          ref={inputRef}
+          ref={refCombinada}
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}

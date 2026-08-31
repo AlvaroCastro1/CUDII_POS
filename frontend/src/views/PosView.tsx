@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Lock,
   MinusCircle,
@@ -35,6 +35,10 @@ export const PosView: React.FC = () => {
   const aplicarComboSugerido = usePosStore((s) => s.aplicarComboSugerido);
   const activeSession = usePosStore((s) => s.activeSession);
   const setActiveSession = usePosStore((s) => s.setActiveSession);
+  const quitarUltimaLinea = usePosStore((s) => s.quitarUltimaLinea);
+
+  // Ref del buscador de productos, expuesta para atajos de teclado (Ctrl+F).
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const [selectedCategoriaId, setSelectedCategoriaId] = useState<string | null>(null);
   const [isOpenCheckout, setIsOpenCheckout] = useState(false);
@@ -166,6 +170,96 @@ export const PosView: React.FC = () => {
 
   const handleCheckout = useCallback(() => setIsOpenCheckout(true), []);
 
+  // Atajos de teclado del POS para mejorar la velocidad del cajero:
+  // - Ctrl+F  → enfocar el buscador de productos.
+  // - Supr/Retroceso → quitar la última línea agregada al ticket.
+  // - Ctrl+Enter (o Enter sin foco en un input) → abrir el cobro si hay ticket.
+  useEffect(() => {
+    const esEditable = (el: EventTarget | null) => {
+      const target = el as HTMLElement | null;
+      if (!target) return false;
+      const tag = target.tagName;
+      return (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        target.isContentEditable
+      );
+    };
+
+    const hayModalAbierto =
+      isOpenCheckout ||
+      isOpenOpenRegister ||
+      isOpenCloseRegister ||
+      isOpenWithdrawal ||
+      cantidadProducto !== null ||
+      comboSeleccionado !== null;
+
+    const handler = (e: KeyboardEvent) => {
+      // Ctrl+F: enfocar la búsqueda y seleccionar el texto actual.
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        const input = searchInputRef.current;
+        if (input) {
+          input.focus();
+          input.select();
+        }
+        return;
+      }
+
+      if (hayModalAbierto) return;
+
+      // No interceptar teclas mientras se escribe en un campo editable.
+      if (esEditable(e.target)) return;
+
+      // Supr / Retroceso: quitar la última línea del ticket (ventaja: sin mouse).
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        quitarUltimaLinea();
+        return;
+      }
+
+      // Ctrl+Enter o Enter: abrir el cobro si el ticket no está vacío.
+      const esCtrlEnter =
+        e.ctrlKey && (e.key === 'Enter' || e.code === 'NumpadEnter');
+      const esEnterPlan =
+        (e.key === 'Enter' || e.code === 'NumpadEnter') && !e.ctrlKey && !e.altKey;
+
+      if (esCtrlEnter || esEnterPlan) {
+        const tieneTicket = cart.length > 0 || combosEnTicket.length > 0;
+        if (!tieneTicket) return;
+
+        // Para Enter "plano" solo se intercepta cuando el foco no está sobre un
+        // elemento interactivo (botón, enlace...), así no se duplica su acción
+        // (p. ej. un botón de categoría enfocado). Ctrl+Enter siempre aplica.
+        if (esEnterPlan) {
+          const el = document.activeElement as HTMLElement | null;
+          if (el && el !== document.body && el.tagName !== 'BODY') {
+            const tag = el.tagName;
+            if (tag === 'BUTTON' || tag === 'A' || tag === 'LABEL') return;
+            if (el.closest('button, a[href]')) return;
+          }
+        }
+
+        e.preventDefault();
+        setIsOpenCheckout(true);
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [
+    isOpenCheckout,
+    isOpenOpenRegister,
+    isOpenCloseRegister,
+    isOpenWithdrawal,
+    cantidadProducto,
+    comboSeleccionado,
+    cart.length,
+    combosEnTicket.length,
+    quitarUltimaLinea,
+  ]);
+
   const totalArticulos =
     cart.length +
     combosEnTicket.reduce((acc, c) => acc + c.cantidad, 0);
@@ -235,6 +329,7 @@ export const PosView: React.FC = () => {
             selectedCategoriaId={selectedCategoriaId}
             onSelectCategory={setSelectedCategoriaId}
             refreshKey={refreshKey}
+            searchInputRef={searchInputRef}
           />
           {/* Único Scrollbar Maestro para la variedad de productos + combos */}
           <div className="flex-1 overflow-y-auto min-h-0 pr-2 custom-scrollbar">

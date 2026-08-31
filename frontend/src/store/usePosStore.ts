@@ -51,12 +51,17 @@ export interface SesionCajaState {
   };
 }
 
+/** Clave estable de una línea del ticket (producto o combo) para rastrear su orden. */
+export type ClaveLinea = `p:${string}:${string}` | `c:${string}`;
+
 interface PosStoreState {
   cart: CartItem[];
   combos: CartCombo[];
   activeSession: SesionCajaState | null;
   descuentoGeneral: number;
-  
+  /** Orden de adición de las líneas (producto/combo) para atajos tipo "quitar último". */
+  ordenAdicion: ClaveLinea[];
+
   // Acciones
   addToCart: (producto: {
     id: string;
@@ -70,6 +75,8 @@ interface PosStoreState {
   updateQuantity: (productoId: string, cantidad: number, presentacionId?: string) => void;
   removeFromCart: (productoId: string, presentacionId?: string) => void;
   clearCart: () => void;
+  /** Elimina la línea agregada por último (producto o combo). Devuelve true si eliminó algo. */
+  quitarUltimaLinea: () => boolean;
   setDescuentoGeneral: (monto: number) => void;
   setActiveSession: (session: SesionCajaState | null) => void;
   addCombo: (combo: Omit<CartCombo, 'cantidad'>, cantidad?: number) => void;
@@ -85,6 +92,7 @@ export const usePosStore = create<PosStoreState>()(
       combos: [],
       activeSession: null,
       descuentoGeneral: 0,
+      ordenAdicion: [],
 
       addToCart: (producto, cantidad = 1, presentacion) => {
         const currentCart = get().cart;
@@ -109,6 +117,7 @@ export const usePosStore = create<PosStoreState>()(
           };
           set({ cart: updatedCart });
         } else {
+          const clave: ClaveLinea = `p:${producto.id}:${presentacionId || ''}`;
           set({
             cart: [
               ...currentCart,
@@ -126,6 +135,7 @@ export const usePosStore = create<PosStoreState>()(
                 presentacionNombre: presentacion?.nombre,
               },
             ],
+            ordenAdicion: [...get().ordenAdicion, clave],
           });
         }
       },
@@ -158,7 +168,7 @@ export const usePosStore = create<PosStoreState>()(
       },
 
       clearCart: () => {
-        set({ cart: [], combos: [], descuentoGeneral: 0 });
+        set({ cart: [], combos: [], descuentoGeneral: 0, ordenAdicion: [] });
       },
 
       addCombo: (combo, cantidad = 1) => {
@@ -175,6 +185,10 @@ export const usePosStore = create<PosStoreState>()(
         } else {
           set({
             combos: [...combosActuales, { ...combo, cantidad }],
+            ordenAdicion: [
+              ...get().ordenAdicion,
+              `c:${combo.comboId}` as ClaveLinea,
+            ],
           });
         }
       },
@@ -193,6 +207,50 @@ export const usePosStore = create<PosStoreState>()(
 
       removeCombo: (comboId) => {
         set({ combos: get().combos.filter((c) => c.comboId !== comboId) });
+      },
+
+      /** Quita la línea agregada por último (producto o combo). Devuelve true si eliminó algo. */
+      quitarUltimaLinea: () => {
+        const orden = get().ordenAdicion;
+        if (orden.length === 0) return false;
+
+        // Buscar la última clave cuya línea todavía exista en el ticket.
+        const cart = get().cart;
+        const combos = get().combos;
+        for (let i = orden.length - 1; i >= 0; i--) {
+          const clave = orden[i];
+          if (clave.startsWith('p:')) {
+            const [_, productoId, presentacionId] = clave.split(':');
+            const existe = cart.some(
+              (item) =>
+                item.productoId === productoId &&
+                (item.presentacionId || '') === (presentacionId || ''),
+            );
+            if (existe) {
+              set({
+                cart: cart.filter(
+                  (item) =>
+                    !(
+                      item.productoId === productoId &&
+                      (item.presentacionId || '') === (presentacionId || '')
+                    ),
+                ),
+                ordenAdicion: orden.filter((_, idx) => idx !== i),
+              });
+              return true;
+            }
+          } else {
+            const comboId = clave.slice(2);
+            if (combos.some((c) => c.comboId === comboId)) {
+              set({
+                combos: combos.filter((c) => c.comboId !== comboId),
+                ordenAdicion: orden.filter((_, idx) => idx !== i),
+              });
+              return true;
+            }
+          }
+        }
+        return false;
       },
 
       aplicarComboSugerido: (combo) => {
@@ -226,6 +284,9 @@ export const usePosStore = create<PosStoreState>()(
                 c.comboId === combo.id ? { ...c, cantidad: c.cantidad + 1 } : c,
               )
             : [...get().combos, comboCart],
+          ordenAdicion: existe
+            ? get().ordenAdicion
+            : [...get().ordenAdicion, `c:${combo.id}` as ClaveLinea],
         });
       },
 

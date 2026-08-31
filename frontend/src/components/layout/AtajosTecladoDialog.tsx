@@ -29,6 +29,16 @@ const GRUPOS: { titulo: string; atajos: Atajo[] }[] = [
       { teclas: ['Esc'], descripcion: 'Cerrar el buscador' },
     ],
   },
+  {
+    titulo: 'Terminal POS',
+    atajos: [
+      { teclas: ['Ctrl', 'F'], descripcion: 'Enfocar el buscador de productos' },
+      { teclas: ['Enter'], descripcion: 'Confirmar la cantidad del producto' },
+      { teclas: ['Supr'], descripcion: 'Quitar la última línea del ticket' },
+      { teclas: ['Ctrl', 'Enter'], descripcion: 'Abrir el cobro (COBRAR)' },
+      { teclas: ['Enter'], descripcion: 'Abrir el cobro si el foco está fuera de un campo' },
+    ],
+  },
 ];
 
 export function Tecla({ children }: { children: React.ReactNode }) {

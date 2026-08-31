@@ -205,6 +205,13 @@ export const CantidadProductoModal: React.FC<CantidadProductoModalProps> = ({
               autoFocus
               value={cantidad}
               onChange={(e) => setCantidad(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter confirma y agrega el producto al ticket sin usar el mouse.
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleConfirm();
+                }
+              }}
               className={`w-full px-4 py-2.5 bg-surface-container-low border rounded-xl text-primary font-bold text-xl focus:outline-none focus:ring-2 font-mono ${
                 errorCantidad
                   ? 'border-error focus:ring-error'
