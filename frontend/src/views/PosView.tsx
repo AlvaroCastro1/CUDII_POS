@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Lock,
   MinusCircle,
   RotateCcw,
   ShoppingBag,
   User,
+  Gift,
+  ChevronDown,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
@@ -36,6 +38,7 @@ export const PosView: React.FC = () => {
   const activeSession = usePosStore((s) => s.activeSession);
   const setActiveSession = usePosStore((s) => s.setActiveSession);
   const quitarUltimaLinea = usePosStore((s) => s.quitarUltimaLinea);
+  const presupuestoActivoId = usePosStore((s) => s.presupuestoActivoId);
 
   // Ref del buscador de productos, expuesta para atajos de teclado (Ctrl+F).
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -53,6 +56,32 @@ export const PosView: React.FC = () => {
   // D11: catálogo de combos vigentes para la tarjeta POS
   const [combosDisponibles, setCombosDisponibles] = useState<ComboConResumen[]>([]);
   const [comboSeleccionado, setComboSeleccionado] = useState<ComboConResumen | null>(null);
+
+  // D12: define qué grupos de combo (cargados de un presupuesto) están expandidos.
+  const [gruposExpandidos, setGruposExpandidos] = useState<Record<string, boolean>>({});
+
+  // D12: agrupa las líneas del carrito que provienen de los productos de un combo
+  // del presupuesto, para mostrarlas como un grupo expandible (cabecera + productos).
+  const comboGrupos = useMemo(() => {
+    const grupos = new Map<string, typeof cart>();
+    for (const item of cart) {
+      if (!item.comboId) continue;
+      const lista = grupos.get(item.comboId) ?? [];
+      lista.push(item);
+      grupos.set(item.comboId, lista);
+    }
+    return Array.from(grupos.entries()).map(([comboId, lineas]) => ({
+      comboId,
+      nombreCombo: lineas[0].nombreCombo ?? 'Combo',
+      lineas,
+    }));
+  }, [cart]);
+
+  // Líneas sueltas (productos sin combo) del carrito.
+  const lineasSueltas = useMemo(
+    () => cart.filter((item) => !item.comboId),
+    [cart],
+  );
 
   // D11: cargar combos vigentes de la empresa
   useEffect(() => {
@@ -76,7 +105,10 @@ export const PosView: React.FC = () => {
   // por completo el contenido de un combo vigente (y aún no está en el ticket),
   // se aplica automáticamente reemplazando esas líneas por el paquete.
   useEffect(() => {
-    if (combosDisponibles.length === 0 || cart.length === 0) return;
+    // D12: si el ticket vino de un presupuesto, NO auto-aplicar combos: las
+    // líneas congeladas ya están en el carrito y re-aplicar el paquete duplicaría
+    // el cargo. El usuario decide qué ajustar manualmente.
+    if (presupuestoActivoId || combosDisponibles.length === 0 || cart.length === 0) return;
     const mapa = new Map<string, number>();
     for (const item of cart) {
       mapa.set(item.productoId, (mapa.get(item.productoId) ?? 0) + item.cantidad);
@@ -94,7 +126,7 @@ export const PosView: React.FC = () => {
     toast.success(
       `Combo "${mejor.nombre}" aplicado · Ahorras $${mejor.resumen.ahorro.toFixed(2)}`,
     );
-  }, [cart, combosEnTicket, combosDisponibles, aplicarComboSugerido]);
+  }, [cart, combosEnTicket, combosDisponibles, aplicarComboSugerido, presupuestoActivoId]);
 
   // Verificar sesión de caja activa al entrar a la POS
   useEffect(() => {
@@ -397,7 +429,71 @@ export const PosView: React.FC = () => {
                   {combosEnTicket.map((combo) => (
                     <CartComboItem key={combo.comboId} item={combo} />
                   ))}
-                  {cart.map((item) => (
+
+                  {/* D12: grupos de combo cargados desde un presupuesto (expandibles) */}
+                  {comboGrupos.map((grupo) => {
+                    const expandido = gruposExpandidos[grupo.comboId] ?? true;
+                    const subtotalGrupo = grupo.lineas.reduce(
+                      (acc, l) =>
+                        acc + (l.cantidad * l.precioUnitario - (l.descuento || 0)),
+                      0,
+                    );
+                    return (
+                      <div
+                        key={grupo.comboId}
+                        className="flex flex-col rounded-2xl bg-primary/10 border border-primary/30 overflow-hidden group"
+                      >
+                        <button
+                          onClick={() =>
+                            setGruposExpandidos((prev) => ({
+                              ...prev,
+                              [grupo.comboId]: !expandido,
+                            }))
+                          }
+                          className="flex items-center justify-between gap-2 p-3 text-left hover:bg-primary/15 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-6 h-6 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
+                              <Gift className="w-3.5 h-3.5 text-primary" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-primary font-body-md text-sm font-semibold truncate">
+                                {grupo.nombreCombo}
+                              </p>
+                              <p className="text-[10px] text-outline font-label-sm">
+                                {grupo.lineas.length} producto
+                                {grupo.lineas.length !== 1 ? 's' : ''} · desde
+                                presupuesto
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-mono font-bold text-primary text-sm">
+                              ${subtotalGrupo.toFixed(2)}
+                            </span>
+                            <ChevronDown
+                              className={`w-4 h-4 text-primary transition-transform ${
+                                expandido ? '' : '-rotate-90'
+                              }`}
+                            />
+                          </div>
+                        </button>
+                        {expandido && (
+                          <div className="px-2 pb-2 space-y-2">
+                            {grupo.lineas.map((linea) => (
+                              <CartItem
+                                key={`${grupo.comboId}-${linea.productoId}`}
+                                item={linea}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Líneas sueltas del carrito */}
+                  {lineasSueltas.map((item) => (
                     <CartItem key={item.productoId} item={item} />
                   ))}
                 </>

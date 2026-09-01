@@ -17,6 +17,12 @@ export interface CartItem {
   /** D12: línea cargada desde un presupuesto con combo (snapshot del nombre). */
   comboId?: string;
   nombreCombo?: string;
+  /** D12: precio congelado al crear el presupuesto (solo en líneas cargadas de uno). */
+  precioCongelado?: number;
+  /** D12: precio vigente del catálogo al cargar el presupuesto (solo líneas cargadas). */
+  precioActual?: number;
+  /** D12: si el cargo usa el precio congelado (Empresa.conservarPrecioPresupuesto). */
+  conservarPrecio?: boolean;
 }
 
 export interface PresentacionCart {

@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Minus, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Minus, Plus, Trash2, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import { usePosStore, type CartItem as CartItemType } from '../../store/usePosStore';
 
 interface CartItemProps {
@@ -13,6 +13,16 @@ export const CartItem = memo(function CartItem({ item }: CartItemProps) {
   const isStockExceeded = item.cantidad > item.stockDisponible;
   const unidad = (item.unidadMedida || 'pieza').toLowerCase();
   const step = item.esGranel ? 0.001 : 1;
+  const esLineaCombo = Boolean(item.comboId);
+
+  // D12: indica si el precio congelado del presupuesto difiere del precio vigente.
+  const hayCambioPrecio =
+    item.precioCongelado !== undefined &&
+    item.precioActual !== undefined &&
+    item.precioCongelado !== item.precioActual;
+  const precioCobrado = item.conservarPrecio
+    ? item.precioCongelado
+    : item.precioActual;
 
   const handleQtyInput = (value: string) => {
     const num = parseFloat(value);
@@ -54,6 +64,10 @@ export const CartItem = memo(function CartItem({ item }: CartItemProps) {
                   (${item.precioUnitario.toFixed(2)} {unidad})
                 </span>
               </>
+            ) : esLineaCombo ? (
+              <span className="text-outline text-[10px] font-label-sm">
+                {item.cantidad} × ${item.precioUnitario.toFixed(2)}
+              </span>
             ) : (
               <>
                 <button
@@ -99,6 +113,16 @@ export const CartItem = memo(function CartItem({ item }: CartItemProps) {
         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-warning/10 border border-warning/30 rounded-lg text-warning text-xs font-label-sm">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
           <span>Stock insuficiente ({item.stockDisponible}). Se registrará negativo.</span>
+        </div>
+      )}
+
+      {hayCambioPrecio && (
+        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-warning/10 border border-warning/30 rounded-lg text-warning text-[11px] font-label-sm">
+          <ArrowLeftRight className="w-3.5 h-3.5 shrink-0" />
+          <span>
+            Cotizado ${item.precioCongelado?.toFixed(2)} → precio actual $
+            {item.precioActual?.toFixed(2)} · se cobra ${precioCobrado?.toFixed(2)}
+          </span>
         </div>
       )}
     </div>

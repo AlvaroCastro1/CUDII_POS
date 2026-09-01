@@ -50,6 +50,8 @@ interface ConfiguracionEmpresa {
   stockMaximoGlobal: number;
   /** D12: al vender un presupuesto, conservar el precio congelado a la fecha de creación. */
   conservarPrecioPresupuesto?: boolean;
+  /** D12: días que un presupuesto conserva su precio antes de vencerse (0 = sin vencimiento). */
+  diasExpiracionPresupuesto?: number;
   programaLealtad?: ProgramaLealtadUI | null;
 }
 
@@ -228,6 +230,8 @@ export default function ConfiguracionView() {
   const [stockMaximoGlobal, setStockMaximoGlobal] = useState<number>(100);
   // D12: al vender un presupuesto, conservar el precio congelado de la cotización.
   const [conservarPrecioPresupuesto, setConservarPrecioPresupuesto] = useState<boolean>(true);
+  // D12: días que un presupuesto conserva su precio antes de vencerse (0 = sin vencimiento).
+  const [diasExpiracionPresupuesto, setDiasExpiracionPresupuesto] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isGuardandoYSalir, setIsGuardandoYSalir] = useState(false);
@@ -250,6 +254,7 @@ export default function ConfiguracionView() {
         setStockMinimoGlobal(res.data.stockMinimoGlobal ?? 5);
         setStockMaximoGlobal(res.data.stockMaximoGlobal ?? 100);
         setConservarPrecioPresupuesto(res.data.conservarPrecioPresupuesto ?? true);
+        setDiasExpiracionPresupuesto(res.data.diasExpiracionPresupuesto ?? 0);
         const programa = res.data.programaLealtad ?? PROGRAMA_LEALTAD_DEFAULT;
         setLealtad(programa);
         setLealtadOriginal(programa);
@@ -296,7 +301,8 @@ export default function ConfiguracionView() {
       umbralFaltanteCritico !== configuracion?.umbralFaltanteCritico ||
       stockMinimoGlobal !== configuracion?.stockMinimoGlobal ||
       stockMaximoGlobal !== configuracion?.stockMaximoGlobal ||
-      conservarPrecioPresupuesto !== configuracion?.conservarPrecioPresupuesto;
+      conservarPrecioPresupuesto !== configuracion?.conservarPrecioPresupuesto ||
+      diasExpiracionPresupuesto !== configuracion?.diasExpiracionPresupuesto;
     const cambiosLealtad =
       JSON.stringify(lealtad) !== JSON.stringify(lealtadOriginal);
 
@@ -315,6 +321,7 @@ export default function ConfiguracionView() {
               stockMinimoGlobal,
               stockMaximoGlobal,
               conservarPrecioPresupuesto,
+              diasExpiracionPresupuesto,
             }
           : {}),
         ...(cambiosLealtad
@@ -365,6 +372,7 @@ export default function ConfiguracionView() {
       stockMinimoGlobal !== configuracion.stockMinimoGlobal ||
       stockMaximoGlobal !== configuracion.stockMaximoGlobal ||
       conservarPrecioPresupuesto !== configuracion.conservarPrecioPresupuesto ||
+      diasExpiracionPresupuesto !== configuracion.diasExpiracionPresupuesto ||
       hayCambiosLealtad);
 
   const blocker = useBlocker(hayCambiosSinGuardar);
@@ -723,6 +731,49 @@ return (
                   onCheckedChange={setConservarPrecioPresupuesto}
                 />
               </div>
+
+              {/* D12: días de validez del precio antes de vencerse */}
+              <div className="mt-5 pt-5 border-t border-outline/10">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <Label htmlFor="dias-expiracion-presupuesto">
+                    Días de validez del precio
+                  </Label>
+                  <AyudaTooltip etiqueta="¿Qué controla?">
+                    <p className="font-semibold text-sm">Expiración de cotizaciones</p>
+                    <p className="text-xs text-on-surface-variant leading-relaxed">
+                      El precio de un presupuesto queda garantizado solo durante este
+                      número de días desde su creación. Al vencer, el presupuesto se
+                      marca como <strong className="text-on-surface">vencido</strong> y se
+                      cobra con el precio vigente del catálogo.{' '}
+                      <strong className="text-on-surface">0</strong> = sin vencimiento.
+                    </p>
+                  </AyudaTooltip>
+                </div>
+                <div className="flex items-center gap-3 mt-2">
+                  <Input
+                    id="dias-expiracion-presupuesto"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={diasExpiracionPresupuesto}
+                    onChange={(e) => {
+                      const v = Math.max(
+                        0,
+                        Math.floor(Number(e.target.value) || 0),
+                      );
+                      setDiasExpiracionPresupuesto(v);
+                    }}
+                    className="w-28"
+                  />
+                  <span className="text-xs text-on-surface-variant font-label-sm">
+                    días
+                  </span>
+                </div>
+                <p className="text-xs text-on-surface-variant font-label-sm leading-relaxed mt-1">
+                  Con 0, la cotización conserva su precio mientras esté abierta y
+                  esté activa la opción anterior.
+                </p>
+              </div>
             </div>
           </section>
 
@@ -998,7 +1049,7 @@ return (
                         .
                       </p>
                       {pctDevolucion > 5 && (
-                        <p className="text-xs text-amber-600 font-label-sm flex items-center gap-1.5">
+                        <p className="text-xs text-warning font-label-sm flex items-center gap-1.5">
                           <AlertTriangle className="w-3.5 h-3.5" />
                           Devolución alta: verifica que tu margen la sostenga.
                         </p>
@@ -1215,7 +1266,7 @@ return (
                   <div
                     className={`rounded-xl border-2 p-4 space-y-4 transition-colors ${
                       lealtad.permitirCanje
-                        ? 'border-green-500/40 bg-green-500/5'
+                        ? 'border-success/40 bg-success/5'
                         : 'border-outline/20 bg-surface-container-low/50'
                     }`}
                   >
@@ -1315,19 +1366,19 @@ return (
                         <div
                           className={`p-3 rounded-xl border flex gap-3 ${
                             semaforoCanje.estado === 'verde'
-                              ? 'bg-green-500/10 border-green-500/30'
+                              ? 'bg-success/10 border-success/30'
                               : semaforoCanje.estado === 'amarillo'
-                                ? 'bg-amber-500/10 border-amber-500/30'
-                                : 'bg-red-500/10 border-red-500/30'
+                                ? 'bg-warning/10 border-warning/30'
+                                : 'bg-error/10 border-error/30'
                           }`}
                         >
                           <span
                             className={`w-3 h-3 rounded-full shrink-0 mt-0.5 ${
                               semaforoCanje.estado === 'verde'
-                                ? 'bg-green-500'
+                                ? 'bg-success'
                                 : semaforoCanje.estado === 'amarillo'
-                                  ? 'bg-amber-500'
-                                  : 'bg-red-500'
+                                  ? 'bg-warning'
+                                  : 'bg-error'
                             }`}
                           />
                           <p className="text-xs text-on-surface-variant font-label-sm leading-relaxed">
@@ -1420,7 +1471,7 @@ return (
                                   }
                                   className={
                                     umbralDuplicado
-                                      ? 'border-red-500 focus-visible:ring-red-500/30'
+                                      ? 'border-error focus-visible:ring-error/30'
                                       : ''
                                   }
                                 />
@@ -1460,13 +1511,13 @@ return (
                                 </Button>
                               </div>
                               {umbralDuplicado && (
-                                <p className="text-[11px] text-red-600 mt-1 flex items-center gap-1">
+                                <p className="text-[11px] text-error mt-1 flex items-center gap-1">
                                   <AlertTriangle className="w-3 h-3" />
                                   Este umbral ya existe en otro nivel — deben ser únicos.
                                 </p>
                               )}
                               {descuentoAlto && (
-                                <p className="text-[11px] text-amber-600 mt-1 flex items-center gap-1">
+                                <p className="text-[11px] text-warning mt-1 flex items-center gap-1">
                                   <AlertTriangle className="w-3 h-3" />
                                   {nivel.descuentoPct}% es un descuento alto — verifica tu margen.
                                 </p>
@@ -1480,13 +1531,13 @@ return (
 
                   {/* Advertencias generales (nunca bloquean el guardado) */}
                   {advertenciasLealtad.length > 0 && (
-                    <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                    <div className="p-4 rounded-xl bg-warning/10 border border-warning/30 space-y-2">
                       {advertenciasLealtad.map((advertencia, i) => (
                         <p
                           key={i}
                           className="text-xs text-on-surface-variant font-label-sm leading-relaxed flex gap-2"
                         >
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                          <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" />
                           {advertencia}
                         </p>
                       ))}

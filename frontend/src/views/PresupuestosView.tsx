@@ -16,7 +16,7 @@ import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { usePaginacion, type PaginacionMeta } from '@/hooks/usePaginacion';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePosStore, type LineaPresupuesto } from '@/store/usePosStore';
-import { RefreshCw, Search, Eye, MinusCircle, SlidersHorizontal, X } from 'lucide-react';
+import { RefreshCw, Eye, XCircle, SlidersHorizontal, X, AlertTriangle, Power } from 'lucide-react';
 
 interface ClienteSnap {
   id: string;
@@ -27,7 +27,7 @@ interface ClienteSnap {
 interface ResumenPresupuesto {
   id: string;
   folio: string;
-  estado: 'abierto' | 'vendido' | 'cancelado';
+  estado: 'abierto' | 'vendido' | 'cancelado' | 'vencido';
   subtotal: number;
   descuento: number;
   total: number;
@@ -37,6 +37,8 @@ interface ResumenPresupuesto {
   vendidoEn?: string | null;
   canceladoEn?: string | null;
   creadoEn: string;
+  diasExpiracionPresupuesto?: number;
+  fechaVencimiento?: string | null;
   cliente?: ClienteSnap | null;
   cajero?: { id: string; nombre: string } | null;
 }
@@ -61,7 +63,7 @@ interface LineaDetalle {
 interface DetallePresupuesto {
   id: string;
   folio: string;
-  estado: 'abierto' | 'vendido' | 'cancelado';
+  estado: 'abierto' | 'vendido' | 'cancelado' | 'vencido';
   subtotal: number;
   descuento: number;
   impuestos: number;
@@ -73,6 +75,9 @@ interface DetallePresupuesto {
   codigoCupon?: string | null;
   puntosACanjear: number;
   conservarPrecioPresupuesto: boolean;
+  diasExpiracionPresupuesto?: number;
+  fechaVencimiento?: string | null;
+  precioVencido?: boolean;
   creadoEn: string;
   cliente?: ClienteSnap | null;
   cajero?: { id: string; nombre: string } | null;
@@ -95,10 +100,11 @@ const fmtFecha = (iso?: string | null) => {
   });
 };
 
-const ESTADOS: Record<ResumenPresupuesto['estado'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  abierto: { label: 'Abierto', variant: 'default' },
-  vendido: { label: 'Vendido', variant: 'secondary' },
-  cancelado: { label: 'Cancelado', variant: 'destructive' },
+const ESTADOS: Record<ResumenPresupuesto['estado'], { label: string; clase: string; dot: string }> = {
+  abierto: { label: 'Abierto', clase: 'bg-success/10 text-success border-success/30', dot: 'bg-success' },
+  vendido: { label: 'Vendido', clase: 'bg-surface-variant/60 text-on-surface-variant border-on-surface/15', dot: 'bg-on-surface-variant' },
+  cancelado: { label: 'Cancelado', clase: 'bg-error/10 text-error border-error/30', dot: 'bg-error' },
+  vencido: { label: 'Vencido', clase: 'bg-warning/10 text-warning border-warning/30', dot: 'bg-warning' },
 };
 
 export default function PresupuestosView() {
@@ -120,6 +126,9 @@ export default function PresupuestosView() {
 
   const [cancelarObjetivo, setCancelarObjetivo] = useState<ResumenPresupuesto | null>(null);
   const [cancelando, setCancelando] = useState(false);
+
+  const [descancelarObjetivo, setDescancelarObjetivo] = useState<ResumenPresupuesto | null>(null);
+  const [descancelando, setDescancelando] = useState(false);
 
   const [vendiendoId, setVendiendoId] = useState<string | null>(null);
 
@@ -190,9 +199,7 @@ export default function PresupuestosView() {
         productos: d.detalles.map((linea) => ({
           productoId: linea.productoId,
           codigoBarras: '',
-          nombre: linea.nombreCombo
-            ? `${linea.nombreCombo} · ${linea.nombreProducto}`
-            : linea.nombreProducto,
+          nombre: linea.nombreProducto,
           unidadMedida: linea.unidadMedida,
           precioUnitario: linea.precioEfectivo,
           cantidad: linea.cantidad,
@@ -201,6 +208,9 @@ export default function PresupuestosView() {
           esGranel: linea.unidadMedida === 'KILOGRAMOS' || linea.unidadMedida === 'LITROS',
           comboId: linea.comboId ?? undefined,
           nombreCombo: linea.nombreCombo ?? undefined,
+          precioCongelado: linea.precioCongelado,
+          precioActual: linea.precioActual,
+          conservarPrecio: d.precioVencido ? false : d.conservarPrecioPresupuesto,
         })),
         combos: [],
       };
@@ -230,6 +240,21 @@ export default function PresupuestosView() {
     }
   };
 
+  const confirmarDescancelar = async () => {
+    if (!descancelarObjetivo) return;
+    setDescancelando(true);
+    try {
+      await api.patch(`/presupuestos/${descancelarObjetivo.id}/descancelar`);
+      toast.success(`Presupuesto ${descancelarObjetivo.folio} reactivado`);
+      setDescancelarObjetivo(null);
+      fetchLista();
+    } catch {
+      toast.error('Error al reactivar el presupuesto');
+    } finally {
+      setDescancelando(false);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -249,19 +274,13 @@ export default function PresupuestosView() {
 
       <div className="spatial-glass rounded-2xl border border-outline/20 p-3 flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row gap-2">
-          <form onSubmit={buscar} className="flex-1 flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por folio o cliente..."
-                className="pl-9"
-              />
-            </div>
-            <Button type="submit" variant="outline" size="icon" title="Buscar">
-              <Search className="w-4 h-4" />
-            </Button>
+          <form onSubmit={buscar} className="flex-1">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por folio o cliente..."
+              className="max-w-md w-full"
+            />
           </form>
           <div className="flex gap-2">
             <Button
@@ -285,7 +304,7 @@ export default function PresupuestosView() {
 
         {mostrarFiltros && (
           <div className="flex flex-wrap gap-2">
-            {(['abierto', 'vendido', 'cancelado'] as const).map((estado) => (
+            {(['abierto', 'vendido', 'cancelado', 'vencido'] as const).map((estado) => (
               <button
                 key={estado}
                 onClick={() => {
@@ -336,7 +355,23 @@ export default function PresupuestosView() {
                     <td className="px-4 py-3 font-mono font-semibold text-primary">
                       {p.folio}
                     </td>
-                    <td className="px-4 py-3 text-on-surface-variant">{fmtFecha(p.creadoEn)}</td>
+                    <td className="px-4 py-3 text-on-surface-variant">
+                      <div>{fmtFecha(p.creadoEn)}</div>
+                      {p.diasExpiracionPresupuesto &&
+                        p.diasExpiracionPresupuesto > 0 &&
+                        p.fechaVencimiento && (
+                          <div
+                            className={`text-[11px] mt-0.5 ${
+                              p.estado === 'vencido'
+                                ? 'text-warning font-semibold'
+                                : 'text-outline'
+                            }`}
+                          >
+                            {p.estado === 'vencido' ? 'Vencía el ' : 'Vence: '}
+                            {fmtFecha(p.fechaVencimiento)}
+                          </div>
+                        )}
+                    </td>
                     <td className="px-4 py-3">
                       {p.cliente
                         ? `${p.cliente.nombre} ${p.cliente.apellidoPaterno ?? ''}`.trim()
@@ -346,7 +381,10 @@ export default function PresupuestosView() {
                       {fmtMoneda(p.total)}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant={ESTADOS[p.estado].variant}>{ESTADOS[p.estado].label}</Badge>
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-label-sm px-2.5 py-1 rounded-full border ${ESTADOS[p.estado].clase}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${ESTADOS[p.estado].dot}`} />
+                        {ESTADOS[p.estado].label}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1.5">
@@ -356,9 +394,9 @@ export default function PresupuestosView() {
                           onClick={() => abrirDetalle(p)}
                           title="Ver detalle"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-4 h-4 text-on-surface-variant" />
                         </Button>
-                        {p.estado === 'abierto' && (
+                        {(p.estado === 'abierto' || p.estado === 'vencido') && (
                           <Button
                             variant="default"
                             size="sm"
@@ -369,14 +407,25 @@ export default function PresupuestosView() {
                             {vendiendoId === p.id ? 'Cargando...' : 'Vender'}
                           </Button>
                         )}
-                        {p.estado === 'abierto' && puedeGestionar && (
+                        {(p.estado === 'abierto' || p.estado === 'vencido') &&
+                          puedeGestionar && (
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setCancelarObjetivo(p)}
                             title="Cancelar presupuesto"
                           >
-                            <MinusCircle className="w-4 h-4 text-error" />
+                            <XCircle className="w-4 h-4 text-error" />
+                          </Button>
+                        )}
+                        {p.estado === 'cancelado' && puedeGestionar && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDescancelarObjetivo(p)}
+                            title="Reactivar presupuesto"
+                          >
+                            <Power className="w-4 h-4 text-success" />
                           </Button>
                         )}
                       </div>
@@ -391,110 +440,231 @@ export default function PresupuestosView() {
       </div>
 
       <Dialog open={detalleAbierto} onOpenChange={setDetalleAbierto}>
-        <DialogContent className="sm:max-w-xl max-h-[80vh] overflow-y-auto custom-scrollbar">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span className="material-symbols-outlined !text-xl text-primary">description</span>
-              Detalle del presupuesto
-            </DialogTitle>
-          </DialogHeader>
-          {cargandoDetalle ? (
-            <div className="p-8 text-center text-on-surface-variant font-body-md">
-              Cargando detalle...
-            </div>
-          ) : detalle ? (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="font-mono font-bold text-primary">{detalle.folio}</p>
-                  <p className="text-xs text-on-surface-variant">{fmtFecha(detalle.creadoEn)}</p>
-                </div>
-                <Badge variant={ESTADOS[detalle.estado].variant}>
-                  {ESTADOS[detalle.estado].label}
-                </Badge>
-              </div>
-              <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-on-surface-variant">
-                <span>
-                  Cliente:{' '}
-                  <span className="font-medium text-on-surface">
-                    {detalle.cliente
-                      ? `${detalle.cliente.nombre} ${detalle.cliente.apellidoPaterno ?? ''}`.trim()
-                      : 'Consumidor final'}
-                  </span>
+        <DialogContent className="sm:max-w-xl p-0 overflow-hidden">
+          <div className="flex flex-col max-h-[82vh]">
+            <DialogHeader className="px-6 pt-5 pb-4 pr-14 border-b border-outline/10 bg-surface-container-low/50">
+              <DialogTitle className="flex items-center gap-2.5 text-base">
+                <span className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined !text-xl">description</span>
                 </span>
-                {detalle.cajero && (
-                  <span>
-                    Cajero: <span className="font-medium text-on-surface">{detalle.cajero.nombre}</span>
-                  </span>
-                )}
+                <span className="font-headline-md">Detalle del presupuesto</span>
+              </DialogTitle>
+              {detalle && (
+                <span className={`mt-1 w-fit inline-flex items-center gap-1.5 text-xs font-label-sm px-2.5 py-1 rounded-full border ${ESTADOS[detalle.estado].clase}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${ESTADOS[detalle.estado].dot}`} />
+                  {ESTADOS[detalle.estado].label}
+                </span>
+              )}
+            </DialogHeader>
+
+            {cargandoDetalle ? (
+              <div className="p-10 text-center text-on-surface-variant font-body-md">
+                Cargando detalle...
               </div>
-              <div className="border-t border-outline/10 pt-3 space-y-1.5 max-h-52 overflow-y-auto custom-scrollbar">
-                {detalle.detalles.map((linea) => (
-                  <div key={linea.id} className="flex items-center justify-between gap-2 text-sm">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-on-surface">
-                        {linea.nombreCombo ? `${linea.nombreCombo} · ` : ''}
-                        {linea.nombreProducto}
+            ) : detalle ? (
+              <>
+                <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-5 space-y-5">
+                  {/* Encabezado tipo documento */}
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-widest text-outline font-label-sm">
+                        Folio
                       </p>
-                      <p className="text-xs text-outline">
-                        {linea.cantidad} × {fmtMoneda(linea.precioUnitario)}
-                        {linea.descuento > 0 && (
-                          <span className="text-error"> (−{fmtMoneda(linea.descuento)})</span>
-                        )}
+                      <p className="font-mono font-bold text-2xl text-primary leading-tight">
+                        {detalle.folio}
                       </p>
                     </div>
-                    <span className="font-mono font-medium">{fmtMoneda(linea.total)}</span>
+                    <div className="text-right">
+                      <p className="text-[11px] uppercase tracking-widest text-outline font-label-sm">
+                        Emitido el
+                      </p>
+                      <p className="text-sm font-medium text-on-surface">{fmtFecha(detalle.creadoEn)}</p>
+                    </div>
                   </div>
-                ))}
-              </div>
-              <div className="border-t border-outline/10 pt-3 space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-on-surface-variant">Subtotal</span>
-                  <span className="font-mono">{fmtMoneda(detalle.subtotal)}</span>
+
+                  {/* D12: aviso cuando el presupuesto venció y el precio se recalculará */}
+                  {detalle.precioVencido && (
+                    <div className="flex items-start gap-2.5 px-3.5 py-2.5 bg-warning/10 border border-warning/30 rounded-xl text-warning text-xs font-label-sm leading-relaxed">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+                      <span>
+                        Este presupuesto venció. Al venderlo se recalculan los
+                        precios con el catálogo vigente
+                        {detalle.diasExpiracionPresupuesto
+                          ? ` (validez de ${detalle.diasExpiracionPresupuesto} días)`
+                          : ''}.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Metadatos */}
+                  <div className="rounded-xl border border-outline/15 bg-surface-container-low/40 p-4 space-y-2.5 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-on-surface-variant shrink-0">Cliente</span>
+                      <span className="text-right font-medium text-on-surface">
+                        {detalle.cliente
+                          ? `${detalle.cliente.nombre} ${detalle.cliente.apellidoPaterno ?? ''}`.trim()
+                          : 'Consumidor final'}
+                      </span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-on-surface-variant shrink-0">Cajero</span>
+                      <span className="text-right font-medium text-on-surface">
+                        {detalle.cajero?.nombre ?? '—'}
+                      </span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-on-surface-variant shrink-0">Precios al vender</span>
+                      <span className="text-right font-medium text-on-surface">
+                        {detalle.conservarPrecioPresupuesto
+                          ? 'Conservar los de la cotización'
+                          : 'Los vigentes del catálogo'}
+                      </span>
+                    </div>
+                    {detalle.diasExpiracionPresupuesto &&
+                      detalle.diasExpiracionPresupuesto > 0 && (
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="text-on-surface-variant shrink-0">
+                            Vence
+                          </span>
+                          <span className="text-right font-medium text-on-surface">
+                            {detalle.precioVencido ? (
+                              <span className="text-warning font-semibold">
+                                Vencido el {fmtFecha(detalle.fechaVencimiento)}
+                              </span>
+                            ) : (
+                              fmtFecha(detalle.fechaVencimiento)
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    {detalle.puntosACanjear > 0 && (
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-on-surface-variant shrink-0">Puntos a canjear</span>
+                        <span className="text-right font-medium text-on-surface">
+                          {detalle.puntosACanjear} pts
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Líneas del presupuesto */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-widest text-outline">
+                        Productos ({detalle.detalles.length})
+                      </h3>
+                    </div>
+                    <div className="divide-y divide-outline/10 border-t border-b border-outline/10">
+                      {detalle.detalles.map((linea) => (
+                        <div key={linea.id} className="py-2.5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start gap-2">
+                                {linea.comboId ? (
+                                  <span className="material-symbols-outlined !text-[18px] text-primary shrink-0 mt-px">redeem</span>
+                                ) : (
+                                  <span className="material-symbols-outlined !text-[18px] text-outline shrink-0 mt-px">inventory_2</span>
+                                )}
+                                <div className="min-w-0">
+                                  {linea.nombreCombo && (
+                                    <p className="text-[11px] font-semibold text-primary uppercase tracking-wide">
+                                      {linea.nombreCombo}
+                                    </p>
+                                  )}
+                                  <p className="text-sm font-medium text-on-surface leading-snug">
+                                    {linea.nombreProducto}
+                                  </p>
+                                </div>
+                              </div>
+                              <p className="text-xs text-outline mt-0.5 ml-7">
+                                {linea.cantidad} × {fmtMoneda(linea.precioUnitario)}
+                                {linea.descuento > 0 && (
+                                  <span className="text-error"> · desc. −{fmtMoneda(linea.descuento)}</span>
+                                )}
+                              </p>
+                            </div>
+                            <span className="font-mono font-semibold text-on-surface shrink-0">
+                              {fmtMoneda(linea.total)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Totales */}
+                  <div className="rounded-xl bg-surface-container-low/40 border border-outline/15 p-4 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-on-surface-variant">Subtotal</span>
+                      <span className="font-mono text-on-surface">{fmtMoneda(detalle.subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-on-surface-variant">Descuento general</span>
+                      <span className={`font-mono ${detalle.descuentoGeneral > 0 ? 'text-error' : 'text-on-surface-variant'}`}>
+                        {detalle.descuentoGeneral > 0 ? `−${fmtMoneda(detalle.descuentoGeneral)}` : '—'}
+                      </span>
+                    </div>
+                    {detalle.descuentoNivel > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-on-surface-variant">Descuento por nivel</span>
+                        <span className="font-mono text-error">−{fmtMoneda(detalle.descuentoNivel)}</span>
+                      </div>
+                    )}
+                    {detalle.descuentoCupon > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-on-surface-variant">Cupón {detalle.codigoCupon ?? ''}</span>
+                        <span className="font-mono text-error">−{fmtMoneda(detalle.descuentoCupon)}</span>
+                      </div>
+                    )}
+                    {detalle.descuentoCanje > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-on-surface-variant">Canje de puntos</span>
+                        <span className="font-mono text-error">−{fmtMoneda(detalle.descuentoCanje)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2.5 mt-0.5 border-t border-outline/10">
+                      <span className="font-semibold text-on-surface">Total a cobrar</span>
+                      <span className="font-mono font-bold text-lg text-primary">
+                        {fmtMoneda(detalle.total)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-on-surface-variant">Descuento general</span>
-                  <span className="font-mono text-error">
-                    {detalle.descuentoGeneral > 0 ? `−${fmtMoneda(detalle.descuentoGeneral)}` : '—'}
-                  </span>
-                </div>
-                {detalle.descuentoNivel > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-on-surface-variant">Descuento por nivel</span>
-                    <span className="font-mono text-error">−{fmtMoneda(detalle.descuentoNivel)}</span>
+
+                {/* Pie de acciones */}
+                {(detalle.estado === 'abierto' || detalle.estado === 'vencido') && (
+                  <div className="px-6 py-4 border-t border-outline/10 bg-surface-container-low/50 flex justify-end">
+                    <Button
+                      onClick={() => {
+                        setDetalleAbierto(false);
+                        vender({ ...detalle, descuento: 0 } as ResumenPresupuesto);
+                      }}
+                      className="min-h-[48px]"
+                    >
+                      <span className="material-symbols-outlined !text-lg mr-1.5">point_of_sale</span>
+                      Cargar al ticket y vender
+                    </Button>
                   </div>
                 )}
-                {detalle.descuentoCupon > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-on-surface-variant">Cupón {detalle.codigoCupon ?? ''}</span>
-                    <span className="font-mono text-error">−{fmtMoneda(detalle.descuentoCupon)}</span>
+                {detalle.estado === 'cancelado' && puedeGestionar && (
+                  <div className="px-6 py-4 border-t border-outline/10 bg-surface-container-low/50 flex justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        setDescancelarObjetivo({ ...detalle, descuento: 0 } as ResumenPresupuesto)
+                      }
+                      className="min-h-[48px]"
+                    >
+                            <Power className="w-4 h-4 mr-1.5 text-success" />
+                      Reactivar
+                    </Button>
                   </div>
                 )}
-                {detalle.descuentoCanje > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-on-surface-variant">Canje de puntos</span>
-                    <span className="font-mono text-error">−{fmtMoneda(detalle.descuentoCanje)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-bold text-base pt-1 border-t border-outline/10">
-                  <span className="text-on-surface">Total</span>
-                  <span className="font-mono text-primary">{fmtMoneda(detalle.total)}</span>
-                </div>
-              </div>
-              {detalle.estado === 'abierto' && (
-                <div className="flex justify-end">
-                  <Button onClick={() => {
-                    setDetalleAbierto(false);
-                    vender({ ...detalle, descuento: 0 } as ResumenPresupuesto);
-                  }}>
-                    Vender ahora
-                  </Button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-6 text-center text-on-surface-variant">Sin información.</div>
-          )}
+              </>
+            ) : (
+              <div className="p-10 text-center text-on-surface-variant">Sin información.</div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -511,6 +681,21 @@ export default function PresupuestosView() {
         confirmText="Cancelar presupuesto"
         variant="warning"
         isLoading={cancelando}
+      />
+
+      <ConfirmDialog
+        isOpen={!!descancelarObjetivo}
+        onClose={() => setDescancelarObjetivo(null)}
+        onConfirm={confirmarDescancelar}
+        title="Reactivar presupuesto"
+        description={
+          descancelarObjetivo
+            ? `¿Reactivar el presupuesto ${descancelarObjetivo.folio}? Volverá a estar abierto`
+            : ''
+        }
+        confirmText="Reactivar"
+        variant="info"
+        isLoading={descancelando}
       />
     </div>
   );
