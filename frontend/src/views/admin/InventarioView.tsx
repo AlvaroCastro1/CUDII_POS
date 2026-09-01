@@ -361,9 +361,9 @@ export default function InventarioView() {
           <button
             type="button"
             onClick={() => navigate('/admin/lotes')}
-            className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4 flex items-center gap-3 text-left hover:bg-yellow-500/10 transition-colors"
+            className="rounded-xl border border-warning/30 bg-warning/5 p-4 flex items-center gap-3 text-left hover:bg-warning/10 transition-colors"
           >
-            <span className="material-symbols-outlined !text-[28px] text-yellow-600">schedule</span>
+            <span className="material-symbols-outlined !text-[28px] text-warning">schedule</span>
             <div>
               <p className="text-sm font-bold text-on-surface">
                 {vencimientos.porVencer.length} lote{vencimientos.porVencer.length !== 1 ? 's' : ''} por vencer
@@ -372,7 +372,7 @@ export default function InventarioView() {
                 En los próximos {vencimientos.diasPreaviso || 30} días
               </p>
             </div>
-            <span className="ml-auto font-bold text-sm text-yellow-600">
+            <span className="ml-auto font-bold text-sm text-warning">
               ${(vencimientos.valorPorVencer || 0).toFixed(2)}
             </span>
           </button>
@@ -703,7 +703,7 @@ export default function InventarioView() {
                       <div className="text-center">
                         <p className="text-xs text-on-surface-variant">Stock resultante</p>
                         <p className={`text-2xl font-display-lg font-bold ${
-                          stockProyectado < 0 ? 'text-error' : tipoAjuste === 'entrada' ? 'text-success' : 'text-orange-500'
+                          stockProyectado < 0 ? 'text-error' : tipoAjuste === 'entrada' ? 'text-success' : 'text-warning'
                         }`}>
                           {stockProyectado}
                         </p>
@@ -935,7 +935,7 @@ export default function InventarioView() {
                     (paso === 2 && !formData.productoId)
                   }
                   onClick={() => setPaso(paso + 1)}
-                  className={tipoAjuste === 'salida' ? 'bg-error hover:bg-error text-white' : ''}
+                  className={tipoAjuste === 'salida' ? 'bg-error hover:bg-error text-on-error' : ''}
                 >
                   Siguiente →
                 </Button>
@@ -943,7 +943,7 @@ export default function InventarioView() {
                 <Button
                   type="submit"
                   disabled={isSubmitting || !formData.cantidad || !formData.motivo}
-                  className={tipoAjuste === 'salida' ? 'bg-error hover:bg-error text-white' : ''}
+                  className={tipoAjuste === 'salida' ? 'bg-error hover:bg-error text-on-error' : ''}
                 >
                   {isSubmitting
                     ? 'Guardando...'
@@ -1044,11 +1044,11 @@ export default function InventarioView() {
                         sinStock
                           ? 'bg-error/10 text-error'
                           : stockBajo
-                          ? 'bg-yellow-500/10 text-yellow-600'
+                          ? 'bg-warning/10 text-warning'
                           : 'text-on-surface'
                       }`}>
                         {porDebajoMinimo && (
-                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sinStock ? 'bg-error' : 'bg-yellow-500'}`} />
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sinStock ? 'bg-error' : 'bg-warning'}`} />
                         )}
                         {inv.stockActual}
                         {sinStock && <span className="ml-1 text-xs font-normal">Sin stock</span>}

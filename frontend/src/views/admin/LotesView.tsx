@@ -13,6 +13,7 @@ import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { EstadoLote, Lote, LoteDetalle, MotivoMerma } from '@/types/pos';
+import { Eye } from 'lucide-react';
 
 const MOTIVOS_MERMA: { valor: MotivoMerma; label: string; desc: string }[] = [
   { valor: 'caducado', label: 'Caducado', desc: 'Producto vencido (fecha de caducidad pasada)' },
@@ -33,7 +34,7 @@ const getCaducidadBadge = (fecha?: string | null, restante?: number) => {
   const dias = Math.ceil((new Date(fecha).getTime() - Date.now()) / (24 * 3600 * 1000));
   if (dias < 0) return { clase: 'bg-error/10 text-error', texto: `Vencido (${Math.abs(dias)}d)` };
   if (dias <= 7) return { clase: 'bg-error/10 text-error', texto: `Vence en ${dias}d` };
-  if (dias <= 30) return { clase: 'bg-yellow-500/10 text-yellow-600', texto: `Vence en ${dias}d` };
+  if (dias <= 30) return { clase: 'bg-warning/10 text-warning', texto: `Vence en ${dias}d` };
   return { clase: 'bg-on-surface/5 text-on-surface-variant', texto: new Date(fecha).toLocaleDateString() };
 };
 
@@ -299,7 +300,7 @@ export default function LotesView() {
                 const consumoPct = lote.cantidadInicial > 0
                   ? Math.round(((lote.cantidadInicial - lote.cantidadRestante) / lote.cantidadInicial) * 100)
                   : 0;
-                const consumoColor = consumoPct < 50 ? 'bg-success' : consumoPct <= 80 ? 'bg-yellow-500' : 'bg-error';
+                const consumoColor = consumoPct < 50 ? 'bg-success' : consumoPct <= 80 ? 'bg-warning' : 'bg-error';
                 return (
                   <TableRow key={lote.id}>
                     <TableCell className="font-mono text-sm font-medium">{lote.codigoLote}</TableCell>
@@ -344,7 +345,7 @@ export default function LotesView() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" onClick={() => openDetalle(lote)} title="Ver detalle">
-                        <span className="material-symbols-outlined !text-[18px] text-on-surface-variant">visibility</span>
+                        <Eye className="w-4 h-4 text-on-surface-variant" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -412,7 +413,7 @@ export default function LotesView() {
                         onChange={(e) => setFechaCaducidadEdit(e.target.value)}
                         className="text-sm h-8"
                       />
-                      <p className="text-[10px] text-yellow-600 font-medium leading-snug">
+                      <p className="text-[10px] text-warning font-medium leading-snug">
                         Debes presionar Guardar para que la nueva fecha quede aplicada.
                       </p>
                       <div className="flex items-center gap-2">

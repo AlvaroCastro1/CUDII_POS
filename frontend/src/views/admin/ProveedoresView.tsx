@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Label } from '@/components/ui/label';
-import { Pencil, PowerOff, RotateCcw, Truck } from 'lucide-react';
+import { Pencil, PowerOff, Power, Truck } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { Switch } from '@/components/ui/switch';
@@ -413,7 +413,7 @@ export default function ProveedoresView() {
                             title="Desactivar"
                             onClick={() => setDeleteTarget(p.id)}
                           >
-                            <PowerOff className="w-4 h-4 text-warning/70 hover:text-warning" />
+                            <PowerOff className="w-4 h-4 text-warning" />
                           </Button>
                         </>
                       ) : (
@@ -423,7 +423,7 @@ export default function ProveedoresView() {
                           title="Reactivar"
                           onClick={() => handleReactivate(p.id)}
                         >
-                          <RotateCcw className="w-4 h-4 text-primary" />
+                          <Power className="w-4 h-4 text-success" />
                         </Button>
                       )}
                     </div>

@@ -288,7 +288,7 @@ export function RecepcionMercanciaModal({
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {prod.tieneCaducidad && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-700 border border-yellow-500/20">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/20">
                             Caduca
                           </span>
                         )}
@@ -334,7 +334,7 @@ export function RecepcionMercanciaModal({
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-on-surface truncate">{linea.producto.nombre}</p>
                           {linea.producto.tieneCaducidad && (
-                            <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-700 border border-yellow-500/20">
+                            <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/20">
                               <span className="material-symbols-outlined !text-[12px]">schedule</span>
                               Caduca
                             </span>
@@ -400,7 +400,7 @@ export function RecepcionMercanciaModal({
                           className="h-9 text-sm"
                         />
                         {linea.fechaCaducidad ? (
-                          <p className="text-[10px] text-yellow-600 leading-snug">
+                          <p className="text-[10px] text-warning leading-snug">
                             La fecha se guardará al registrar la recepción.
                           </p>
                         ) : (

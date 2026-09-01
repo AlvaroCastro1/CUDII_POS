@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import axios from 'axios';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-import { Pencil, PowerOff, Eye } from 'lucide-react';
+import { Pencil, PowerOff, Power, Eye } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { Switch } from '@/components/ui/switch';
@@ -247,7 +247,7 @@ export default function ProductosView() {
                       </Badge>
                     )}
                     {prod.tieneCaducidad && (
-                      <Badge variant="outline" className="ml-1 text-[10px] border-yellow-500/60 text-yellow-500">
+                      <Badge variant="outline" className="ml-1 text-[10px] border-warning/60 text-warning">
                         CAD
                       </Badge>
                     )}
@@ -312,7 +312,7 @@ export default function ProductosView() {
                             title="Ocultar / Desactivar producto"
                             onClick={() => handleToggleClick(prod)}
                           >
-                            <PowerOff className="w-4 h-4 text-warning/70 hover:text-warning" />
+                            <PowerOff className="w-4 h-4 text-warning" />
                           </Button>
                         </>
                       ) : (
@@ -324,9 +324,7 @@ export default function ProductosView() {
                             title="Reactivar producto"
                             onClick={() => handleToggleClick(prod)}
                           >
-                            <span className="material-symbols-outlined !text-[18px] text-primary/70 hover:text-primary">
-                              settings_backup_restore
-                            </span>
+                            <Power className="w-4 h-4 text-success" />
                           </Button>
                         </div>
                       )}

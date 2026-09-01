@@ -31,9 +31,10 @@ import {
   CreditCard,
   Wallet,
   Receipt,
+  Eye,
   Pencil,
-  Ban,
-  RotateCcw,
+  PowerOff,
+  Power,
 } from 'lucide-react';
 
 /** Nivel de lealtad tal como lo devuelve el backend (D10) */
@@ -959,8 +960,9 @@ export default function ClientesView() {
                       size="sm"
                       onClick={() => abrirDetalle(c.id)}
                       disabled={loadingDetalle}
+                      title={`Ver detalle de ${c.nombre}`}
                     >
-                      Ver detalle
+                      <Eye className="w-4 h-4 text-on-surface-variant" />
                     </Button>
                     <Button
                       type="button"
@@ -969,7 +971,7 @@ export default function ClientesView() {
                       onClick={() => abrirEdicion(c)}
                       title={`Editar datos de ${c.nombre}`}
                     >
-                      <Pencil className="w-4 h-4" />
+                      <Pencil className="w-4 h-4 text-on-surface-variant" />
                     </Button>
                     {c.estaActivo ? (
                       <Button
@@ -979,7 +981,7 @@ export default function ClientesView() {
                         onClick={() => handleDesactivar(c)}
                         title={`Desactivar a ${c.nombre}`}
                       >
-                        <Ban className="w-4 h-4 text-error" />
+                        <PowerOff className="w-4 h-4 text-warning" />
                       </Button>
                     ) : (
                       <Button
@@ -989,7 +991,7 @@ export default function ClientesView() {
                         onClick={() => handleReactivar(c)}
                         title={`Reactivar a ${c.nombre}`}
                       >
-                        <RotateCcw className="w-4 h-4 text-success" />
+                        <Power className="w-4 h-4 text-success" />
                       </Button>
                     )}
                   </TableCell>

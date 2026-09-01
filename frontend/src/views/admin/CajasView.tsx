@@ -292,23 +292,23 @@ export default function CajasView() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-1">
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
+                          title="Vista previa de la sesión"
                           onClick={() => abrirPreview(s.id)}
                           disabled={cargandoPreview}
                         >
-                          <Eye className="w-4 h-4" />
-                          Vista previa
+                          <Eye className="w-4 h-4 text-on-surface-variant" />
                         </Button>
                         <Button
-                          variant="destructive"
+                          variant="ghost"
                           size="sm"
+                          title="Cerrar caja"
                           onClick={() => abrirCierre(s)}
                         >
-                          <Lock className="w-4 h-4" />
-                          Cerrar
+                          <Lock className="w-4 h-4 text-error" />
                         </Button>
                       </div>
                     </td>

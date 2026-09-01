@@ -171,7 +171,7 @@ export default function ProductoDetalleView() {
               </Badge>
             )}
             {producto.tieneCaducidad && (
-              <Badge variant="outline" className="border-yellow-500/40 text-yellow-700">
+              <Badge variant="outline" className="border-warning/40 text-warning">
                 <span className="material-symbols-outlined !text-[12px] mr-1">schedule</span>
                 Caducidad
               </Badge>
@@ -292,7 +292,7 @@ export default function ProductoDetalleView() {
             <div className="space-y-1">
               <p className="text-xs text-on-surface-variant uppercase tracking-wide font-semibold">Tiene Caducidad</p>
               <div className="flex items-center gap-1.5">
-                <span className={`w-2 h-2 rounded-full ${producto.tieneCaducidad ? 'bg-yellow-500' : 'bg-outline'}`} />
+                <span className={`w-2 h-2 rounded-full ${producto.tieneCaducidad ? 'bg-warning' : 'bg-outline'}`} />
                 <p className="text-sm font-medium text-on-surface">{producto.tieneCaducidad ? 'Sí — fecha obligatoria al recibir' : 'No — caducidad opcional'}</p>
               </div>
             </div>

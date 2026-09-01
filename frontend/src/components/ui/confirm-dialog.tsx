@@ -41,20 +41,20 @@ export function ConfirmDialog({
         return {
           icon: <Trash2 className="w-6 h-6 text-error" />,
           bg: 'bg-error/10',
-          btn: 'bg-error hover:bg-error text-white shadow-sm shadow-error/20',
+          btn: 'bg-error hover:bg-error text-on-error shadow-sm shadow-error/20',
         };
       case 'info':
         return {
           icon: <Info className="w-6 h-6 text-primary" />,
           bg: 'bg-primary/10',
-          btn: 'bg-primary hover:bg-primary text-white shadow-sm shadow-primary/20',
+          btn: 'bg-primary hover:bg-primary text-on-primary shadow-sm shadow-primary/20',
         };
       case 'warning':
       default:
         return {
           icon: <AlertTriangle className="w-6 h-6 text-warning" />,
           bg: 'bg-warning/10',
-          btn: 'bg-warning hover:bg-warning text-white shadow-sm shadow-warning/20',
+          btn: 'bg-warning hover:bg-warning text-on-warning shadow-sm shadow-warning/20',
         };
     }
   };

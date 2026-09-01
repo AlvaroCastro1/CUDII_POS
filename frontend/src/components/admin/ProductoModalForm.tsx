@@ -683,14 +683,14 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                 </div>
 
                 {/* --- Control de inventario --- */}
-                <div className={`rounded-xl border p-4 space-y-3 transition-colors ${formData.manejaInventario && !formData.tieneCaducidad ? 'border-yellow-400/60 bg-yellow-500/5' : 'border-outline/20'}`}>
+                <div className={`rounded-xl border p-4 space-y-3 transition-colors ${formData.manejaInventario && !formData.tieneCaducidad ? 'border-warning/60 bg-warning/5' : 'border-outline/20'}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined !text-[18px] text-primary">inventory_2</span>
                       <p className="text-sm font-semibold text-primary">Control de inventario</p>
                     </div>
                     {formData.manejaInventario && !formData.tieneCaducidad && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-700 border border-yellow-500/30 font-medium">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/30 font-medium">
                         Revisar caducidad
                       </span>
                     )}
@@ -746,9 +746,9 @@ export const ProductoModalForm: React.FC<ProductoModalFormProps> = React.memo(({
                   </div>
 
                   {formData.manejaInventario && !formData.tieneCaducidad && (
-                    <div className="flex items-start gap-2 bg-yellow-500/5 border border-yellow-500/20 rounded-lg px-3 py-2">
-                      <span className="material-symbols-outlined !text-[16px] text-yellow-600 mt-0.5">tips_and_updates</span>
-                      <p className="text-xs text-yellow-700">
+                    <div className="flex items-start gap-2 bg-warning/5 border border-warning/20 rounded-lg px-3 py-2">
+                      <span className="material-symbols-outlined !text-[16px] text-warning mt-0.5">tips_and_updates</span>
+                      <p className="text-xs text-warning">
                         ¿Es un producto perecedero? Activa <strong>Tiene caducidad</strong> para que el sistema exija fecha de vencimiento al recibir mercancía y priorice lotes por FEFO.
                       </p>
                     </div>

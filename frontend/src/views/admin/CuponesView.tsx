@@ -16,7 +16,7 @@ import {
 import {
   Plus,
   Pencil,
-  Trash2,
+  PowerOff,
   Percent,
   Banknote,
   BadgePercent,
@@ -246,7 +246,7 @@ export default function CuponesView() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por código o nombre..."
-          className="max-w-sm"
+          className="max-w-md w-full"
         />
         <Button variant="outline" onClick={fetchCupones} disabled={loading}>
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -324,36 +324,35 @@ export default function CuponesView() {
                     {c.fechaFin && <div>Hasta {aYYYYMMDD(c.fechaFin)}</div>}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge
-                      variant={c.activo ? 'default' : 'destructive'}
-                      className="gap-1"
-                    >
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-label-sm px-2.5 py-1 rounded-full ${
+                      c.activo ? 'bg-success/10 text-success' : 'bg-error/10 text-error'
+                    }`}>
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
                           c.activo ? 'bg-success' : 'bg-error'
                         }`}
                       />
                       {c.activo ? 'Activo' : 'Inactivo'}
-                    </Badge>
+                    </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-1">
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
+                        title="Editar cupón"
                         onClick={() => abrirEditar(c)}
                       >
-                        <Pencil className="w-4 h-4" />
-                        Editar
+                        <Pencil className="w-4 h-4 text-on-surface-variant" />
                       </Button>
                       <Button
-                        variant="destructive"
+                        variant="ghost"
                         size="sm"
+                        title="Desactivar cupón"
                         onClick={() => handleEliminar(c)}
                         disabled={eliminandoId === c.id}
                       >
-                        <Trash2 className="w-4 h-4" />
-                        {eliminandoId === c.id ? '...' : ''}
+                        <PowerOff className="w-4 h-4 text-warning" />
                       </Button>
                     </div>
                   </td>

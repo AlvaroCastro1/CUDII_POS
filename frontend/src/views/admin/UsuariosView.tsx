@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Pencil, PowerOff } from 'lucide-react';
+import { Pencil, PowerOff, Power } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -66,7 +66,7 @@ export default function UsuariosView() {
   const getFuerzaColor = () => {
     if (formData.password.length === 0) return 'bg-outline/20';
     if (fuerzaPassword <= 2) return 'bg-error';
-    if (fuerzaPassword <= 3) return 'bg-yellow-500';
+    if (fuerzaPassword <= 3) return 'bg-warning';
     return 'bg-success';
   };
 
@@ -458,7 +458,11 @@ export default function UsuariosView() {
                         )}
                         {currentUser?.id !== user.id && (
                           <Button variant="ghost" size="sm" title={user.estaActivo ? "Desactivar" : "Activar"} onClick={() => handleToggleClick(user)}>
-                            <PowerOff className={`w-4 h-4 ${user.estaActivo ? 'text-error' : 'text-success'}`} />
+                            {user.estaActivo ? (
+                              <PowerOff className="w-4 h-4 text-warning" />
+                            ) : (
+                              <Power className="w-4 h-4 text-success" />
+                            )}
                           </Button>
                         )}
                       </div>

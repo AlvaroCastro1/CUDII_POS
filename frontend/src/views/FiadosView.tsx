@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   BadgeCheck,
   History,
+  Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, errorMessage } from '../lib/api';
@@ -258,8 +259,9 @@ export default function FiadosView() {
                         <button
                           type="button"
                           onClick={() => abrirDetalle(c.id)}
-                          className="px-3 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-semibold hover:opacity-90 transition-opacity"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-semibold hover:opacity-90 transition-opacity"
                         >
+                          <Eye className="w-4 h-4" />
                           Estado de Cuenta
                         </button>
                       </td>

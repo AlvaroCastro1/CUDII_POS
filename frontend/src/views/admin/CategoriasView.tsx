@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Label } from '@/components/ui/label';
-import { Pencil, PowerOff, RotateCcw } from 'lucide-react';
+import { Pencil, PowerOff, Power } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { Switch } from '@/components/ui/switch';
@@ -333,12 +333,12 @@ export default function CategoriasView() {
                             <Pencil className="w-4 h-4 text-on-surface-variant" />
                           </Button>
                           <Button variant="ghost" size="sm" title="Ocultar / Desactivar categoría" onClick={() => handleDeleteClick(cat.id)}>
-                            <PowerOff className="w-4 h-4 text-warning/70 hover:text-warning" />
+                            <PowerOff className="w-4 h-4 text-warning" />
                           </Button>
                         </>
                       ) : (
                         <Button variant="ghost" size="sm" title="Volver a activar" onClick={() => handleToggleReactivate(cat.id)}>
-                          <RotateCcw className="w-4 h-4 text-primary" />
+                          <Power className="w-4 h-4 text-success" />
                         </Button>
                       )}
                     </div>
