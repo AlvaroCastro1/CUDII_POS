@@ -638,7 +638,7 @@ y **Análisis** (Reportes).
 | Conversión a venta | **Cargar las líneas congeladas al ticket del POS y luego cobrar** | Reutiliza CheckoutModal completo (pagos, cupón, lealtad) |
 | Precios congelados | Precio unitario **de productos y combos** al crearse | Conserva la oferta ofrecida aunque suba `precioVentaBase` |
 | Revalidación al vender | Cupón y nivel/canje **se revalidan** contra el estado actual | Evita abusos (cupón caducado, límites, puntos); el descuento no congelado se recalcula |
-| Config | `Empresa.conservarPrecioPresupuesto` (boolean, default `true`) | La decide el ADMIN según su política comercial |
+| Config | `Empresa.conservarPrecioPresupuesto` (boolean, default `true`) y `Empresa.diasExpiracionPresupuesto` (int, default `0` = sin vencimiento) | La decide el ADMIN según su política comercial; la expiración limita cuántos días queda garantizado el precio congelado |
 | Folio | Secuencial por empresa (`P-000001`), atómico | Buscable y único, independiente de la caja (no exige sesión abierta) |
 | Requisito de caja | **No** exige sesión de caja abierta para crear/ver | Un presupuesto es pre-cobro; no toca `SesionCaja` ni inventario |
 | Snapshots | `Presupuesto`/`PresupuestoDetalle` espejan `Venta`/`DetalleVenta` | Conversión fácilmente mapeable + trazabilidad del precio ofrecido |
@@ -647,7 +647,7 @@ y **Análisis** (Reportes).
 **Schema (migración `add_presupuestos`):**
 
 ```prisma
-enum EstadoPresupuesto { abierto vendido cancelado }
+enum EstadoPresupuesto { abierto vendido cancelado vencido }
 
 model Presupuesto {
   id                    String   @id @default(uuid())
@@ -710,7 +710,7 @@ model PresupuestoDetalle {
 }
 ```
 
-- `Empresa` gana `conservarPrecioPresupuesto Boolean @default(true)` y `secuenciaPresupuesto Int @default(0)`.
+- `Empresa` gana `conservarPrecioPresupuesto Boolean @default(true)`, `secuenciaPresupuesto Int @default(0)` y `diasExpiracionPresupuesto Int @default(0)`.
 
 **Comportamiento clave — "conservar precio" y revalidación:**
 
@@ -734,6 +734,8 @@ model PresupuestoDetalle {
   - `GET /presupuestos/:id` — detalle con `precioCongelado`, `precioActual` y el `precioUnitario`
     efectivo según la config (lo que se carga al ticket).
   - `PATCH /presupuestos/:id/cancelar` (ADMIN/GERENTE) — `estado=cancelado`.
+  - `PATCH /presupuestos/:id/descancelar` (ADMIN/GERENTE) — revierte `cancelado` → `abierto` (o `vencido` si venció estando cancelado); UI botón "Descancelar" en lista y detalle.
+  - Job `PresupuestosExpiracionService` (`OnApplicationBootstrap` + `setInterval` 24 h) → `marcarVencidosGlobal()`; expone `diasExpiracionPresupuesto` y `fechaVencimiento` en lista y detalle.
 - Refactor de `SalesService`: extraer el cálculo de precios/descuentos a un helper compartido;
   `CrearVentaDto` + `presupuestoId?`; `ItemDetalleVentaDto` + `comboId?`/`nombreCombo?`; soporte
   interno de `preciosCongelados` cuando la config lo habilita; marcado atómico `estado=vendido`.
@@ -799,6 +801,11 @@ model PresupuestoDetalle {
 - [x] D12: `usePosStore.cargarPresupuesto` + `presupuestoActivoId` + `CartItem.comboId`/`nombreCombo`
 - [x] D12: `PresupuestosView` (lista/detalle/vender/cancelar) + ruta + permisos + menú
 - [x] D12: `ConfiguracionView` — switch `conservarPrecioPresupuesto`
+- [x] D12: Migración `20260831000000_add_dias_expiracion_presupuesto` aplicada (`Empresa.diasExpiracionPresupuesto`, `EstadoPresupuesto.vencido`)
+- [x] D12: Expiración — config `diasExpiracionPresupuesto` en `GET/PATCH /company-settings`, marcado `vencido` perezoso al listar/detalle **y** job `PresupuestosExpiracionService` (`marcarVencidosGlobal`), precio recalculado al vigente al vencer, `fechaVencimiento`/`precioVencido` expuestos
+- [x] D12: `PATCH /presupuestos/:id/descancelar` (cancelado→abierto o vencido) + auditoría `PRESUPUESTO_DESCANCELADO`
+- [x] D12: Frontend expiración/descancelar — badge/filtro estado `vencido`, "Vence/Vencía el" en lista/detalle, acciones Vender/Cancelar en vencido, botón "Reactivar", aviso de precio recalculado y rediseño del modal de detalle
+- [x] D12: Frontend ticket — grupos de combo expandibles para líneas de presupuesto + indicador de cambio de precio por línea (`Cotizado X → actual Y, se cobra Z`)
 
 ---
 
@@ -834,6 +841,7 @@ model PresupuestoDetalle {
 27. D12: [x] Al completar la venta del presupuesto, su estado pasa a `vendido` en la misma transacción; no se puede vender dos veces (rechazo). *(E2E 14.7–14.8, 14.10)*
 28. D12: [x] Cancelar un presupuesto → `estado=cancelado`; no aparece como vendible. *(E2E 14.9)*
 29. D12: Un presupuesto con cliente registrado aplica el descuento por nivel/canje al momento de crear y lo revalida al vender.
+30. D12: [x] Con `diasExpiracionPresupuesto` (>0) configurado, un presupuesto abierto que supera esa ventana se marca automáticamente `vencido` (por marcado perezoso **y** por el job en segundo plano `PresupuestosExpiracionService`, análogo a las caducidades), su `precioEfectivo` se recalcula al precio vigente del catálogo y se filtra por estado `vencido`; la lista y el detalle muestran la **fecha de vencimiento** (`fechaVencimiento`/`diasExpiracionPresupuesto`) solo cuando aplica. *(E2E 15.1–15.7)*
 
 ### Pruebas de performance
 1. Venta con 10+ items → verificar que no se ejecutan más de 20 queries (vs 80+ actual).
@@ -865,6 +873,8 @@ model PresupuestoDetalle {
 - [x] D12: "Vender por ID" carga el presupuesto al ticket y respeta `conservarPrecioPresupuesto` (congelado vs actual).
 - [x] D12: La venta de un presupuesto lo marca `vendido` atómicamente; los duplicados se rechazan.
 - [x] D12: Configuración `conservarPrecioPresupuesto` visible/editable y aplicada por la empresa.
+- [x] D12: Un presupuesto que supera `diasExpiracionPresupuesto` se marca `vencido` y su `precioEfectivo` se recalcula al vigente del catálogo; la lista/detalle muestran `fechaVencimiento`; se puede vender/cancelar a precio vigente.
+- [x] D12: Un presupuesto cancelado puede descancelarse (vuelve a `abierto`, o `vencido` si venció estando cancelado).
 
 ---
 
