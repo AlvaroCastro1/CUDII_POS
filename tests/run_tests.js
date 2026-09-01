@@ -1,4 +1,5 @@
 const http = require('http');
+const { execSync } = require('child_process');
 const BASE = 'http://localhost:3000';
 let TOKEN = '';
 
@@ -86,6 +87,20 @@ async function getLotesArr(productoId) {
 async function getVentasArr() {
   const r = await req('GET', '/sales?sesionCajaId=' + SESION);
   return (r.body && r.body.datos) || (r.body && r.body.data) || (Array.isArray(r.body) ? r.body : []);
+}
+
+// Retrasa la fecha de creación de un presupuesto en la BD (para probar vencimiento).
+function backdatePresupuesto(id, days) {
+  try {
+    execSync(
+      `docker exec cudii_postgres psql -U cudii_admin -d cudii_db -c "UPDATE \\"Presupuesto\\" SET \\"creadoEn\\" = now() - interval '${days} days' WHERE id = '${id}';"`,
+      { stdio: 'pipe' },
+    );
+    return true;
+  } catch (e) {
+    console.error('backdatePresupuesto ERROR:', e.message);
+    return false;
+  }
 }
 
 async function run() {
@@ -568,6 +583,87 @@ async function run() {
   if (presupuestoId) {
     r = await req('PATCH', '/presupuestos/' + presupuestoId + '/cancelar');
     assert('14.10 RECHAZAR cancelar presupuesto vendido', r.status === 400, r.status);
+  }
+
+  // ── 15 Expiración de presupuestos (D12) ─────────────────────────
+  console.log('\n[15] Expiración de presupuestos');
+
+  // 15.1 La configuración trae diasExpiracionPresupuesto (default 0)
+  r = await req('GET', '/company-settings');
+  assert('15.1 settings trae diasExpiracionPresupuesto', r.status === 200, r.status);
+  const diasDefault = (r.body || {}).diasExpiracionPresupuesto;
+  assert('15.1b diasExpiracionPresupuesto es numero', typeof diasDefault === 'number', JSON.stringify(r.body));
+
+  // 15.2 PATCH actualiza diasExpiracionPresupuesto
+  r = await req('PATCH', '/company-settings', { diasExpiracionPresupuesto: 7 });
+  assert('15.2 PATCH diasExpiracionPresupuesto 200', r.status === 200 && r.body && r.body.diasExpiracionPresupuesto === 7, r.status + ' ' + r.raw);
+
+  // 15.3 Crear presupuesto fresco y envejecerlo -> vencido
+  let expId = '';
+  r = await req('POST', '/presupuestos', { detalles: [{ productoId: P.coca, cantidad: 1, unidadMedida: 'pieza' }], combos: [] });
+  assert('15.3 Crear presupuesto fresco 201', r.status === 201 && r.body && r.body.id, r.status + ' ' + r.raw);
+  if (r.status === 201 && r.body) {
+    expId = r.body.id;
+    assert('15.3b Estado abierto al crear', r.body.estado === 'abierto', r.body.estado);
+    if (backdatePresupuesto(expId, 8)) {
+      // 15.4 Al listar se marca como vencido
+      r = await req('GET', '/presupuestos?page=1&limit=50');
+      if (r.status === 200) {
+        const fila = (r.body.data || []).find(function (p) { return p.id === expId; });
+        assert('15.4 En lista aparece vencido', !!fila && fila.estado === 'vencido', JSON.stringify(fila));
+        assert('15.4b Lista trae diasExpiracionPresupuesto', !!fila && fila.diasExpiracionPresupuesto === 7, 'dias=' + (fila && fila.diasExpiracionPresupuesto));
+        assert('15.4c Lista trae fechaVencimiento', !!fila && typeof fila.fechaVencimiento === 'string', 'fechaVencimiento=' + JSON.stringify(fila && fila.fechaVencimiento));
+      } else {
+        assert('15.4 En lista aparece vencido', false, 'lista status ' + r.status);
+      }
+      // 15.5 Detalle devuelve estado vencido + precio recalculado al actual
+      r = await req('GET', '/presupuestos/' + expId);
+      assert('15.5 Detalle 200', r.status === 200, r.status + ' ' + r.raw);
+      if (r.status === 200 && r.body) {
+        assert('15.5b Estado vencido en detalle', r.body.estado === 'vencido', r.body.estado);
+        assert('15.5c precioVencido true', r.body.precioVencido === true, String(r.body.precioVencido));
+        assert('15.5d trae diasExpiracionPresupuesto', r.body.diasExpiracionPresupuesto === 7, String(r.body.diasExpiracionPresupuesto));
+        assert('15.5f Detalle trae fechaVencimiento', typeof r.body.fechaVencimiento === 'string', String(r.body.fechaVencimiento));
+        const l = (r.body.detalles || []).find(function (d) { return d.productoId === P.coca; });
+        assert('15.5e precioEfectivo = precioActual (recalculado)', !!l && Math.abs(l.precioEfectivo - l.precioActual) < 0.001, JSON.stringify(l));
+      }
+      // 15.6 Filtro por estado vencido
+      r = await req('GET', '/presupuestos?estado=vencido&page=1&limit=50');
+      if (r.status === 200) {
+        const fila = (r.body.data || []).find(function (p) { return p.id === expId; });
+        assert('15.6 Filtro estado=vencido lo incluye', !!fila, 'fila no encontrada');
+      } else {
+        assert('15.6 Filtro estado=vencido lo incluye', false, 'lista status ' + r.status);
+      }
+    }
+  }
+
+  // 15.7 Restaurar config (sin vencimiento) para no afectar el resto
+  r = await req('PATCH', '/company-settings', { diasExpiracionPresupuesto: diasDefault });
+  assert('15.7 Restaurar diasExpiracionPresupuesto', r.status === 200 && r.body && r.body.diasExpiracionPresupuesto === diasDefault, r.status + ' ' + r.raw);
+
+  // 15.8 Descancelar un presupuesto cancelado
+  let descId = '';
+  r = await req('POST', '/presupuestos', { detalles: [{ productoId: P.coca, cantidad: 1, unidadMedida: 'pieza' }], combos: [] });
+  assert('15.8 Crear presupuesto 201', r.status === 201 && r.body && r.body.id, r.status + ' ' + r.raw);
+  if (r.status === 201 && r.body) {
+    descId = r.body.id;
+    r = await req('PATCH', '/presupuestos/' + descId + '/cancelar');
+    assert('15.8b Cancelar 200', r.status === 200 && r.body && r.body.estado === 'cancelado', r.status + ' ' + r.raw);
+    if (r.status === 200) {
+      r = await req('PATCH', '/presupuestos/' + descId + '/descancelar');
+      assert('15.8c Descancelar 200 -> abierto', r.status === 200 && r.body && r.body.estado === 'abierto', r.status + ' ' + r.raw);
+    }
+  }
+
+  // 15.9 Descancelar un presupuesto NO cancelado -> 400
+  let ncId = '';
+  r = await req('POST', '/presupuestos', { detalles: [{ productoId: P.coca, cantidad: 1, unidadMedida: 'pieza' }], combos: [] });
+  assert('15.9 Crear presupuesto 201', r.status === 201 && r.body && r.body.id, r.status + ' ' + r.raw);
+  if (r.status === 201 && r.body) {
+    ncId = r.body.id;
+    r = await req('PATCH', '/presupuestos/' + ncId + '/descancelar');
+    assert('15.9b Descancelar abierto -> 400', r.status === 400, r.status + ' ' + r.raw);
   }
 
   // ── Summary ──
