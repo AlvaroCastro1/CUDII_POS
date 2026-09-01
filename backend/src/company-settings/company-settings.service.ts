@@ -27,6 +27,7 @@ export class CompanySettingsService {
         stockMinimoGlobal: true,
         stockMaximoGlobal: true,
         conservarPrecioPresupuesto: true,
+        diasExpiracionPresupuesto: true,
         programaLealtad: {
           include: {
             niveles: { orderBy: { umbralPuntos: 'asc' } },
@@ -106,6 +107,9 @@ export class CompanySettingsService {
         ...(dto.conservarPrecioPresupuesto !== undefined
           ? { conservarPrecioPresupuesto: dto.conservarPrecioPresupuesto }
           : {}),
+        ...(dto.diasExpiracionPresupuesto !== undefined
+          ? { diasExpiracionPresupuesto: dto.diasExpiracionPresupuesto }
+          : {}),
       },
       select: {
         id: true,
@@ -115,6 +119,7 @@ export class CompanySettingsService {
         stockMinimoGlobal: true,
         stockMaximoGlobal: true,
         conservarPrecioPresupuesto: true,
+        diasExpiracionPresupuesto: true,
         programaLealtad: {
           include: { niveles: { orderBy: { umbralPuntos: 'asc' } } },
         },

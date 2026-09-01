@@ -149,4 +149,14 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   conservarPrecioPresupuesto?: boolean;
+
+  /**
+   * D12: Días que un presupuesto conserva su precio congelado antes de
+   * vencerse. 0 = sin vencimiento. Al vencer, el precio se recalcula al actual
+   * y el presupuesto se muestra como "vencido".
+   */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  diasExpiracionPresupuesto?: number;
 }

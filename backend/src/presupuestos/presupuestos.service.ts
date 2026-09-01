@@ -318,6 +318,61 @@ export class PresupuestosService {
   }
 
   /**
+   * D12: Marca como "vencido" (de forma perezosa, al leer) los presupuestos
+   * abiertos que superaron la ventana de expiración configurada
+   * (Empresa.diasExpiracionPresupuesto). 0 = sin vencimiento, no hace nada.
+   */
+  private async marcarVencidos(empresaId: string) {
+    const empresa = await this.prisma.empresa.findUnique({
+      where: { id: empresaId },
+      select: { diasExpiracionPresupuesto: true },
+    });
+    const dias = empresa?.diasExpiracionPresupuesto ?? 0;
+    if (dias <= 0) return;
+    const corte = new Date(Date.now() - dias * 24 * 60 * 60 * 1000);
+    await this.prisma.presupuesto.updateMany({
+      where: {
+        empresaId,
+        estado: 'abierto',
+        creadoEn: { lte: corte },
+      },
+      data: { estado: 'vencido' },
+    });
+  }
+
+  /**
+   * D12: Barrido en segundo plano que marca como "vencido" los presupuestos
+   * abiertos de TODAS las empresas que superaron su ventana de expiración.
+   * Es el análogo a cómo se "actualizan solas" las caducidades: corre de forma
+   * periódica (ver PresupuestosExpiracionService) sin esperar a que alguien
+   * consulte el recurso.
+   * @returns Resumen de empresas revisadas y presupuestos marcados.
+   */
+  async marcarVencidosGlobal() {
+    const empresas = await this.prisma.empresa.findMany({
+      where: { diasExpiracionPresupuesto: { gt: 0 } },
+      select: { id: true, diasExpiracionPresupuesto: true },
+    });
+    const ahora = Date.now();
+    let marcados = 0;
+    for (const e of empresas) {
+      const corte = new Date(
+        ahora - e.diasExpiracionPresupuesto * 24 * 60 * 60 * 1000,
+      );
+      const res = await this.prisma.presupuesto.updateMany({
+        where: {
+          empresaId: e.id,
+          estado: 'abierto',
+          creadoEn: { lte: corte },
+        },
+        data: { estado: 'vencido' },
+      });
+      marcados += res.count;
+    }
+    return { revisadas: empresas.length, marcados };
+  }
+
+  /**
    * Listar presupuestos de la empresa con paginación y filtros
    * (estado, rango de fechas, folio/cliente).
    */
@@ -327,6 +382,7 @@ export class PresupuestosService {
     limit = 20,
     opts: { estado?: string; fechaInicio?: string; fechaFin?: string; busqueda?: string } = {},
   ) {
+    await this.marcarVencidos(empresaId);
     const where: Prisma.PresupuestoWhereInput = { empresaId };
     if (opts.estado) where.estado = opts.estado as never;
     if (opts.fechaInicio || opts.fechaFin) {
@@ -370,7 +426,21 @@ export class PresupuestosService {
       }),
     ]);
 
-    return construirRespuestaPaginada(data, total, p, l);
+    const empresa = await this.prisma.empresa.findUnique({
+      where: { id: empresaId },
+      select: { diasExpiracionPresupuesto: true },
+    });
+    const dias = empresa?.diasExpiracionPresupuesto ?? 0;
+    const conVencimiento = data.map((p) => ({
+      ...p,
+      diasExpiracionPresupuesto: dias,
+      fechaVencimiento:
+        dias > 0
+          ? new Date(p.creadoEn.getTime() + dias * 24 * 60 * 60 * 1000)
+          : null,
+    }));
+
+    return construirRespuestaPaginada(conVencimiento, total, p, l);
   }
 
   /**
@@ -380,12 +450,18 @@ export class PresupuestosService {
    * - precioEfectivo (según la config conservarPrecioPresupuesto: lo que se carga al ticket)
    */
   async detalle(empresaId: string, id: string) {
+    await this.marcarVencidos(empresaId);
     const presupuesto = await this.prisma.presupuesto.findFirst({
       where: { id, empresaId },
       include: {
         cliente: { select: { id: true, nombre: true, apellidoPaterno: true } },
         cajero: { select: { id: true, nombre: true } },
-        empresa: { select: { conservarPrecioPresupuesto: true } },
+        empresa: {
+          select: {
+            conservarPrecioPresupuesto: true,
+            diasExpiracionPresupuesto: true,
+          },
+        },
         detalles: {
           include: {
             producto: { select: { id: true, precioVentaBase: true } },
@@ -395,7 +471,11 @@ export class PresupuestosService {
     });
     if (!presupuesto) throw new NotFoundException('Presupuesto no encontrado');
 
-    const conservar = presupuesto.empresa.conservarPrecioPresupuesto;
+    // Si el presupuesto venció, el precio se recalcula al actual del catálogo
+    // aunque esté activo "conservarPrecioPresupuesto".
+    const vencido = presupuesto.estado === 'vencido';
+    const conservar =
+      presupuesto.empresa.conservarPrecioPresupuesto && !vencido;
     const lineas = presupuesto.detalles.map((d) => {
       const precioActual = d.producto.precioVentaBase;
       const { producto: _omitir, ...resto } = d;
@@ -407,10 +487,21 @@ export class PresupuestosService {
       };
     });
 
+    const diasExpiracion = presupuesto.empresa.diasExpiracionPresupuesto;
     return {
       ...presupuesto,
       empresa: undefined,
-      conservarPrecioPresupuesto: conservar,
+      conservarPrecioPresupuesto:
+        presupuesto.empresa.conservarPrecioPresupuesto,
+      diasExpiracionPresupuesto: diasExpiracion,
+      fechaVencimiento:
+        diasExpiracion > 0
+          ? new Date(
+              presupuesto.creadoEn.getTime() +
+                diasExpiracion * 24 * 60 * 60 * 1000,
+            )
+          : null,
+      precioVencido: vencido,
       detalles: lineas,
     };
   }
@@ -441,6 +532,40 @@ export class PresupuestosService {
       entidadId: actualizado.id,
       detalles: { folio: actualizado.folio, estado: actualizado.estado },
       severidad: 'warning',
+    });
+
+    return actualizado;
+  }
+
+  /**
+   * Descancelar un presupuesto (estado = abierto). Solo posible si está
+   * cancelado. Si venció mientras estaba cancelado queda como vencido.
+   */
+  async descancelar(empresaId: string, id: string, usuarioId: string) {
+    const presupuesto = await this.prisma.presupuesto.findFirst({
+      where: { id, empresaId },
+    });
+    if (!presupuesto) throw new NotFoundException('Presupuesto no encontrado');
+    if (presupuesto.estado !== 'cancelado')
+      throw new BadRequestException(
+        'Solo se puede descancelar un presupuesto cancelado',
+      );
+
+    const actualizado = await this.prisma.presupuesto.update({
+      where: { id },
+      data: { estado: 'abierto' },
+    });
+
+    await this.marcarVencidos(empresaId);
+
+    await this.auditService.registrarEvento({
+      empresaId,
+      usuarioId,
+      accion: 'PRESUPUESTO_DESCANCELADO',
+      entidadTipo: 'presupuesto',
+      entidadId: actualizado.id,
+      detalles: { folio: actualizado.folio, estado: actualizado.estado },
+      severidad: 'info',
     });
 
     return actualizado;

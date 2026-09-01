@@ -63,4 +63,11 @@ export class PresupuestosController {
   cancelar(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
     return this.presupuestosService.cancelar(user.empresaId, id, user.id);
   }
+
+  /** Descancelar un presupuesto cancelado */
+  @Patch(':id/descancelar')
+  @Roles(Rol.ADMIN, Rol.SUPER_ADMIN, Rol.GERENTE)
+  descancelar(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
+    return this.presupuestosService.descancelar(user.empresaId, id, user.id);
+  }
 }

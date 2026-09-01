@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PresupuestosController } from './presupuestos.controller';
 import { PresupuestosService } from './presupuestos.service';
+import { PresupuestosExpiracionService } from './presupuestos-expiracion.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CouponsModule } from '../coupons/coupons.module';
 
@@ -8,7 +9,7 @@ import { CouponsModule } from '../coupons/coupons.module';
 @Module({
   imports: [PrismaModule, CouponsModule],
   controllers: [PresupuestosController],
-  providers: [PresupuestosService],
+  providers: [PresupuestosService, PresupuestosExpiracionService],
   exports: [PresupuestosService],
 })
 export class PresupuestosModule {}
