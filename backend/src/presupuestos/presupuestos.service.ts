@@ -380,11 +380,21 @@ export class PresupuestosService {
     empresaId: string,
     page = 1,
     limit = 20,
-    opts: { estado?: string; fechaInicio?: string; fechaFin?: string; busqueda?: string } = {},
+    opts: {
+      estado?: string;
+      fechaInicio?: string;
+      fechaFin?: string;
+      busqueda?: string;
+      incluirCancelados?: string;
+    } = {},
   ) {
     await this.marcarVencidos(empresaId);
     const where: Prisma.PresupuestoWhereInput = { empresaId };
-    if (opts.estado) where.estado = opts.estado as never;
+    if (opts.estado) {
+      where.estado = opts.estado as never;
+    } else if (opts.incluirCancelados !== 'true') {
+      where.estado = { not: 'cancelado' } as never;
+    }
     if (opts.fechaInicio || opts.fechaFin) {
       where.creadoEn = {};
       if (opts.fechaInicio)

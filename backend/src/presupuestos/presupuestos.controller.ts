@@ -41,12 +41,13 @@ export class PresupuestosController {
     @Query('fechaInicio') fechaInicio: string = '',
     @Query('fechaFin') fechaFin: string = '',
     @Query('busqueda') busqueda: string = '',
+    @Query('incluirCancelados') incluirCancelados?: string,
   ) {
     return this.presupuestosService.listar(
       user.empresaId,
       parseInt(page, 10) || 1,
       parseInt(limit, 10) || 20,
-      { estado, fechaInicio, fechaFin, busqueda },
+      { estado, fechaInicio, fechaFin, busqueda, incluirCancelados },
     );
   }
 

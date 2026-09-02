@@ -16,7 +16,8 @@ import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { usePaginacion, type PaginacionMeta } from '@/hooks/usePaginacion';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePosStore, type LineaPresupuesto } from '@/store/usePosStore';
-import { RefreshCw, Eye, XCircle, SlidersHorizontal, X, AlertTriangle, Power } from 'lucide-react';
+import { RefreshCw, Eye, XCircle, SlidersHorizontal, X, AlertTriangle, Power, PowerOff } from 'lucide-react';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 
 interface ClienteSnap {
   id: string;
@@ -124,6 +125,7 @@ export default function PresupuestosView() {
   const [detalleAbierto, setDetalleAbierto] = useState(false);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
+  const [incluirCancelados, setIncluirCancelados] = useState(false);
   const [cancelarObjetivo, setCancelarObjetivo] = useState<ResumenPresupuesto | null>(null);
   const [cancelando, setCancelando] = useState(false);
 
@@ -144,6 +146,7 @@ export default function PresupuestosView() {
       };
       if (search.trim()) params.busqueda = search.trim();
       if (filtroEstado) params.estado = filtroEstado;
+      if (incluirCancelados) params.incluirCancelados = 'true';
       const res = await api.get<{ data: ResumenPresupuesto[]; meta?: PaginacionMeta }>(
         '/presupuestos',
         { params },
@@ -156,7 +159,7 @@ export default function PresupuestosView() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, filtroEstado, setMeta]);
+  }, [page, limit, search, filtroEstado, incluirCancelados, setMeta]);
 
   useEffect(() => {
     fetchLista();
@@ -172,6 +175,7 @@ export default function PresupuestosView() {
   const limpiar = () => {
     setSearch('');
     setFiltroEstado('');
+    setIncluirCancelados(false);
     reiniciar();
   };
 
@@ -272,38 +276,30 @@ export default function PresupuestosView() {
         </Badge>
       </div>
 
-      <div className="spatial-glass rounded-2xl border border-outline/20 p-3 flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <form onSubmit={buscar} className="flex-1">
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por folio o cliente..."
-              className="max-w-md w-full"
-            />
-          </form>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setMostrarFiltros((v) => !v)}
-              title="Filtros por estado"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              <span className="hidden sm:inline">Filtros</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={limpiar} title="Limpiar">
-              <X className="w-4 h-4" />
-              <span className="hidden sm:inline">Limpiar</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={fetchLista} title="Actualizar">
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        {mostrarFiltros && (
-          <div className="flex flex-wrap gap-2">
+      <BuscadorEstandar
+        busqueda={search}
+        onBusquedaChange={(v) => {
+          setSearch(v);
+          reiniciar();
+        }}
+        placeholder="Buscar por folio o cliente..."
+        switchInactivos={{
+          checked: incluirCancelados,
+          onCheckedChange: (checked) => {
+            setIncluirCancelados(checked);
+            reiniciar();
+          },
+          label: 'Mostrar presupuestos cancelados',
+        }}
+        onActualizar={fetchLista}
+        cargando={loading}
+        onLimpiar={limpiar}
+        filtrosActivosCount={filtroEstado ? 1 : 0}
+        filtrosRapidos={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-on-surface-variant mr-1">
+              Estado:
+            </span>
             {(['abierto', 'vendido', 'cancelado', 'vencido'] as const).map((estado) => (
               <button
                 key={estado}
@@ -321,8 +317,8 @@ export default function PresupuestosView() {
               </button>
             ))}
           </div>
-        )}
-      </div>
+        }
+      />
 
       <div className="spatial-glass rounded-2xl border border-outline/20 overflow-hidden">
         {loading ? (
@@ -387,7 +383,7 @@ export default function PresupuestosView() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-1 font-medium">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -398,13 +394,13 @@ export default function PresupuestosView() {
                         </Button>
                         {(p.estado === 'abierto' || p.estado === 'vencido') && (
                           <Button
-                            variant="default"
+                            variant="ghost"
                             size="sm"
                             onClick={() => vender(p)}
                             disabled={vendiendoId === p.id}
                             title="Cargar al ticket para vender"
                           >
-                            {vendiendoId === p.id ? 'Cargando...' : 'Vender'}
+                            <span className="material-symbols-outlined !text-lg text-primary">point_of_sale</span>
                           </Button>
                         )}
                         {(p.estado === 'abierto' || p.estado === 'vencido') &&
@@ -415,7 +411,7 @@ export default function PresupuestosView() {
                             onClick={() => setCancelarObjetivo(p)}
                             title="Cancelar presupuesto"
                           >
-                            <XCircle className="w-4 h-4 text-error" />
+                            <PowerOff className="w-4 h-4 text-warning" />
                           </Button>
                         )}
                         {p.estado === 'cancelado' && puedeGestionar && (
