@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Pencil, PowerOff, Power } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 import { Switch } from '@/components/ui/switch';
 
 interface Categoria {
@@ -146,10 +147,14 @@ export default function CategoriasView() {
   const handleToggleReactivate = async (id: string) => {
     try {
       await api.patch(`/categories/${id}`, { estaActivo: true });
-      toast.success('Categoría reactivada');
+      toast.success('Categoría reactivada exitosamente');
       fetchCategorias();
     } catch (error: unknown) {
-      toast.error('Error al reactivar categoría');
+      if (axios.isAxiosError(error)) {
+        toast.error(error.response?.data?.message || 'Error al reactivar la categoría');
+      } else {
+        toast.error('Error al reactivar la categoría');
+      }
     }
   };
 
@@ -258,31 +263,31 @@ export default function CategoriasView() {
         </Dialog>
       </div>
 
+      <BuscadorEstandar
+        busqueda={search}
+        onBusquedaChange={(val) => {
+          setSearch(val);
+          reiniciar();
+        }}
+        placeholder="Buscar por nombre o descripción..."
+        switchInactivos={{
+          checked: incluirInactivos,
+          onCheckedChange: (checked: boolean) => {
+            setIncluirInactivos(checked);
+            reiniciar();
+          },
+          label: 'Mostrar ocultos/inactivos',
+        }}
+        onActualizar={fetchCategorias}
+        cargando={loading}
+        onLimpiar={() => {
+          setSearch('');
+          setIncluirInactivos(false);
+          reiniciar();
+        }}
+      />
+
       <div className="bg-surface rounded-xl border border-on-surface/10 p-4 mb-6">
-        <div className="flex gap-4 mb-4 justify-between items-center">
-          <Input 
-            placeholder="Buscar por nombre o descripción..." 
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              reiniciar();
-            }}
-            className="max-w-md w-full"
-          />
-          <div className="flex items-center gap-2">
-            <Switch 
-              checked={incluirInactivos}
-              onCheckedChange={(checked: boolean) => {
-                setIncluirInactivos(checked);
-                reiniciar();
-              }}
-              id="switch-inactivos"
-            />
-            <Label htmlFor="switch-inactivos" className="text-sm text-on-surface-variant cursor-pointer">
-              Mostrar ocultos/inactivos
-            </Label>
-          </div>
-        </div>
 
         <Table>
           <TableHeader>

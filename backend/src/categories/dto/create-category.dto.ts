@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsHexColor } from 'class-validator';
+import { IsString, IsOptional, IsHexColor, IsBoolean } from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
@@ -15,4 +15,8 @@ export class CreateCategoryDto {
   @IsString()
   @IsOptional()
   icono?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  estaActivo?: boolean;
 }

@@ -65,10 +65,13 @@ export class CategoriesService {
     };
   }
 
-  async findOne(id: string, empresaId: string) {
-    const categoria = await this.prisma.categoria.findFirst({
-      where: { id, empresaId, estaActivo: true },
-    });
+  async findOne(id: string, empresaId: string, soloActivos = false) {
+    const where: Prisma.CategoriaWhereInput = { id, empresaId };
+    if (soloActivos) {
+      where.estaActivo = true;
+    }
+
+    const categoria = await this.prisma.categoria.findFirst({ where });
 
     if (!categoria) {
       throw new NotFoundException('Categoría no encontrada');

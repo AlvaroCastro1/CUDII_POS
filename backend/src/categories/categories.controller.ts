@@ -54,7 +54,7 @@ export class CategoriesController {
   @Get(':id')
   @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO, Rol.ALMACEN)
   findOne(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
-    return this.categoriesService.findOne(id, user.empresaId);
+    return this.categoriesService.findOne(id, user.empresaId, true);
   }
 
   @Patch(':id')
