@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { api, errorMessage } from '../lib/api';
 import { useAuthStore } from '../store/useAuthStore';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 import type {
   TipoResolucionDevolucion,
   Venta,
@@ -55,6 +56,9 @@ export const DevolucionesView: React.FC = () => {
   const [tabActiva, setTabActiva] = useState<'nueva' | 'historial'>('nueva');
   const [historial, setHistorial] = useState<DevolucionHistorial[]>([]);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
+  const [searchHistorial, setSearchHistorial] = useState('');
+  const [filtroResolucion, setFiltroResolucion] = useState<string>('todas');
+  const [filtroFecha, setFiltroFecha] = useState<string>('todas');
 
   const [searchFolio, setSearchFolio] = useState('');
   const [venta, setVenta] = useState<Venta | null>(null);
@@ -63,9 +67,10 @@ export const DevolucionesView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Estado de ítems seleccionados para devolución
+  // Estado de ítems seleccionados para devolución (clave por id del detalle)
   const [selectedItems, setSelectedItems] = useState<{
-    [productoId: string]: {
+    [detId: string]: {
+      productoId: string;
       cantidad: number;
       motivo: string;
       destino: 'stock' | 'merma';
@@ -77,17 +82,31 @@ export const DevolucionesView: React.FC = () => {
   );
 
   /**
-   * Calcula cuántas unidades de un productoId ya fueron devueltas en devoluciones anteriores.
-   * Recorre todas las devoluciones de la venta y acumula cantidadDevuelta.
+   * Calcula la cantidad disponible para devolver de un renglón específico (det.id).
+   * Descuenta devoluciones previas asociadas al producto de forma secuencial entre renglones.
    */
-  const calcularYaDevuelto = (productoId: string): number => {
-    if (!venta?.devoluciones?.length) return 0;
-    return venta.devoluciones.reduce((total: number, dev: VentaDevolucion) => {
-      const itemDev = dev.productos?.find(
-        (p: VentaDevolucionProducto) => p.productoId === productoId,
-      );
-      return total + (itemDev?.cantidadDevuelta ?? 0);
+  const calcularDisponible = (det: VentaDetalle): number => {
+    if (!venta) return det.cantidad;
+    const lineasMismoProducto = (venta.detalles || []).filter(
+      (d: VentaDetalle) => d.productoId === det.productoId,
+    );
+    const totalYaDevuelto = (venta.devoluciones || []).reduce((total: number, dev: VentaDevolucion) => {
+      const devItems = dev.productos?.filter(
+        (p: VentaDevolucionProducto) => p.productoId === det.productoId,
+      ) ?? [];
+      return total + devItems.reduce((acc, p) => acc + (p.cantidadDevuelta ?? 0), 0);
     }, 0);
+
+    let yaDevueltoRestante = totalYaDevuelto;
+    for (const linea of lineasMismoProducto) {
+      const asignadoALinea = Math.min(linea.cantidad, yaDevueltoRestante);
+      yaDevueltoRestante -= asignadoALinea;
+      if (linea.id === det.id) {
+        return Math.max(0, det.cantidad - asignadoALinea);
+      }
+    }
+
+    return Math.max(0, det.cantidad);
   };
 
   const handleSearchVenta = async (e: React.FormEvent) => {
@@ -139,14 +158,15 @@ export const DevolucionesView: React.FC = () => {
     // No permitir selección si no queda nada por devolver
     if (disponible <= 0) return;
 
-    if (selectedItems[det.productoId]) {
+    if (selectedItems[det.id]) {
       const newMap = { ...selectedItems };
-      delete newMap[det.productoId];
+      delete newMap[det.id];
       setSelectedItems(newMap);
     } else {
       setSelectedItems({
         ...selectedItems,
-        [det.productoId]: {
+        [det.id]: {
+          productoId: det.productoId,
           cantidad: 1,
           motivo: 'cambio_opinion',
           destino: 'stock',
@@ -155,12 +175,12 @@ export const DevolucionesView: React.FC = () => {
     }
   };
 
-  const handleItemChange = (productoId: string, field: string, value: string) => {
-    if (!selectedItems[productoId]) return;
+  const handleItemChange = (detId: string, field: string, value: string | number) => {
+    if (!selectedItems[detId]) return;
     setSelectedItems({
       ...selectedItems,
-      [productoId]: {
-        ...selectedItems[productoId],
+      [detId]: {
+        ...selectedItems[detId],
         [field]: field === 'cantidad' ? Number(value) : value,
       },
     });
@@ -178,13 +198,13 @@ export const DevolucionesView: React.FC = () => {
     setSuccessMsg(null);
 
     try {
-      const productosPayload = keys.map((pId) => {
-        const item = selectedItems[pId];
-        const det = venta.detalles.find((d: VentaDetalle) => d.productoId === pId);
+      const productosPayload = keys.map((detId) => {
+        const item = selectedItems[detId];
+        const det = venta?.detalles?.find((d: VentaDetalle) => d.id === detId);
         return {
-          productoId: pId,
+          productoId: item.productoId,
           cantidadDevuelta: Number(item.cantidad),
-          precioUnitario: det.precioUnitario,
+          precioUnitario: det?.precioUnitario ?? 0,
           motivo: item.motivo,
           destino: item.destino,
         };
@@ -213,7 +233,7 @@ export const DevolucionesView: React.FC = () => {
   // ¿Todos los productos de la venta están completamente devueltos?
   const todosAgotados =
     venta?.detalles?.length > 0 &&
-    venta.detalles.every((det: VentaDetalle) => calcularYaDevuelto(det.productoId) >= det.cantidad);
+    venta.detalles.every((det: VentaDetalle) => calcularDisponible(det) <= 0);
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto text-on-surface">
@@ -271,78 +291,143 @@ export const DevolucionesView: React.FC = () => {
 
       {tabActiva === 'historial' && puedeVerHistorial ? (
         /* ===================== HISTORIAL DE DEVOLUCIONES ===================== */
-        <div className="liquid-glass border border-outline/20 rounded-[28px] p-6 shadow-2xl">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-bold text-primary font-headline-md">
-                Devoluciones Registradas
-              </h3>
-              <p className="text-xs text-outline font-body-md mt-0.5">
-                Todas las devoluciones de la empresa, de la más reciente a la más antigua
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={cargarHistorial}
-              disabled={cargandoHistorial}
-              className="px-4 py-2 rounded-xl border border-outline/20 text-on-surface-variant hover:bg-surface-container-high text-xs font-semibold transition-colors disabled:opacity-50"
-            >
-              {cargandoHistorial ? 'Actualizando...' : 'Actualizar'}
-            </button>
-          </div>
+        <div className="space-y-4">
+          <BuscadorEstandar
+            busqueda={searchHistorial}
+            onBusquedaChange={setSearchHistorial}
+            placeholder="Buscar por folio de devolución, ticket original o usuario..."
+            onActualizar={cargarHistorial}
+            cargando={cargandoHistorial}
+            onLimpiar={() => {
+              setSearchHistorial('');
+              setFiltroResolucion('todas');
+              setFiltroFecha('todas');
+            }}
+            filtrosActivosCount={
+              (filtroResolucion !== 'todas' ? 1 : 0) + (filtroFecha !== 'todas' ? 1 : 0)
+            }
+            filtrosRapidos={
+              <>
+                <div className="flex flex-col gap-1 text-xs">
+                  <span className="text-on-surface-variant font-medium">Resolución</span>
+                  <select
+                    value={filtroResolucion}
+                    onChange={(e) => setFiltroResolucion(e.target.value)}
+                    className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+                  >
+                    <option value="todas">Todas las resoluciones</option>
+                    <option value="reembolso_efectivo">Reembolso en Efectivo</option>
+                    <option value="cambio_fisico">Cambio Físico</option>
+                    <option value="saldo_favor">Saldo a Favor</option>
+                  </select>
+                </div>
 
+                <div className="flex flex-col gap-1 text-xs">
+                  <span className="text-on-surface-variant font-medium">Periodo / Fecha</span>
+                  <select
+                    value={filtroFecha}
+                    onChange={(e) => setFiltroFecha(e.target.value)}
+                    className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+                  >
+                    <option value="todas">Histórico completo</option>
+                    <option value="hoy">Registradas hoy</option>
+                    <option value="ultimos_7">Últimos 7 días</option>
+                    <option value="este_mes">Este mes</option>
+                  </select>
+                </div>
+              </>
+            }
+          />
+
+          <div className="liquid-glass border border-outline/20 rounded-[28px] p-6 shadow-2xl">
           {cargandoHistorial && historial.length === 0 ? (
             <div className="flex items-center justify-center py-12 gap-3 text-outline">
               <RotateCcw className="w-5 h-5 animate-spin" />
               Cargando historial...
             </div>
-          ) : historial.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-outline">
-              <PackageCheck className="w-14 h-14 mb-3 opacity-30" />
-              <p className="font-medium">Aún no hay devoluciones registradas</p>
-              <p className="text-sm mt-1">Las devoluciones procesadas aparecerán aquí</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-outline/20 text-left text-[11px] uppercase tracking-wider text-outline">
-                    <th className="py-3 px-2">Folio</th>
-                    <th className="py-3 px-2">Fecha</th>
-                    <th className="py-3 px-2">Ticket Original</th>
-                    <th className="py-3 px-2">Productos</th>
-                    <th className="py-3 px-2">Resolución</th>
-                    <th className="py-3 px-2">Registró</th>
-                    <th className="py-3 px-2 text-right">Total Devuelto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {historial.map((dev) => (
-                    <tr key={dev.id} className="border-b border-outline/10 hover:bg-surface-container-low/60">
-                      <td className="py-3 px-2 font-mono font-bold text-primary">{dev.folio}</td>
-                      <td className="py-3 px-2 text-outline whitespace-nowrap">
-                        {new Date(dev.fechaHora).toLocaleString('es-MX')}
-                      </td>
-                      <td className="py-3 px-2 font-mono">{dev.venta?.folio ?? '—'}</td>
-                      <td className="py-3 px-2 text-outline">
-                        {dev.productos?.length ?? 0}{' '}
-                        {(dev.productos?.length ?? 0) === 1 ? 'producto' : 'productos'}
-                      </td>
-                      <td className="py-3 px-2">
-                        <span className="px-2 py-0.5 rounded-full bg-surface-container-high border border-outline/20 text-[11px] font-semibold">
-                          {ETIQUETAS_RESOLUCION[dev.tipoResolucion]}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2 text-outline">{dev.usuario?.nombre ?? '—'}</td>
-                      <td className="py-3 px-2 text-right font-mono font-bold text-error">
-                        -${dev.totalDevuelto.toFixed(2)}
-                      </td>
+          ) : (() => {
+            const query = searchHistorial.trim().toLowerCase();
+            const ahora = new Date();
+            const hace7Dias = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+            const filtrado = historial.filter((dev) => {
+              if (query) {
+                const matchFolio = dev.folio.toLowerCase().includes(query);
+                const matchVenta = dev.venta?.folio?.toLowerCase().includes(query) ?? false;
+                const matchUsuario = dev.usuario?.nombre?.toLowerCase().includes(query) ?? false;
+                if (!matchFolio && !matchVenta && !matchUsuario) return false;
+              }
+
+              if (filtroResolucion !== 'todas' && dev.tipoResolucion !== filtroResolucion) {
+                return false;
+              }
+
+              if (filtroFecha === 'hoy') {
+                const f = new Date(dev.fechaHora);
+                return f.toDateString() === ahora.toDateString();
+              } else if (filtroFecha === 'ultimos_7') {
+                return new Date(dev.fechaHora) >= hace7Dias;
+              } else if (filtroFecha === 'este_mes') {
+                const f = new Date(dev.fechaHora);
+                return f.getMonth() === ahora.getMonth() && f.getFullYear() === ahora.getFullYear();
+              }
+
+              return true;
+            });
+
+            if (filtrado.length === 0) {
+              return (
+                <div className="flex flex-col items-center justify-center py-12 text-outline">
+                  <PackageCheck className="w-14 h-14 mb-3 opacity-30" />
+                  <p className="font-medium">No hay devoluciones para los filtros seleccionados</p>
+                  <p className="text-sm mt-1">Prueba cambiando la búsqueda o los filtros</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-outline/20 text-left text-[11px] uppercase tracking-wider text-outline">
+                      <th className="py-3 px-2">Folio</th>
+                      <th className="py-3 px-2">Fecha</th>
+                      <th className="py-3 px-2">Ticket Original</th>
+                      <th className="py-3 px-2">Productos</th>
+                      <th className="py-3 px-2">Resolución</th>
+                      <th className="py-3 px-2">Registró</th>
+                      <th className="py-3 px-2 text-right">Total Devuelto</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody>
+                    {filtrado.map((dev) => (
+                      <tr key={dev.id} className="border-b border-outline/10 hover:bg-surface-container-low/60">
+                        <td className="py-3 px-2 font-mono font-bold text-primary">{dev.folio}</td>
+                        <td className="py-3 px-2 text-outline whitespace-nowrap">
+                          {new Date(dev.fechaHora).toLocaleString('es-MX')}
+                        </td>
+                        <td className="py-3 px-2 font-mono">{dev.venta?.folio ?? '—'}</td>
+                        <td className="py-3 px-2 text-outline">
+                          {dev.productos?.length ?? 0}{' '}
+                          {(dev.productos?.length ?? 0) === 1 ? 'producto' : 'productos'}
+                        </td>
+                        <td className="py-3 px-2">
+                          <span className="px-2 py-0.5 rounded-full bg-surface-container-high border border-outline/20 text-[11px] font-semibold">
+                            {ETIQUETAS_RESOLUCION[dev.tipoResolucion]}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 text-outline">{dev.usuario?.nombre ?? '—'}</td>
+                        <td className="py-3 px-2 text-right font-mono font-bold text-error">
+                          -${dev.totalDevuelto.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+          </div>
         </div>
       ) : (
         <>
@@ -417,10 +502,10 @@ export const DevolucionesView: React.FC = () => {
             </h3>
 
             {venta.detalles?.map((det: VentaDetalle) => {
-              const yaDevuelto = calcularYaDevuelto(det.productoId);
-              const disponible = det.cantidad - yaDevuelto;
+              const disponible = calcularDisponible(det);
+              const yaDevuelto = det.cantidad - disponible;
               const agotado = disponible <= 0;
-              const isSelected = !!selectedItems[det.productoId];
+              const isSelected = !!selectedItems[det.id];
 
               return (
                 <div
@@ -498,10 +583,10 @@ export const DevolucionesView: React.FC = () => {
                           max={disponible}
                           min={1}
                           step={1}
-                          value={selectedItems[det.productoId].cantidad}
+                          value={selectedItems[det.id].cantidad}
                           onChange={(e) =>
                             handleItemChange(
-                              det.productoId,
+                              det.id,
                               'cantidad',
                               Math.min(disponible, Math.max(1, parseInt(e.target.value) || 1)),
                             )
@@ -515,8 +600,8 @@ export const DevolucionesView: React.FC = () => {
                           Motivo de Devolución:
                         </label>
                         <select
-                          value={selectedItems[det.productoId].motivo}
-                          onChange={(e) => handleItemChange(det.productoId, 'motivo', e.target.value)}
+                          value={selectedItems[det.id].motivo}
+                          onChange={(e) => handleItemChange(det.id, 'motivo', e.target.value)}
                           className="w-full p-2.5 bg-surface-container-low border border-outline/20 rounded-xl text-primary font-medium"
                         >
                           <option value="cambio_opinion">Cambio de Opinión</option>
@@ -532,9 +617,9 @@ export const DevolucionesView: React.FC = () => {
                           Destino del Producto:
                         </label>
                         <select
-                          value={selectedItems[det.productoId].destino}
+                          value={selectedItems[det.id].destino}
                           onChange={(e) =>
-                            handleItemChange(det.productoId, 'destino', e.target.value)
+                            handleItemChange(det.id, 'destino', e.target.value)
                           }
                           className="w-full p-2.5 bg-surface-container-low border border-outline/20 rounded-xl text-primary font-medium"
                         >
