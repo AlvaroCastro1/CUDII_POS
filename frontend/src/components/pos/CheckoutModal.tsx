@@ -12,10 +12,12 @@ import {
   Users,
   Wallet,
   Ticket,
+  Printer,
 } from 'lucide-react';
 import { api, errorMessage } from '../../lib/api';
 import { usePosStore } from '../../store/usePosStore';
 import type { Venta } from '../../types/pos';
+import { PresupuestoTicketModal, type PresupuestoTicketData } from './PresupuestoTicketModal';
 
 /** Nivel de lealtad del cliente (D10) */
 interface NivelLealtadPos {
@@ -107,10 +109,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   // ── D12: Guardar como presupuesto (cotización) ─────────────────────────
   const [guardandoPresupuesto, setGuardandoPresupuesto] = useState(false);
-  const [presupuestoGuardado, setPresupuestoGuardado] = useState<{
-    folio: string;
-    id: string;
-  } | null>(null);
+  const [presupuestoGuardado, setPresupuestoGuardado] = useState<PresupuestoTicketData | null>(null);
+  const [presupuestoParaTicket, setPresupuestoParaTicket] = useState<PresupuestoTicketData | null>(null);
 
   /** Carga la configuración del programa al abrir el modal */
   useEffect(() => {
@@ -519,11 +519,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       if (canjeHabilitado) body.puntosACanjear = puntosACanjear;
       if (cuponAplicado) body.codigoCupon = cuponAplicado.codigo;
 
-      const res = await api.post('/presupuestos', body);
-      setPresupuestoGuardado({
-        folio: res.data?.folio ?? '',
-        id: res.data?.id ?? '',
-      });
+      const res = await api.post<PresupuestoTicketData>('/presupuestos', body);
+      setPresupuestoGuardado(res.data);
+      setPresupuestoParaTicket(res.data);
     } catch (err: unknown) {
       console.error('Error al guardar presupuesto:', err);
       setError(
@@ -1050,13 +1048,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           )}
 
           {presupuestoGuardado && (
-            <div className="p-3.5 rounded-2xl border border-success/30 bg-success/10 flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
-              <div className="text-xs text-on-surface font-body-md leading-snug">
-                <span className="font-bold">Presupuesto guardado:</span>{' '}
-                {presupuestoGuardado.folio}. Puedes cobrarlo después desde la
-                lista de presupuestos.
+            <div className="p-3.5 rounded-2xl border border-success/30 bg-success/10 space-y-2.5">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
+                <div className="text-xs text-on-surface font-body-md leading-snug">
+                  <span className="font-bold">Presupuesto guardado:</span>{' '}
+                  {presupuestoGuardado.folio}. Puedes cobrarlo después desde la
+                  lista de presupuestos.
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setPresupuestoParaTicket(presupuestoGuardado)}
+                className="w-full py-2 bg-primary text-on-primary font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm hover:scale-[1.01] transition-transform font-display-lg"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Imprimir Ticket de Presupuesto</span>
+              </button>
             </div>
           )}
 
@@ -1098,6 +1106,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             )}
           </button>
         </form>
+
+        <PresupuestoTicketModal
+          presupuesto={presupuestoParaTicket}
+          onClose={() => setPresupuestoParaTicket(null)}
+        />
       </div>
     </div>
   );

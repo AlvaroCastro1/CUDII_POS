@@ -16,8 +16,9 @@ import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { usePaginacion, type PaginacionMeta } from '@/hooks/usePaginacion';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePosStore, type LineaPresupuesto } from '@/store/usePosStore';
-import { RefreshCw, Eye, XCircle, SlidersHorizontal, X, AlertTriangle, Power, PowerOff } from 'lucide-react';
+import { RefreshCw, Eye, XCircle, SlidersHorizontal, X, AlertTriangle, Power, PowerOff, Printer } from 'lucide-react';
 import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
+import { PresupuestoTicketModal, type PresupuestoTicketData } from '@/components/pos/PresupuestoTicketModal';
 
 interface ClienteSnap {
   id: string;
@@ -133,6 +134,20 @@ export default function PresupuestosView() {
   const [descancelando, setDescancelando] = useState(false);
 
   const [vendiendoId, setVendiendoId] = useState<string | null>(null);
+  const [presupuestoParaImprimir, setPresupuestoParaImprimir] = useState<PresupuestoTicketData | null>(null);
+
+  const handleImprimir = async (p: ResumenPresupuesto | DetallePresupuesto) => {
+    if ('detalles' in p && Array.isArray(p.detalles)) {
+      setPresupuestoParaImprimir(p as PresupuestoTicketData);
+    } else {
+      try {
+        const res = await api.get(`/presupuestos/${p.id}`);
+        setPresupuestoParaImprimir(res.data);
+      } catch {
+        toast.error('Error al cargar la información para imprimir el ticket');
+      }
+    }
+  };
 
   const puedeGestionar =
     user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN' || user?.rol === 'GERENTE';
@@ -392,6 +407,14 @@ export default function PresupuestosView() {
                         >
                           <Eye className="w-4 h-4 text-on-surface-variant" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleImprimir(p)}
+                          title="Imprimir ticket de cotización"
+                        >
+                          <Printer className="w-4 h-4 text-primary" />
+                        </Button>
                         {(p.estado === 'abierto' || p.estado === 'vencido') && (
                           <Button
                             variant="ghost"
@@ -628,34 +651,43 @@ export default function PresupuestosView() {
                 </div>
 
                 {/* Pie de acciones */}
-                {(detalle.estado === 'abierto' || detalle.estado === 'vencido') && (
-                  <div className="px-6 py-4 border-t border-outline/10 bg-surface-container-low/50 flex justify-end">
-                    <Button
-                      onClick={() => {
-                        setDetalleAbierto(false);
-                        vender({ ...detalle, descuento: 0 } as ResumenPresupuesto);
-                      }}
-                      className="min-h-[48px]"
-                    >
-                      <span className="material-symbols-outlined !text-lg mr-1.5">point_of_sale</span>
-                      Cargar al ticket y vender
-                    </Button>
+                <div className="px-6 py-4 border-t border-outline/10 bg-surface-container-low/50 flex items-center justify-between gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleImprimir(detalle)}
+                    className="min-h-[48px]"
+                  >
+                    <Printer className="w-4 h-4 mr-1.5 text-primary" />
+                    Imprimir Ticket
+                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    {(detalle.estado === 'abierto' || detalle.estado === 'vencido') && (
+                      <Button
+                        onClick={() => {
+                          setDetalleAbierto(false);
+                          vender({ ...detalle, descuento: 0 } as ResumenPresupuesto);
+                        }}
+                        className="min-h-[48px]"
+                      >
+                        <span className="material-symbols-outlined !text-lg mr-1.5">point_of_sale</span>
+                        Cargar al ticket y vender
+                      </Button>
+                    )}
+                    {detalle.estado === 'cancelado' && puedeGestionar && (
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          setDescancelarObjetivo({ ...detalle, descuento: 0 } as ResumenPresupuesto)
+                        }
+                        className="min-h-[48px]"
+                      >
+                        <Power className="w-4 h-4 mr-1.5 text-success" />
+                        Reactivar
+                      </Button>
+                    )}
                   </div>
-                )}
-                {detalle.estado === 'cancelado' && puedeGestionar && (
-                  <div className="px-6 py-4 border-t border-outline/10 bg-surface-container-low/50 flex justify-end">
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        setDescancelarObjetivo({ ...detalle, descuento: 0 } as ResumenPresupuesto)
-                      }
-                      className="min-h-[48px]"
-                    >
-                            <Power className="w-4 h-4 mr-1.5 text-success" />
-                      Reactivar
-                    </Button>
-                  </div>
-                )}
+                </div>
               </>
             ) : (
               <div className="p-10 text-center text-on-surface-variant">Sin información.</div>
@@ -692,6 +724,11 @@ export default function PresupuestosView() {
         confirmText="Reactivar"
         variant="info"
         isLoading={descancelando}
+      />
+
+      <PresupuestoTicketModal
+        presupuesto={presupuestoParaImprimir}
+        onClose={() => setPresupuestoParaImprimir(null)}
       />
     </div>
   );
