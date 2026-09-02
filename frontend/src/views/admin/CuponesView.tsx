@@ -17,12 +17,16 @@ import {
   Plus,
   Pencil,
   PowerOff,
+  Power,
   Percent,
   Banknote,
   BadgePercent,
   RefreshCw,
 } from 'lucide-react';
 import axios from 'axios';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import { PaginacionControles } from '@/components/ui/PaginacionControles';
 
 type TipoDescuento = 'PORCENTAJE' | 'MONTO_FIJO';
 
@@ -88,6 +92,7 @@ export default function CuponesView() {
   const [cupones, setCupones] = useState<Cupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(20);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editando, setEditando] = useState<Cupon | null>(null);
@@ -99,15 +104,16 @@ export default function CuponesView() {
     try {
       setLoading(true);
       const res = await api.get('/coupons', {
-        params: { search: search || undefined, incluirInactivos: 'true' },
+        params: { page, limit, search: search || undefined, incluirInactivos: 'true' },
       });
       setCupones(Array.isArray(res.data?.data) ? res.data.data : []);
+      if (res.data?.meta) setMeta(res.data.meta);
     } catch {
       toast.error('Error al cargar los cupones');
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [page, limit, search, setMeta]);
 
   useEffect(() => {
     fetchCupones();
@@ -193,20 +199,25 @@ export default function CuponesView() {
     }
   };
 
-  const handleEliminar = async (c: Cupon) => {
+  const handleToggleActivo = async (c: Cupon) => {
     setEliminandoId(c.id);
     try {
-      await api.delete(`/coupons/${c.id}`);
-      toast.success(`Cupón ${c.codigo} desactivado`);
+      if (c.activo) {
+        await api.delete(`/coupons/${c.id}`);
+        toast.success(`Cupón ${c.codigo} desactivado`);
+      } else {
+        await api.patch(`/coupons/${c.id}`, { activo: true });
+        toast.success(`Cupón ${c.codigo} reactivado exitosamente`);
+      }
       fetchCupones();
     } catch (err: unknown) {
       console.error(err);
       if (axios.isAxiosError(err)) {
         toast.error(
-          err.response?.data?.message || 'Error al desactivar el cupón',
+          err.response?.data?.message || 'Error al cambiar estado del cupón',
         );
       } else {
-        toast.error('Error al desactivar el cupón');
+        toast.error('Error al cambiar estado del cupón');
       }
     } finally {
       setEliminandoId(null);
@@ -223,6 +234,51 @@ export default function CuponesView() {
     if (c.limiteUsosTotal == null) return `${usados} usados`;
     return `${usados} / ${c.limiteUsosTotal}`;
   };
+
+  const [incluirInactivos, setIncluirInactivos] = useState(false);
+  const [filtroTipo, setFiltroTipo] = useState<string>('todos');
+  const [filtroVigencia, setFiltroVigencia] = useState<string>('todos');
+
+  const cuponesFiltrados = useCallback(() => {
+    let lista = [...cupones];
+    if (!incluirInactivos) {
+      lista = lista.filter((c) => c.activo);
+    }
+
+    if (filtroTipo !== 'todos') {
+      lista = lista.filter((c) => c.tipoDescuento === filtroTipo);
+    }
+
+    if (filtroVigencia === 'vigentes') {
+      const hoy = new Date().toISOString().split('T')[0];
+      lista = lista.filter((c) => {
+        const inicio = aYYYYMMDD(c.fechaInicio);
+        const fin = aYYYYMMDD(c.fechaFin);
+        return inicio <= hoy && fin >= hoy;
+      });
+    } else if (filtroVigencia === 'vencidos') {
+      const hoy = new Date().toISOString().split('T')[0];
+      lista = lista.filter((c) => {
+        const fin = aYYYYMMDD(c.fechaFin);
+        return fin < hoy;
+      });
+    }
+
+    return lista;
+  }, [cupones, incluirInactivos, filtroTipo, filtroVigencia]);
+
+  const listaFinalCupones = cuponesFiltrados();
+
+  const limpiarFiltros = () => {
+    setSearch('');
+    setIncluirInactivos(false);
+    setFiltroTipo('todos');
+    setFiltroVigencia('todos');
+    reiniciar();
+  };
+
+  const filtrosActivosCount =
+    (filtroTipo !== 'todos' ? 1 : 0) + (filtroVigencia !== 'todos' ? 1 : 0);
 
   return (
     <div className="p-4 md:p-8 max-w-6xl">
@@ -241,27 +297,66 @@ export default function CuponesView() {
         </Button>
       </div>
 
-      <div className="mb-4 flex items-center gap-2 flex-wrap">
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por código o nombre..."
-          className="max-w-md w-full"
-        />
-        <Button variant="outline" onClick={fetchCupones} disabled={loading}>
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Actualizar
-        </Button>
-      </div>
+      <BuscadorEstandar
+        busqueda={search}
+        onBusquedaChange={(val) => {
+          setSearch(val);
+          reiniciar();
+        }}
+        placeholder="Buscar por código o nombre..."
+        switchInactivos={{
+          checked: incluirInactivos,
+          onCheckedChange: (checked) => {
+            setIncluirInactivos(checked);
+            reiniciar();
+          },
+          label: 'Mostrar inactivos / vencidos',
+        }}
+        onActualizar={fetchCupones}
+        cargando={loading}
+        onLimpiar={limpiarFiltros}
+        filtrosActivosCount={filtrosActivosCount}
+        filtrosRapidos={
+          <>
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="text-on-surface-variant font-medium">
+                Tipo de Descuento
+              </span>
+              <select
+                value={filtroTipo}
+                onChange={(e) => setFiltroTipo(e.target.value)}
+                className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+              >
+                <option value="todos">Todos los tipos</option>
+                <option value="PORCENTAJE">Porcentaje (%)</option>
+                <option value="MONTO_FIJO">Monto Fijo ($)</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="text-on-surface-variant font-medium">Vigencia</span>
+              <select
+                value={filtroVigencia}
+                onChange={(e) => setFiltroVigencia(e.target.value)}
+                className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+              >
+                <option value="todos">Todas las vigencias</option>
+                <option value="vigentes">Solo vigentes hoy</option>
+                <option value="vencidos">Solo vencidos</option>
+              </select>
+            </div>
+          </>
+        }
+      />
 
       {loading ? (
         <div className="bg-surface rounded-xl border border-on-surface/10 p-12 text-center text-on-surface-variant font-body-md">
           Cargando cupones...
         </div>
-      ) : cupones.length === 0 ? (
+      ) : listaFinalCupones.length === 0 ? (
         <div className="bg-surface rounded-xl border border-on-surface/10 p-12 text-center text-on-surface-variant font-body-md flex flex-col items-center gap-2">
           <BadgePercent className="w-8 h-8 text-outline" />
-          No hay cupones. Crea el primero.
+          No hay cupones para los filtros aplicados.
         </div>
       ) : (
         <div className="bg-surface rounded-xl border border-on-surface/10 overflow-hidden">
@@ -278,7 +373,7 @@ export default function CuponesView() {
               </tr>
             </thead>
             <tbody>
-              {cupones.map((c) => (
+              {listaFinalCupones.map((c) => (
                 <tr
                   key={c.id}
                   className="border-b border-on-surface/5 last:border-0"
@@ -345,21 +440,34 @@ export default function CuponesView() {
                       >
                         <Pencil className="w-4 h-4 text-on-surface-variant" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        title="Desactivar cupón"
-                        onClick={() => handleEliminar(c)}
-                        disabled={eliminandoId === c.id}
-                      >
-                        <PowerOff className="w-4 h-4 text-warning" />
-                      </Button>
+                      {c.activo ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Desactivar cupón"
+                          onClick={() => handleToggleActivo(c)}
+                          disabled={eliminandoId === c.id}
+                        >
+                          <PowerOff className="w-4 h-4 text-warning" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Reactivar cupón"
+                          onClick={() => handleToggleActivo(c)}
+                          disabled={eliminandoId === c.id}
+                        >
+                          <Power className="w-4 h-4 text-success" />
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <PaginacionControles meta={meta} onPageChange={irAPagina} />
         </div>
       )}
 
