@@ -27,6 +27,9 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import type { ComboConResumen, TipoPrecioCombo } from '@/types/pos';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
+import { usePaginacion } from '@/hooks/usePaginacion';
+import { PaginacionControles } from '@/components/ui/PaginacionControles';
 
 interface ProductoResultado {
   id: string;
@@ -80,6 +83,7 @@ export default function CombosView() {
   const [combos, setCombos] = useState<ComboConResumen[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const { page, limit, meta, setMeta, irAPagina, reiniciar } = usePaginacion(20);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editando, setEditando] = useState<ComboConResumen | null>(null);
@@ -99,15 +103,16 @@ export default function CombosView() {
     try {
       setLoading(true);
       const res = await api.get('/combos', {
-        params: { search: search || undefined, incluirInactivos: 'true' },
+        params: { page, limit, search: search || undefined, incluirInactivos: 'true' },
       });
       setCombos(Array.isArray(res.data?.data) ? res.data.data : []);
+      if (res.data?.meta) setMeta(res.data.meta);
     } catch {
       toast.error('Error al cargar los combos');
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [page, limit, search, setMeta]);
 
   useEffect(() => {
     fetchCombos();
@@ -347,6 +352,53 @@ export default function CombosView() {
       ? `$${c.valorPrecio.toFixed(2)}`
       : `${c.valorPrecio}% dcto.`;
 
+  const [incluirInactivos, setIncluirInactivos] = useState(false);
+  const [filtroTipo, setFiltroTipo] = useState<string>('todos');
+  const [filtroVigencia, setFiltroVigencia] = useState<string>('todos');
+
+  const combosFiltrados = useCallback(() => {
+    let lista = [...combos];
+    if (!incluirInactivos) {
+      lista = lista.filter((c) => c.activo);
+    }
+
+    if (filtroTipo !== 'todos') {
+      lista = lista.filter((c) => c.tipoPrecio === filtroTipo);
+    }
+
+    if (filtroVigencia === 'vigentes') {
+      const hoy = new Date().toISOString().split('T')[0];
+      lista = lista.filter((c) => {
+        const inicio = aYYYYMMDD(c.fechaInicio);
+        const fin = aYYYYMMDD(c.fechaFin);
+        if (inicio && inicio > hoy) return false;
+        if (fin && fin < hoy) return false;
+        return true;
+      });
+    } else if (filtroVigencia === 'vencidos') {
+      const hoy = new Date().toISOString().split('T')[0];
+      lista = lista.filter((c) => {
+        const fin = aYYYYMMDD(c.fechaFin);
+        return fin && fin < hoy;
+      });
+    }
+
+    return lista;
+  }, [combos, incluirInactivos, filtroTipo, filtroVigencia]);
+
+  const listaFinalCombos = combosFiltrados();
+
+  const limpiarFiltros = () => {
+    setSearch('');
+    setIncluirInactivos(false);
+    setFiltroTipo('todos');
+    setFiltroVigencia('todos');
+    reiniciar();
+  };
+
+  const filtrosActivosCount =
+    (filtroTipo !== 'todos' ? 1 : 0) + (filtroVigencia !== 'todos' ? 1 : 0);
+
   return (
     <div className="p-4 md:p-8 max-w-6xl">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -364,27 +416,64 @@ export default function CombosView() {
         </Button>
       </div>
 
-      <div className="mb-4 flex items-center gap-2 flex-wrap">
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nombre o descripción..."
-          className="max-w-md w-full"
-        />
-        <Button variant="outline" onClick={fetchCombos} disabled={loading}>
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Actualizar
-        </Button>
-      </div>
+      <BuscadorEstandar
+        busqueda={search}
+        onBusquedaChange={(val) => {
+          setSearch(val);
+          reiniciar();
+        }}
+        placeholder="Buscar por nombre o descripción..."
+        switchInactivos={{
+          checked: incluirInactivos,
+          onCheckedChange: (checked) => {
+            setIncluirInactivos(checked);
+            reiniciar();
+          },
+          label: 'Mostrar inactivos / vencidos',
+        }}
+        onActualizar={fetchCombos}
+        cargando={loading}
+        onLimpiar={limpiarFiltros}
+        filtrosActivosCount={filtrosActivosCount}
+        filtrosRapidos={
+          <>
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="text-on-surface-variant font-medium">Tipo de Precio</span>
+              <select
+                value={filtroTipo}
+                onChange={(e) => setFiltroTipo(e.target.value)}
+                className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+              >
+                <option value="todos">Todos los tipos</option>
+                <option value="MONTO_FIJO">Monto Fijo ($)</option>
+                <option value="DESCUENTO_PCT">Porcentaje (% Dcto)</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="text-on-surface-variant font-medium">Vigencia</span>
+              <select
+                value={filtroVigencia}
+                onChange={(e) => setFiltroVigencia(e.target.value)}
+                className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+              >
+                <option value="todos">Todas las vigencias</option>
+                <option value="vigentes">Solo vigentes hoy</option>
+                <option value="vencidos">Solo vencidos</option>
+              </select>
+            </div>
+          </>
+        }
+      />
 
       {loading ? (
         <div className="bg-surface rounded-xl border border-on-surface/10 p-12 text-center text-on-surface-variant font-body-md">
           Cargando combos...
         </div>
-      ) : combos.length === 0 ? (
+      ) : listaFinalCombos.length === 0 ? (
         <div className="bg-surface rounded-xl border border-on-surface/10 p-12 text-center text-on-surface-variant font-body-md flex flex-col items-center gap-2">
           <Gift className="w-8 h-8 text-outline" />
-          No hay combos. Crea el primero.
+          No hay combos para los filtros seleccionados.
         </div>
       ) : (
         <div className="bg-surface rounded-xl border border-on-surface/10 overflow-hidden">
@@ -401,7 +490,7 @@ export default function CombosView() {
               </tr>
             </thead>
             <tbody>
-              {combos.map((c) => (
+              {listaFinalCombos.map((c) => (
                 <tr
                   key={c.id}
                   className="border-b border-on-surface/5 last:border-0"
@@ -498,6 +587,7 @@ export default function CombosView() {
               ))}
             </tbody>
           </table>
+          <PaginacionControles meta={meta} onPageChange={irAPagina} />
         </div>
       )}
 
