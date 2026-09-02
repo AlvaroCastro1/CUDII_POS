@@ -15,6 +15,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { Switch } from '@/components/ui/switch';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 
 const ROLES_OPTIONS = [
   { valor: 'CAJERO', nombre: 'Cajero', desc: 'Atención en caja y cobros', icon: 'point_of_sale', colorClass: 'border-primary bg-primary/5', textClass: 'text-primary' },
@@ -48,6 +49,7 @@ export default function UsuariosView() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const [incluirInactivos, setIncluirInactivos] = useState(false);
+  const [filtroRol, setFiltroRol] = useState<string>('todos');
   const [userToToggle, setUserToToggle] = useState<Usuario | null>(null);
   const [isToggling, setIsToggling] = useState(false);
 
@@ -382,32 +384,51 @@ export default function UsuariosView() {
         )}
       </div>
 
-      <div className="bg-surface rounded-xl border border-on-surface/10 p-4 mb-6">
-        <div className="flex gap-4 mb-4 justify-between items-center">
-          <Input 
-            placeholder="Buscar por nombre o email..." 
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              reiniciar();
-            }}
-            className="max-w-md w-full"
-          />
-          <div className="flex items-center gap-2">
-            <Switch
-              id="switch-inactivos"
-              checked={incluirInactivos}
-              onCheckedChange={(checked: boolean) => {
-                setIncluirInactivos(checked);
-                reiniciar();
-              }}
-            />
-            <Label htmlFor="switch-inactivos" className="text-sm text-on-surface-variant cursor-pointer">
-              Mostrar inactivos
-            </Label>
+      <BuscadorEstandar
+        busqueda={search}
+        onBusquedaChange={(val) => {
+          setSearch(val);
+          reiniciar();
+        }}
+        placeholder="Buscar por nombre o email..."
+        switchInactivos={{
+          checked: incluirInactivos,
+          onCheckedChange: (checked: boolean) => {
+            setIncluirInactivos(checked);
+            reiniciar();
+          },
+          label: 'Mostrar inactivos',
+        }}
+        onActualizar={fetchUsuarios}
+        cargando={loading}
+        onLimpiar={() => {
+          setSearch('');
+          setFiltroRol('todos');
+          setIncluirInactivos(false);
+          reiniciar();
+        }}
+        filtrosActivosCount={filtroRol !== 'todos' ? 1 : 0}
+        filtrosRapidos={
+          <div className="flex flex-col gap-1 text-xs">
+            <span className="text-on-surface-variant font-medium">Rol de Usuario</span>
+            <select
+              value={filtroRol}
+              onChange={(e) => setFiltroRol(e.target.value)}
+              className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+            >
+              <option value="todos">Todos los roles</option>
+              <option value="SUPER_ADMIN">Super Admin</option>
+              <option value="ADMIN">Administrador</option>
+              <option value="GERENTE">Gerente</option>
+              <option value="CAJERO">Cajero</option>
+              <option value="ALMACEN">Almacén</option>
+              <option value="CONTADOR">Contador</option>
+            </select>
           </div>
-        </div>
+        }
+      />
 
+      <div className="bg-surface rounded-xl border border-on-surface/10 p-4 mb-6">
         <Table>
           <TableHeader>
             <TableRow>
@@ -427,14 +448,22 @@ export default function UsuariosView() {
                   Cargando usuarios...
                 </TableCell>
               </TableRow>
-            ) : usuarios.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-6 text-on-surface-variant">
-                  No hay usuarios registrados
-                </TableCell>
-              </TableRow>
-            ) : (
-              usuarios.map((user: Usuario) => (
+            ) : (() => {
+              const usuariosFiltrados = usuarios.filter(
+                (u) => filtroRol === 'todos' || u.rol === filtroRol
+              );
+
+              if (usuariosFiltrados.length === 0) {
+                return (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-48 text-center text-on-surface-variant">
+                      No hay usuarios para los filtros seleccionados
+                    </TableCell>
+                  </TableRow>
+                );
+              }
+
+              return usuariosFiltrados.map((user: Usuario) => (
                 <TableRow key={user.id} className={!user.estaActivo ? "opacity-50" : ""}>
                   <TableCell className="font-medium">{user.nombre}</TableCell>
                   <TableCell>{user.email}</TableCell>
@@ -469,8 +498,8 @@ export default function UsuariosView() {
                     </TableCell>
                   )}
                 </TableRow>
-              ))
-            )}
+              ));
+            })()}
           </TableBody>
         </Table>
         {meta && <PaginacionControles meta={meta} onPageChange={irAPagina} />}

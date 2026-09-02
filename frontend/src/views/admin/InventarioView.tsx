@@ -13,6 +13,7 @@ import { TrendingUp, TrendingDown, SlidersHorizontal } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { Switch } from '@/components/ui/switch';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 import { RecepcionMercanciaModal } from '@/components/admin/RecepcionMercanciaModal';
 import type { Lote, VencimientoInfo } from '@/types/pos';
 
@@ -957,32 +958,32 @@ export default function InventarioView() {
         </DialogContent>
       </Dialog>
 
+      <BuscadorEstandar
+        busqueda={search}
+        onBusquedaChange={(val) => {
+          setSearch(val);
+          reiniciar();
+        }}
+        placeholder="Buscar producto por nombre, código de barras o SKU..."
+        switchInactivos={{
+          checked: incluirInactivos,
+          onCheckedChange: (checked: boolean) => {
+            setIncluirInactivos(checked);
+            reiniciar();
+          },
+          label: 'Mostrar ocultos/inactivos',
+        }}
+        onActualizar={fetchData}
+        cargando={loading}
+        onLimpiar={() => {
+          setSearch('');
+          setIncluirInactivos(false);
+          reiniciar();
+        }}
+      />
+
       {/* ===================== TABLA DE INVENTARIO ===================== */}
       <div className="bg-surface rounded-xl border border-on-surface/10 p-4 mb-6">
-        <div className="flex gap-4 mb-4">
-          <Input
-            placeholder="Buscar producto por nombre, código de barras o SKU..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              reiniciar();
-            }}
-            className="w-full sm:max-w-xs bg-surface border border-outline/20"
-          />
-          <div className="flex items-center gap-2 ml-auto">
-            <Switch
-              id="switch-inactivos"
-              checked={incluirInactivos}
-              onCheckedChange={(checked: boolean) => {
-                setIncluirInactivos(checked);
-                reiniciar();
-              }}
-            />
-            <Label htmlFor="switch-inactivos" className="text-sm text-on-surface-variant cursor-pointer">
-              Mostrar ocultos/inactivos
-            </Label>
-          </div>
-        </div>
 
         <Table>
           <TableHeader>

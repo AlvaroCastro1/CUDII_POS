@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { Pencil, PowerOff, Power, Eye } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -155,47 +156,54 @@ export default function ProductosView() {
         categorias={categorias}
       />
 
-      {/* ===================== TABLA DE PRODUCTOS ===================== */}
-      <div className="bg-surface rounded-xl border border-on-surface/10 p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4 mb-4">
-          <Input
-            placeholder="Buscar por nombre, código de barras o SKU..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              reiniciar();
-            }}
-            className="max-w-md w-full"
-          />
-          <select
-            value={filtroCategoria}
-            onChange={(e) => {
-              setFiltroCategoria(e.target.value);
-              reiniciar();
-            }}
-            className="h-11 bg-surface border border-outline/20 rounded-xl px-4 text-sm focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all text-on-surface outline-none appearance-none max-w-[250px] w-full"
-          >
-            <option value="">Todas las categorías</option>
-            {categorias.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.nombre}
-              </option>
-            ))}
-          </select>
-          <div className="flex items-center gap-2 sm:ml-auto">
-            <Switch
-              id="switch-inactivos"
-              checked={incluirInactivos}
-              onCheckedChange={(checked: boolean) => {
-                setIncluirInactivos(checked);
+      <BuscadorEstandar
+        busqueda={search}
+        onBusquedaChange={(val) => {
+          setSearch(val);
+          reiniciar();
+        }}
+        placeholder="Buscar por nombre, código de barras o SKU..."
+        switchInactivos={{
+          checked: incluirInactivos,
+          onCheckedChange: (checked: boolean) => {
+            setIncluirInactivos(checked);
+            reiniciar();
+          },
+          label: 'Mostrar ocultos/inactivos',
+        }}
+        onActualizar={fetchProductos}
+        cargando={loading}
+        onLimpiar={() => {
+          setSearch('');
+          setFiltroCategoria('');
+          setIncluirInactivos(false);
+          reiniciar();
+        }}
+        filtrosActivosCount={filtroCategoria ? 1 : 0}
+        filtrosRapidos={
+          <div className="flex flex-col gap-1 text-xs">
+            <span className="text-on-surface-variant font-medium">Categoría</span>
+            <select
+              value={filtroCategoria}
+              onChange={(e) => {
+                setFiltroCategoria(e.target.value);
                 reiniciar();
               }}
-            />
-            <Label htmlFor="switch-inactivos" className="text-sm text-on-surface-variant cursor-pointer">
-              Mostrar ocultos/inactivos
-            </Label>
+              className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface min-w-[200px]"
+            >
+              <option value="">Todas las categorías</option>
+              {categorias.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.nombre}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
+        }
+      />
+
+      {/* ===================== TABLA DE PRODUCTOS ===================== */}
+      <div className="bg-surface rounded-xl border border-on-surface/10 p-4 mb-6">
 
         <Table>
           <TableHeader>

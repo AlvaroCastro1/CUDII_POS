@@ -21,6 +21,7 @@ import {
   Clock,
 } from 'lucide-react';
 import axios from 'axios';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 
 interface SesionAbierta {
   id: string;
@@ -196,31 +197,124 @@ export default function CajasView() {
     }
   };
 
+  const [search, setSearch] = useState('');
+  const [filtroAntiguedad, setFiltroAntiguedad] = useState<string>('todas');
+  const [ordenSesiones, setOrdenSesiones] = useState<string>('antiguedad_desc');
+  const [soloLargas, setSoloLargas] = useState<boolean>(false);
+
+  const sesionesFiltradas = useCallback(() => {
+    let lista = [...sesiones];
+    const q = search.trim().toLowerCase();
+    if (q) {
+      lista = lista.filter(
+        (s) =>
+          s.caja?.nombre?.toLowerCase().includes(q) ||
+          s.caja?.sucursal?.nombre?.toLowerCase().includes(q) ||
+          s.usuario?.nombre?.toLowerCase().includes(q),
+      );
+    }
+
+    if (soloLargas) {
+      lista = lista.filter((s) => (s.antiguedadMinutos ?? 0) >= 480); // 8+ horas
+    }
+
+    if (filtroAntiguedad === 'mas_8h') {
+      lista = lista.filter((s) => (s.antiguedadMinutos ?? 0) >= 480);
+    } else if (filtroAntiguedad === 'mas_12h') {
+      lista = lista.filter((s) => (s.antiguedadMinutos ?? 0) >= 720);
+    } else if (filtroAntiguedad === 'mas_24h') {
+      lista = lista.filter((s) => (s.antiguedadMinutos ?? 0) >= 1440);
+    }
+
+    if (ordenSesiones === 'antiguedad_desc') {
+      lista.sort((a, b) => (b.antiguedadMinutos ?? 0) - (a.antiguedadMinutos ?? 0));
+    } else if (ordenSesiones === 'efectivo_desc') {
+      lista.sort((a, b) => (b.totalEfectivoEsperado ?? 0) - (a.totalEfectivoEsperado ?? 0));
+    } else if (ordenSesiones === 'caja') {
+      lista.sort((a, b) => (a.caja?.nombre ?? '').localeCompare(b.caja?.nombre ?? ''));
+    }
+
+    return lista;
+  }, [sesiones, search, soloLargas, filtroAntiguedad, ordenSesiones]);
+
+  const listaFinal = sesionesFiltradas();
+
+  const limpiarFiltros = () => {
+    setSearch('');
+    setFiltroAntiguedad('todas');
+    setOrdenSesiones('antiguedad_desc');
+    setSoloLargas(false);
+  };
+
+  const filtrosActivosCount =
+    (filtroAntiguedad !== 'todas' ? 1 : 0) + (ordenSesiones !== 'antiguedad_desc' ? 1 : 0);
+
   return (
     <div className="p-4 md:p-8 max-w-6xl">
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-display-lg font-bold text-primary">
-            Cajas Abiertas
-          </h1>
-          <p className="text-sm text-on-surface-variant font-body-md">
-            Monitoreo y cierre de sesiones de caja en todas las sucursales.
-          </p>
-        </div>
-        <Button variant="outline" onClick={fetchSesiones} disabled={loading}>
-          <Banknote className="w-4 h-4" />
-          {loading ? 'Cargando...' : 'Actualizar'}
-        </Button>
+      <div className="mb-6">
+        <h1 className="text-2xl font-display-lg font-bold text-primary">
+          Cajas Abiertas
+        </h1>
+        <p className="text-sm text-on-surface-variant font-body-md">
+          Monitoreo y cierre de sesiones de caja en todas las sucursales.
+        </p>
       </div>
+
+      <BuscadorEstandar
+        busqueda={search}
+        onBusquedaChange={setSearch}
+        placeholder="Buscar por caja, cajero o sucursal..."
+        switchInactivos={{
+          checked: soloLargas,
+          onCheckedChange: setSoloLargas,
+          label: 'Mostrar solo sesiones de +8 horas',
+        }}
+        onActualizar={fetchSesiones}
+        cargando={loading}
+        onLimpiar={limpiarFiltros}
+        filtrosActivosCount={filtrosActivosCount}
+        filtrosRapidos={
+          <>
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="text-on-surface-variant font-medium">
+                Antigüedad Abierta
+              </span>
+              <select
+                value={filtroAntiguedad}
+                onChange={(e) => setFiltroAntiguedad(e.target.value)}
+                className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+              >
+                <option value="todas">Cualquier tiempo abierta</option>
+                <option value="mas_8h">Más de 8 horas abiertas</option>
+                <option value="mas_12h">Más de 12 horas abiertas</option>
+                <option value="mas_24h">Más de 24 horas abiertas</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="text-on-surface-variant font-medium">Ordenar por</span>
+              <select
+                value={ordenSesiones}
+                onChange={(e) => setOrdenSesiones(e.target.value)}
+                className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+              >
+                <option value="antiguedad_desc">Mayor Antigüedad</option>
+                <option value="efectivo_desc">Mayor Efectivo Esperado</option>
+                <option value="caja">Nombre de Caja (A-Z)</option>
+              </select>
+            </div>
+          </>
+        }
+      />
 
       {loading ? (
         <div className="bg-surface rounded-xl border border-on-surface/10 p-12 text-center text-on-surface-variant font-body-md">
           Cargando cajas abiertas...
         </div>
-      ) : sesiones.length === 0 ? (
+      ) : listaFinal.length === 0 ? (
         <div className="bg-surface rounded-xl border border-on-surface/10 p-12 text-center text-on-surface-variant font-body-md flex flex-col items-center gap-2">
           <CheckCircle2 className="w-8 h-8 text-success" />
-          No hay cajas abiertas en este momento.
+          No se encontraron cajas abiertas para los filtros seleccionados.
         </div>
       ) : (
         <div className="bg-surface rounded-xl border border-on-surface/10 overflow-hidden">
@@ -238,7 +332,7 @@ export default function CajasView() {
               </tr>
             </thead>
             <tbody>
-              {sesiones.map((s) => {
+              {listaFinal.map((s) => {
                 const alerta = s.minutosAbierta >= UMBRAL_ALERTA_HORAS * 60;
                 return (
                   <tr

@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Pencil, PowerOff, Power, Truck } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 import { Switch } from '@/components/ui/switch';
 
 interface Proveedor {
@@ -313,34 +314,31 @@ export default function ProveedoresView() {
         </Dialog>
       </div>
 
+      <BuscadorEstandar
+        busqueda={search}
+        onBusquedaChange={(val) => {
+          setSearch(val);
+          reiniciar();
+        }}
+        placeholder="Buscar por nombre, RFC, contacto o teléfono..."
+        switchInactivos={{
+          checked: incluirInactivos,
+          onCheckedChange: (checked: boolean) => {
+            setIncluirInactivos(checked);
+            reiniciar();
+          },
+          label: 'Mostrar inactivos',
+        }}
+        onActualizar={fetchProveedores}
+        cargando={loading}
+        onLimpiar={() => {
+          setSearch('');
+          setIncluirInactivos(false);
+          reiniciar();
+        }}
+      />
+
       <div className="bg-surface rounded-xl border border-on-surface/10 p-4 mb-6">
-        <div className="flex gap-4 mb-4 justify-between items-center">
-          <Input
-            placeholder="Buscar por nombre, RFC o contacto..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              reiniciar();
-            }}
-            className="max-w-md w-full"
-          />
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={incluirInactivos}
-              onCheckedChange={(checked: boolean) => {
-                setIncluirInactivos(checked);
-                reiniciar();
-              }}
-              id="switch-inactivos"
-            />
-            <Label
-              htmlFor="switch-inactivos"
-              className="text-sm text-on-surface-variant cursor-pointer"
-            >
-              Mostrar inactivos
-            </Label>
-          </div>
-        </div>
 
         <Table>
           <TableHeader>

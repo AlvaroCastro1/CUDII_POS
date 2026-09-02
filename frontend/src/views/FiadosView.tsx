@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import { api, errorMessage } from '../lib/api';
 import { useAuthStore } from '../store/useAuthStore';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 
 // ------------------------------------------------------------------
 // Tipos
@@ -174,40 +175,105 @@ export default function FiadosView() {
     return 'bg-warning/10 text-warning border-warning/30';
   };
 
+  const [rangoDeuda, setRangoDeuda] = useState<string>('todas');
+  const [ordenDeuda, setOrdenDeuda] = useState<string>('deuda_desc');
+  const [soloSobregirados, setSoloSobregirados] = useState<boolean>(false);
+
+  const clientesFiltrados = useCallback(() => {
+    let lista = [...clientes];
+    if (soloSobregirados) {
+      lista = lista.filter((c) => {
+        const disp = (c.cuentaCredito?.limiteCredito ?? 0) - (c.cuentaCredito?.saldoPendiente ?? 0);
+        return disp <= 0;
+      });
+    }
+
+    if (rangoDeuda === 'mayor_500') {
+      lista = lista.filter((c) => (c.cuentaCredito?.saldoPendiente ?? 0) >= 500);
+    } else if (rangoDeuda === 'mayor_1000') {
+      lista = lista.filter((c) => (c.cuentaCredito?.saldoPendiente ?? 0) >= 1000);
+    } else if (rangoDeuda === 'mayor_5000') {
+      lista = lista.filter((c) => (c.cuentaCredito?.saldoPendiente ?? 0) >= 5000);
+    }
+
+    if (ordenDeuda === 'deuda_desc') {
+      lista.sort((a, b) => (b.cuentaCredito?.saldoPendiente ?? 0) - (a.cuentaCredito?.saldoPendiente ?? 0));
+    } else if (ordenDeuda === 'deuda_asc') {
+      lista.sort((a, b) => (a.cuentaCredito?.saldoPendiente ?? 0) - (b.cuentaCredito?.saldoPendiente ?? 0));
+    } else if (ordenDeuda === 'nombre') {
+      lista.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    }
+    return lista;
+  }, [clientes, soloSobregirados, rangoDeuda, ordenDeuda]);
+
+  const listaFinal = clientesFiltrados();
+
+  const limpiarFiltros = () => {
+    setSearch('');
+    setRangoDeuda('todas');
+    setOrdenDeuda('deuda_desc');
+    setSoloSobregirados(false);
+  };
+
+  const filtrosActivosCount = (rangoDeuda !== 'todas' ? 1 : 0) + (ordenDeuda !== 'deuda_desc' ? 1 : 0);
+
   return (
     <div className="p-6 space-y-6">
       {/* ===================== ENCABEZADO ===================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold font-display-lg text-on-background flex items-center gap-2">
-            <CreditCard className="w-7 h-7" />
-            Fiados (Crédito)
-          </h1>
-          <p className="text-sm text-on-surface-variant mt-0.5">
-            Clientes con saldo pendiente. Los abonos se aplican a la deuda más antigua primero.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar cliente..."
-              className="pl-9 pr-4 py-2.5 rounded-xl bg-surface border border-outline/20 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-56"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={cargarClientes}
-            disabled={loading}
-            className="p-2.5 rounded-xl border border-outline/20 text-on-surface-variant hover:bg-surface-container-high transition-colors disabled:opacity-50"
-            title="Actualizar lista"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold font-display-lg text-on-background flex items-center gap-2">
+          <CreditCard className="w-7 h-7" />
+          Fiados (Crédito)
+        </h1>
+        <p className="text-sm text-on-surface-variant mt-0.5">
+          Clientes con saldo pendiente. Los abonos se aplican a la deuda más antigua primero.
+        </p>
       </div>
+
+      <BuscadorEstandar
+        busqueda={search}
+        onBusquedaChange={setSearch}
+        placeholder="Buscar por cliente o teléfono..."
+        switchInactivos={{
+          checked: soloSobregirados,
+          onCheckedChange: setSoloSobregirados,
+          label: 'Solo sin crédito disponible',
+        }}
+        onActualizar={cargarClientes}
+        cargando={loading}
+        onLimpiar={limpiarFiltros}
+        filtrosActivosCount={filtrosActivosCount}
+        filtrosRapidos={
+          <>
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="text-on-surface-variant font-medium">Monto de Deuda</span>
+              <select
+                value={rangoDeuda}
+                onChange={(e) => setRangoDeuda(e.target.value)}
+                className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+              >
+                <option value="todas">Todas las deudas</option>
+                <option value="mayor_500">Deuda ≥ $500.00</option>
+                <option value="mayor_1000">Deuda ≥ $1,000.00</option>
+                <option value="mayor_5000">Deuda ≥ $5,000.00</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="text-on-surface-variant font-medium">Ordenar por</span>
+              <select
+                value={ordenDeuda}
+                onChange={(e) => setOrdenDeuda(e.target.value)}
+                className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+              >
+                <option value="deuda_desc">Mayor Deuda Primero</option>
+                <option value="deuda_asc">Menor Deuda Primero</option>
+                <option value="nombre">Nombre Cliente (A-Z)</option>
+              </select>
+            </div>
+          </>
+        }
+      />
 
       {/* ===================== TABLA DE FIADOS ===================== */}
       <div className="bg-surface rounded-xl border border-on-surface/10 p-4">
@@ -216,11 +282,11 @@ export default function FiadosView() {
             <RefreshCw className="w-5 h-5 animate-spin" />
             Cargando clientes con deuda...
           </div>
-        ) : clientes.length === 0 ? (
+        ) : listaFinal.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 text-on-surface-variant">
             <BadgeCheck className="w-14 h-14 mb-3 opacity-30" />
-            <p className="font-medium">No hay clientes con saldo pendiente</p>
-            <p className="text-sm mt-1">Todas las cuentas de crédito están al día</p>
+            <p className="font-medium">No hay clientes para los filtros aplicados</p>
+            <p className="text-sm mt-1">Prueba cambiando los filtros o la búsqueda</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -236,7 +302,7 @@ export default function FiadosView() {
                 </tr>
               </thead>
               <tbody>
-                {clientes.map((c) => {
+                {listaFinal.map((c) => {
                   const disponible =
                     (c.cuentaCredito?.limiteCredito ?? 0) - (c.cuentaCredito?.saldoPendiente ?? 0);
                   const sinDisponible = disponible <= 0;
