@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { api, errorMessage } from '@/lib/api';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { EstadoLote, Lote, LoteDetalle, MotivoMerma } from '@/types/pos';
 import { Eye } from 'lucide-react';
@@ -176,57 +177,12 @@ export default function LotesView() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold font-display-lg text-on-background">Control de Lotes</h1>
           <p className="text-sm text-on-surface-variant mt-1">
             Trazabilidad de lotes, caducidades y mermas por producto.
           </p>
-        </div>
-      </div>
-
-      {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-4 mb-4">
-        <Input
-          placeholder="Buscar por producto o código de barras..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            reiniciar();
-          }}
-          className="w-full sm:max-w-xs bg-surface border border-outline/20"
-        />
-        <div className="w-40">
-          <Select
-            value={estado}
-            onValueChange={(v) => {
-              setEstado(v);
-              reiniciar();
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los estados</SelectItem>
-              <SelectItem value="activo">Activos</SelectItem>
-              <SelectItem value="agotado">Agotados</SelectItem>
-              <SelectItem value="vencido">Vencidos</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Switch
-            id="switch-porevencer"
-            checked={porVencer}
-            onCheckedChange={(checked: boolean) => {
-              setPorVencer(checked);
-              reiniciar();
-            }}
-          />
-          <Label htmlFor="switch-porevencer" className="text-sm text-on-surface-variant cursor-pointer">
-            Por vencer (30 días)
-          </Label>
         </div>
         <Button
           variant="outline"
@@ -250,6 +206,50 @@ export default function LotesView() {
           {verificando ? 'Verificando...' : 'Verificar vencidos'}
         </Button>
       </div>
+
+      <BuscadorEstandar
+        busqueda={search}
+        onBusquedaChange={(val) => {
+          setSearch(val);
+          reiniciar();
+        }}
+        placeholder="Buscar por lote, producto o código de barras..."
+        switchInactivos={{
+          checked: porVencer,
+          onCheckedChange: (checked: boolean) => {
+            setPorVencer(checked);
+            reiniciar();
+          },
+          label: 'Mostrar solo lotes por vencer / vencidos',
+        }}
+        onActualizar={fetchLotes}
+        cargando={loading}
+        onLimpiar={() => {
+          setSearch('');
+          setEstado('todos');
+          setPorVencer(false);
+          reiniciar();
+        }}
+        filtrosActivosCount={estado !== 'todos' ? 1 : 0}
+        filtrosRapidos={
+          <div className="flex flex-col gap-1 text-xs">
+            <span className="text-on-surface-variant font-medium">Estado de Lote</span>
+            <select
+              value={estado}
+              onChange={(e) => {
+                setEstado(e.target.value);
+                reiniciar();
+              }}
+              className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+            >
+              <option value="todos">Todos los estados</option>
+              <option value="activo">Activo</option>
+              <option value="agotado">Agotado</option>
+              <option value="vencido">Vencido</option>
+            </select>
+          </div>
+        }
+      />
 
       {/* Tabla */}
       <div className="bg-surface rounded-xl border border-on-surface/10 p-4">
@@ -359,142 +359,207 @@ export default function LotesView() {
 
       {/* Modal de detalle + merma */}
       <Dialog open={isDetailOpen} onOpenChange={(open) => { if (!open) setIsDetailOpen(false); }}>
-        <DialogContent className="sm:max-w-[620px]">
-          <DialogHeader>
-            <DialogTitle>
-              {loteSeleccionado
-                ? `Lote ${loteSeleccionado.codigoLote}`
-                : 'Detalle del lote'}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-[640px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <div className="px-6 pt-5 pb-4 border-b border-on-surface/10 flex-shrink-0">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold font-display-lg text-primary flex items-center gap-2">
+                <span className="material-symbols-outlined !text-[22px]">inventory_2</span>
+                {loteSeleccionado
+                  ? `Lote: ${loteSeleccionado.codigoLote}`
+                  : 'Detalle del lote'}
+              </DialogTitle>
+            </DialogHeader>
+          </div>
 
           {detalleLoading ? (
-            <div className="text-center py-8 text-on-surface-variant text-sm">
-              Cargando detalle...
+            <div className="text-center py-12 text-on-surface-variant text-sm flex flex-col items-center gap-2">
+              <span className="material-symbols-outlined animate-spin text-primary !text-[28px]">progress_activity</span>
+              Cargando detalle del lote...
             </div>
           ) : loteSeleccionado ? (
-            <div className="space-y-4">
-              {/* Información del lote */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-5 custom-scrollbar">
+              {/* Banner de Producto Resumen */}
+              <div className="p-4 rounded-xl bg-surface-container-low border border-outline/10 flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-on-surface font-display-lg">
+                    {loteSeleccionado.producto?.nombre}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-mono text-xs text-on-surface-variant bg-surface-variant px-2 py-0.5 rounded-lg">
+                      {loteSeleccionado.producto?.codigoBarras}
+                    </span>
+                    {loteSeleccionado.sucursal?.nombre && (
+                      <span className="text-xs text-on-surface-variant">
+                        Sucursal: <strong>{loteSeleccionado.sucursal.nombre}</strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const est = ESTADO_BADGE[loteSeleccionado.estado];
+                    const cad = getCaducidadBadge(loteSeleccionado.fechaCaducidad, loteSeleccionado.cantidadRestante);
+                    return (
+                      <>
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${est.clase}`}>
+                          {est.texto}
+                        </span>
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${cad.clase}`}>
+                          {cad.texto}
+                        </span>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Grid de métricas clave */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="p-3 rounded-xl bg-surface-variant/40 border border-outline/20">
-                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Producto</p>
-                  <p className="text-sm font-semibold text-on-surface mt-0.5">{loteSeleccionado.producto?.nombre}</p>
+                <div className="p-3 rounded-xl bg-surface border border-outline/10 space-y-1">
+                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Cantidad Inicial</p>
+                  <p className="text-lg font-bold text-on-surface">
+                    {loteSeleccionado.cantidadInicial}
+                    <span className="text-xs font-normal text-on-surface-variant ml-1">
+                      {loteSeleccionado.producto?.unidadMedida?.toLowerCase() || 'ud'}
+                    </span>
+                  </p>
                 </div>
-                <div className="p-3 rounded-xl bg-surface-variant/40 border border-outline/20">
-                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Sucursal</p>
-                  <p className="text-sm font-semibold text-on-surface mt-0.5">{loteSeleccionado.sucursal?.nombre || '—'}</p>
+
+                <div className="p-3 rounded-xl bg-surface border border-outline/10 space-y-1">
+                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Stock Restante</p>
+                  <p className="text-lg font-bold text-primary">
+                    {loteSeleccionado.cantidadRestante}
+                    <span className="text-xs font-normal text-on-surface-variant ml-1">
+                      {loteSeleccionado.producto?.unidadMedida?.toLowerCase() || 'ud'}
+                    </span>
+                  </p>
                 </div>
-                <div className="p-3 rounded-xl bg-surface-variant/40 border border-outline/20">
-                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Fecha recepción</p>
-                  <p className="text-sm font-semibold mt-0.5">
+
+                <div className="p-3 rounded-xl bg-surface border border-outline/10 space-y-1">
+                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Costo Unitario</p>
+                  <p className="text-lg font-bold text-on-surface">
+                    ${loteSeleccionado.costoUnitario.toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-surface border border-outline/10 space-y-1">
+                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Fecha Recepción</p>
+                  <p className="text-sm font-semibold text-on-surface">
                     {loteSeleccionado.fechaRecepcion
-                      ? new Date(loteSeleccionado.fechaRecepcion).toLocaleDateString()
+                      ? new Date(loteSeleccionado.fechaRecepcion).toLocaleDateString('es-MX', { dateStyle: 'medium' })
                       : '—'}
                   </p>
                 </div>
-                <div className="p-3 rounded-xl bg-surface-variant/40 border border-outline/20">
-                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Cantidad inicial</p>
-                  <p className="text-sm font-bold text-on-surface mt-0.5">{loteSeleccionado.cantidadInicial}</p>
-                </div>
-                <div className="p-3 rounded-xl bg-surface-variant/40 border border-outline/20">
-                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Stock restante</p>
-                  <p className="text-sm font-bold text-on-surface mt-0.5">
-                    {loteSeleccionado.cantidadRestante}
-                    {loteSeleccionado.producto?.esGranel ? ` ${loteSeleccionado.producto.unidadMedida?.toLowerCase() || ''}` : ''}
+
+                <div className="p-3 rounded-xl bg-surface border border-outline/10 space-y-1">
+                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Proveedor</p>
+                  <p className="text-sm font-semibold text-on-surface truncate">
+                    {loteSeleccionado.proveedor || '—'}
                   </p>
                 </div>
-                <div className="p-3 rounded-xl bg-surface-variant/40 border border-outline/20">
-                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Caducidad</p>
-                  {editandoCaducidad ? (
-                    <div className="mt-1 space-y-2">
-                      <Input
-                        type="date"
-                        value={fechaCaducidadEdit}
-                        onChange={(e) => setFechaCaducidadEdit(e.target.value)}
-                        className="text-sm h-8"
-                      />
-                      <p className="text-[10px] text-warning font-medium leading-snug">
-                        Debes presionar Guardar para que la nueva fecha quede aplicada.
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-7 text-xs"
-                          disabled={guardandoCaducidad}
-                          onClick={guardarCaducidad}
-                        >
-                          {guardandoCaducidad ? 'Guardando...' : 'Guardar'}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          disabled={guardandoCaducidad}
-                          onClick={() => setEditandoCaducidad(false)}
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between gap-2 mt-0.5">
-                      <p className="text-sm font-semibold">
-                        {loteSeleccionado.fechaCaducidad
-                          ? new Date(loteSeleccionado.fechaCaducidad).toLocaleDateString()
-                          : 'Sin caducidad'}
-                      </p>
-                      {puedeEditarCaducidad && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 px-2 text-xs text-primary underline underline-offset-2"
-                          onClick={() => {
-                            setFechaCaducidadEdit(
-                              loteSeleccionado.fechaCaducidad
-                                ? new Date(loteSeleccionado.fechaCaducidad).toISOString().slice(0, 10)
-                                : '',
-                            );
-                            setEditandoCaducidad(true);
-                          }}
-                        >
-                          Editar
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="p-3 rounded-xl bg-surface-variant/40 border border-outline/20">
-                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Proveedor</p>
-                  <p className="text-sm font-semibold mt-0.5">{loteSeleccionado.proveedor || '—'}</p>
-                </div>
+
                 {loteSeleccionado.creadoPor?.nombre && (
-                  <div className="p-3 rounded-xl bg-surface-variant/40 border border-outline/20">
-                    <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Creado por</p>
-                    <p className="text-sm font-semibold mt-0.5">{loteSeleccionado.creadoPor.nombre}</p>
+                  <div className="p-3 rounded-xl bg-surface border border-outline/10 space-y-1">
+                    <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold">Creado Por</p>
+                    <p className="text-sm font-semibold text-on-surface truncate">
+                      {loteSeleccionado.creadoPor.nombre}
+                    </p>
                   </div>
                 )}
               </div>
 
+              {/* Bloque de Fecha de Caducidad */}
+              <div className="p-3.5 rounded-xl bg-surface border border-outline/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide flex items-center gap-1.5">
+                    <span className="material-symbols-outlined !text-[16px] text-warning">event</span>
+                    Fecha de Caducidad
+                  </p>
+                  {!editandoCaducidad && puedeEditarCaducidad && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-primary font-medium flex items-center gap-1"
+                      onClick={() => {
+                        setFechaCaducidadEdit(
+                          loteSeleccionado.fechaCaducidad
+                            ? new Date(loteSeleccionado.fechaCaducidad).toISOString().slice(0, 10)
+                            : '',
+                        );
+                        setEditandoCaducidad(true);
+                      }}
+                    >
+                      <span className="material-symbols-outlined !text-[14px]">edit</span>
+                      Editar
+                    </Button>
+                  )}
+                </div>
+
+                {editandoCaducidad ? (
+                  <div className="space-y-2 pt-1 border-t border-outline/10">
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="date"
+                        value={fechaCaducidadEdit}
+                        onChange={(e) => setFechaCaducidadEdit(e.target.value)}
+                        className="text-sm h-9 flex-1"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={guardandoCaducidad}
+                        onClick={guardarCaducidad}
+                        className="h-9"
+                      >
+                        {guardandoCaducidad ? 'Guardando...' : 'Guardar'}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={guardandoCaducidad}
+                        onClick={() => setEditandoCaducidad(false)}
+                        className="h-9"
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-on-surface-variant">
+                      Confirma la fecha para actualizar el control de caducidades en el POS.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold text-on-surface">
+                    {loteSeleccionado.fechaCaducidad
+                      ? new Date(loteSeleccionado.fechaCaducidad).toLocaleDateString('es-MX', { dateStyle: 'long' })
+                      : 'Sin fecha de caducidad asignada'}
+                  </p>
+                )}
+              </div>
+
               {/* Historial de movimientos */}
-              <div>
-                <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide mb-2">
-                  Historial de movimientos
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wide flex items-center gap-1.5">
+                  <span className="material-symbols-outlined !text-[16px] text-primary">swap_vert</span>
+                  Historial de Movimientos
                 </p>
-                <div className="rounded-xl border border-outline/20 divide-y divide-outline/10 max-h-40 overflow-y-auto custom-scrollbar">
+                <div className="rounded-xl border border-outline/10 divide-y divide-outline/10 max-h-36 overflow-y-auto custom-scrollbar bg-surface">
                   {loteSeleccionado.movimientos && loteSeleccionado.movimientos.length > 0 ? (
                     loteSeleccionado.movimientos.map((mov) => (
-                      <div key={mov.id} className="flex items-center justify-between px-3 py-2 text-xs">
-                        <span className="font-medium text-on-surface capitalize">{mov.tipo.replaceAll('_', ' ')}</span>
+                      <div key={mov.id} className="flex items-center justify-between px-3.5 py-2 text-xs">
+                        <span className="font-semibold text-on-surface capitalize">
+                          {mov.tipo.replaceAll('_', ' ')}
+                        </span>
                         <span className="text-on-surface-variant">
-                          {new Date(mov.fechaHora).toLocaleString()} • {mov.usuario?.nombre || 'Sistema'}
+                          {new Date(mov.fechaHora).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })} • {mov.usuario?.nombre || 'Sistema'}
                         </span>
                       </div>
                     ))
                   ) : (
-                    <div className="px-3 py-3 text-xs text-on-surface-variant">Sin movimientos</div>
+                    <div className="px-3.5 py-4 text-xs text-center text-on-surface-variant">
+                      Sin movimientos registrados para este lote.
+                    </div>
                   )}
                 </div>
               </div>
@@ -502,12 +567,15 @@ export default function LotesView() {
               {/* Formulario de merma */}
               <form onSubmit={registrarMerma} className="space-y-3 rounded-xl border border-error/20 bg-error/5 p-4">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined !text-[18px] text-error">broken_image</span>
-                  <p className="text-sm font-semibold text-error">Registrar merma de este lote</p>
+                  <span className="material-symbols-outlined !text-[20px] text-error">warning</span>
+                  <div>
+                    <p className="text-sm font-bold text-error">Registrar Merma de este Lote</p>
+                    <p className="text-xs text-on-surface-variant">Descuenta stock por daño, caducidad o merma.</p>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-1.5">
-                    <Label className="text-xs">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">
                       Cantidad {loteSeleccionado.producto?.esGranel ? '(decimal)' : ''}
                     </Label>
                     <Input
@@ -518,12 +586,13 @@ export default function LotesView() {
                       value={mermaCantidad}
                       onChange={(e) => setMermaCantidad(e.target.value)}
                       placeholder="0.00"
+                      className="bg-surface"
                     />
                   </div>
-                  <div className="grid gap-1.5">
-                    <Label className="text-xs">Motivo</Label>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">Motivo</Label>
                     <Select value={mermaMotivo} onValueChange={(v) => setMermaMotivo(v as MotivoMerma)}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-surface">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -537,21 +606,30 @@ export default function LotesView() {
                 <Input
                   value={mermaNotas}
                   onChange={(e) => setMermaNotas(e.target.value)}
-                  placeholder="Notas (opcional)"
+                  placeholder="Notas adicionales (opcional)..."
+                  className="bg-surface text-xs"
                 />
                 <Button
                   type="submit"
                   disabled={mermaSubmitting}
                   variant="destructive"
-                  className="w-full"
+                  className="w-full font-semibold"
                 >
-                  {mermaSubmitting ? 'Registrando...' : 'Registrar Merma'}
+                  {mermaSubmitting ? 'Registrando Merma...' : 'Registrar Merma'}
                 </Button>
               </form>
             </div>
           ) : (
-            <div className="text-center py-8 text-on-surface-variant text-sm">No se encontró el lote</div>
+            <div className="text-center py-12 text-on-surface-variant text-sm">
+              No se encontró información para el lote seleccionado.
+            </div>
           )}
+
+          <div className="px-6 py-3 bg-surface-container-low border-t border-on-surface/10 flex justify-end flex-shrink-0">
+            <Button variant="outline" onClick={() => setIsDetailOpen(false)}>
+              Cerrar
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
