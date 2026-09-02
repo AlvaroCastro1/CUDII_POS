@@ -230,10 +230,7 @@ export class SalesService {
       const impuestosVenta = 0;
 
       const detallesData = [];
-      const lotesPorProducto = new Map<
-        string,
-        { loteId: string; cantidad: number; costoUnitario: number }[]
-      >();
+      const lotesPorLinea: { loteId: string; cantidad: number; costoUnitario: number }[][] = [];
 
       // D11: expandir combos en lÃ­neas internas con precios autoritativos de BD.
       // Las lÃ­neas de producto sueltas y las de combo coexisten en el mismo ticket;
@@ -263,7 +260,8 @@ export class SalesService {
       // Acumulador de movimientos de inventario para insertarlos en lote
       const movimientosData: Prisma.MovimientoInventarioCreateManyInput[] = [];
 
-      for (const item of detallesList) {
+      for (let i = 0; i < detallesList.length; i++) {
+        const item = detallesList[i];
         const producto = productosMap.get(item.productoId);
 
         if (!producto) {
@@ -340,14 +338,11 @@ export class SalesService {
           );
 
           if (lotesConsumidos.length > 0) {
-            lotesPorProducto.set(
-              item.productoId,
-              lotesConsumidos.map((l) => ({
-                loteId: l.loteId,
-                cantidad: l.cantidad,
-                costoUnitario: l.costoUnitario,
-              })),
-            );
+            lotesPorLinea[i] = lotesConsumidos.map((l) => ({
+              loteId: l.loteId,
+              cantidad: l.cantidad,
+              costoUnitario: l.costoUnitario,
+            }));
 
             // Costo histÃ³rico = promedio ponderado por los lotes consumidos
             costoHistorico =
@@ -632,19 +627,17 @@ export class SalesService {
       });
 
       // 5b. Trazabilidad por lote: vincular cada lÃ­nea con los lotes consumidos
-      if (lotesPorProducto.size > 0) {
-        const detallePorProducto = new Map(
-          venta.detalles.map((d) => [d.productoId, d.id]),
-        );
-
+      // 5b. Trazabilidad por lote: vincular cada línea con los lotes consumidos por posición
+      if (lotesPorLinea.length > 0) {
         const trazabilidadData: Prisma.DetalleVentaLoteCreateManyInput[] = [];
-        for (const [productoId, lotes] of lotesPorProducto) {
-          const detalleVentaId = detallePorProducto.get(productoId);
-          if (!detalleVentaId) continue;
+        for (let i = 0; i < venta.detalles.length; i++) {
+          const det = venta.detalles[i];
+          const lotes = lotesPorLinea[i];
+          if (!lotes || lotes.length === 0) continue;
 
           for (const l of lotes) {
             trazabilidadData.push({
-              detalleVentaId,
+              detalleVentaId: det.id,
               loteId: l.loteId,
               cantidad: l.cantidad,
               costoUnitario: l.costoUnitario,

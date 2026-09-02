@@ -207,9 +207,31 @@ export class ReturnsService {
             }
             loteAsociadoId = lotesVenta[0].loteId;
           } else {
+            // Si la línea de venta no tenía vinculación a un lote específico, pero el producto cuenta con un lote activo en la sucursal:
+            const loteActivo = await tx.lote.findFirst({
+              where: {
+                productoId: item.productoId,
+                sucursalId: venta.sucursalId,
+                estado: EstadoLote.activo,
+              },
+              orderBy: { fechaRecepcion: 'desc' },
+            });
+
+            if (loteActivo) {
+              await tx.lote.update({
+                where: { id: loteActivo.id },
+                data: {
+                  cantidadRestante: { increment: item.cantidadDevuelta },
+                  actualizadoEn: new Date(),
+                },
+              });
+              loteAsociadoId = loteActivo.id;
+            }
+
             movimientosData.push({
               productoId: item.productoId,
               sucursalId: venta.sucursalId,
+              loteId: loteAsociadoId,
               tipo: TipoMovimientoInventario.devolucion_venta,
               cantidad: item.cantidadDevuelta,
               stockAnterior,
