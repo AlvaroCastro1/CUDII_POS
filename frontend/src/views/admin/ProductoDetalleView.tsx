@@ -147,7 +147,13 @@ export default function ProductoDetalleView() {
     : null;
 
   // Stock total en todas las sucursales
-  const stockTotal = producto.inventario.reduce((acc, inv) => acc + inv.stockActual, 0);
+  const inventarioLista = producto.inventario ?? [];
+  const categoriasLista = producto.categorias ?? [];
+  const preciosPorUnidadLista = producto.preciosPorUnidad ?? [];
+  const historialPreciosLista = producto.historialPrecios ?? [];
+  const movimientosLista = producto.movimientos ?? [];
+
+  const stockTotal = inventarioLista.reduce((acc, inv) => acc + inv.stockActual, 0);
 
   return (
     <div className="p-6 space-y-6">
@@ -190,9 +196,9 @@ export default function ProductoDetalleView() {
             <span className="text-sm text-on-surface-variant">Unidad: <strong>{producto.unidadMedida}</strong></span>
           </div>
           {/* Categorías */}
-          {producto.categorias.length > 0 && (
+          {categoriasLista.length > 0 && (
             <div className="flex gap-2 mt-2 flex-wrap">
-              {producto.categorias.map(cat => (
+              {categoriasLista.map(cat => (
                 <span key={cat.id}
                   className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
                   style={{ backgroundColor: cat.colorHex || '#64748b' }}>
@@ -221,7 +227,7 @@ export default function ProductoDetalleView() {
           <p className={`text-3xl font-bold font-display-lg ${stockTotal <= 0 ? 'text-error' : 'text-on-surface'}`}>
             {stockTotal.toLocaleString('es-MX')}
           </p>
-          <p className="text-xs text-on-surface-variant mt-1">{producto.unidadMedida.toLowerCase()}{stockTotal !== 1 ? 's' : ''} en {producto.inventario.length} sucursal(es)</p>
+          <p className="text-xs text-on-surface-variant mt-1">{producto.unidadMedida.toLowerCase()}{stockTotal !== 1 ? 's' : ''} en {inventarioLista.length} sucursal(es)</p>
         </div>
         {/* Precio de Venta */}
         <div className="rounded-xl p-4 border bg-surface border-on-surface/10">
@@ -312,14 +318,14 @@ export default function ProductoDetalleView() {
       )}
 
       {/* ===================== PRECIOS POR UNIDAD ===================== */}
-      {producto.preciosPorUnidad.length > 0 && (
+      {preciosPorUnidadLista.length > 0 && (
         <div className="bg-surface rounded-xl border border-on-surface/10 p-4">
           <h2 className="text-base font-semibold text-on-surface mb-3 flex items-center gap-2">
             <span className="material-symbols-outlined !text-[20px] text-primary">sell</span>
             Precios por Volumen
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {producto.preciosPorUnidad.map(pp => {
+            {preciosPorUnidadLista.map(pp => {
               const costoTotalPP = producto.precioCompra * pp.cantidadMinima;
               const margenPP = costoTotalPP > 0
                 ? ((pp.precio - costoTotalPP) / costoTotalPP) * 100
@@ -363,14 +369,14 @@ export default function ProductoDetalleView() {
       )}
 
       {/* ===================== STOCK POR SUCURSAL ===================== */}
-      {producto.inventario.length > 0 && (
+      {inventarioLista.length > 0 && (
         <div className="bg-surface rounded-xl border border-on-surface/10 p-4">
           <h2 className="text-base font-semibold text-on-surface mb-3 flex items-center gap-2">
             <span className="material-symbols-outlined !text-[20px] text-primary">warehouse</span>
             Stock por Sucursal
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {producto.inventario.map(inv => (
+            {inventarioLista.map(inv => (
               <div key={inv.id} className={`rounded-xl p-3 border space-y-1 ${inv.stockActual <= inv.stockMinimo ? 'border-error/30 bg-error/5' : 'border-on-surface/10 bg-surface-variant/30'}`}>
                 <p className="text-sm font-semibold text-on-surface">{inv.sucursal.nombre}</p>
                 <p className="text-2xl font-bold text-on-surface">{inv.stockActual}</p>
@@ -390,7 +396,7 @@ export default function ProductoDetalleView() {
           <span className="material-symbols-outlined !text-[20px] text-primary">history</span>
           Historial de Precios
         </h2>
-        {producto.historialPrecios.length === 0 ? (
+        {historialPreciosLista.length === 0 ? (
           <p className="text-sm text-on-surface-variant py-4 text-center">Sin registros de cambio de precio aún.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -406,7 +412,7 @@ export default function ProductoDetalleView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {producto.historialPrecios.map(h => (
+                {historialPreciosLista.map(h => (
                   <TableRow key={h.id}>
                     <TableCell className="text-sm text-on-surface-variant whitespace-nowrap">
                       {new Date(h.fechaHora).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}
@@ -440,9 +446,9 @@ export default function ProductoDetalleView() {
         <h2 className="text-base font-semibold text-on-surface mb-3 flex items-center gap-2">
           <span className="material-symbols-outlined !text-[20px] text-primary">swap_vert</span>
           Movimientos de Inventario
-          <span className="text-xs text-on-surface-variant font-normal">(últimos {producto.movimientos.length})</span>
+          <span className="text-xs text-on-surface-variant font-normal">(últimos {movimientosLista.length})</span>
         </h2>
-        {producto.movimientos.length === 0 ? (
+        {movimientosLista.length === 0 ? (
           <p className="text-sm text-on-surface-variant py-4 text-center">Sin movimientos registrados aún.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -460,7 +466,7 @@ export default function ProductoDetalleView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {producto.movimientos.map(m => {
+                {movimientosLista.map(m => {
                   const col = COLORES_MOVIMIENTO[m.tipo] || { bg: 'bg-gray-500/10', text: 'text-gray-500', label: m.tipo };
                   return (
                     <TableRow key={m.id}>
