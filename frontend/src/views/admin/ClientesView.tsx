@@ -21,8 +21,10 @@ import {
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { usePaginacion, type PaginacionMeta } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
+import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 import { toast } from 'sonner';
 import {
   Loader2,
@@ -109,6 +111,8 @@ export default function ClientesView() {
   const [search, setSearch] = useState('');
   /** false = solo activos · true = incluye inactivos (soft delete) */
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
+  const [filtroCredito, setFiltroCredito] = useState<string>('todos');
+  const [ordenClientes, setOrdenClientes] = useState<string>('nombre');
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -168,10 +172,24 @@ export default function ClientesView() {
       const res = await api.get(
         `/customers?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&incluirInactivos=${mostrarInactivos}`,
       );
-      setClientes(res.data.data || []);
-      if (res.data.meta) setMeta(res.data.meta);
-    } catch (err) {
-      toast.error('Error al cargar clientes');
+      setClientes(
+        Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data)
+            ? res.data
+            : [],
+      );
+      if (res.data?.meta) setMeta(res.data.meta);
+    } catch (err: unknown) {
+      console.error('Error al cargar clientes:', err);
+      if (axios.isAxiosError(err)) {
+        const msg = err.response?.data?.message;
+        toast.error(
+          Array.isArray(msg) ? msg[0] : msg || 'Error al cargar clientes',
+        );
+      } else {
+        toast.error('Error al cargar clientes');
+      }
     } finally {
       setLoading(false);
     }
@@ -226,18 +244,21 @@ export default function ClientesView() {
     }
   };
 
-  /** Soft delete: desactiva el cliente conservando su historial */
-  const handleDesactivar = async (c: Cliente) => {
-    if (
-      !window.confirm(
-        `¿Desactivar a ${c.nombre}? Conservará su historial, pero no aparecerá en el punto de venta ni podrá acumular puntos hasta reactivarlo.`,
-      )
-    ) {
-      return;
-    }
+  const [clienteADesactivar, setClienteADesactivar] = useState<Cliente | null>(null);
+  const [isDesactivando, setIsDesactivando] = useState(false);
+
+  /** Soft delete: abre modal para confirmar desactivación del cliente */
+  const handleDesactivar = (c: Cliente) => {
+    setClienteADesactivar(c);
+  };
+
+  const confirmDesactivarCliente = async () => {
+    if (!clienteADesactivar) return;
     try {
-      await api.delete(`/customers/${c.id}`);
-      toast.success(`Cliente ${c.nombre} desactivado`);
+      setIsDesactivando(true);
+      await api.delete(`/customers/${clienteADesactivar.id}`);
+      toast.success(`Cliente ${clienteADesactivar.nombre} desactivado`);
+      setClienteADesactivar(null);
       fetchClientes();
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
@@ -247,6 +268,8 @@ export default function ClientesView() {
       } else {
         toast.error('Error al desactivar el cliente');
       }
+    } finally {
+      setIsDesactivando(false);
     }
   };
 
@@ -386,6 +409,39 @@ export default function ClientesView() {
 
   const lealtadVisible = programa?.habilitado === true;
 
+  const clientesFiltrados = React.useMemo(() => {
+    let lista = [...clientes];
+    if (filtroCredito === 'con_credito') {
+      lista = lista.filter((c) => c.cuentaCredito && c.cuentaCredito.estaActivo);
+    } else if (filtroCredito === 'con_deuda') {
+      lista = lista.filter((c) => (c.cuentaCredito?.saldoPendiente ?? 0) > 0);
+    } else if (filtroCredito === 'sin_credito') {
+      lista = lista.filter((c) => !c.cuentaCredito || !c.cuentaCredito.estaActivo);
+    }
+
+    if (ordenClientes === 'saldo_desc') {
+      lista.sort(
+        (a, b) =>
+          (b.cuentaCredito?.saldoPendiente ?? 0) -
+          (a.cuentaCredito?.saldoPendiente ?? 0),
+      );
+    } else if (ordenClientes === 'puntos_desc') {
+      lista.sort((a, b) => (b.puntosActuales ?? 0) - (a.puntosActuales ?? 0));
+    }
+    return lista;
+  }, [clientes, filtroCredito, ordenClientes]);
+
+  const limpiarFiltros = () => {
+    setSearch('');
+    setMostrarInactivos(false);
+    setFiltroCredito('todos');
+    setOrdenClientes('nombre');
+    reiniciar();
+  };
+
+  const filtrosActivosCount =
+    (filtroCredito !== 'todos' ? 1 : 0) + (ordenClientes !== 'nombre' ? 1 : 0);
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -396,6 +452,61 @@ export default function ClientesView() {
           Nuevo Cliente
         </Button>
       </div>
+
+      <BuscadorEstandar
+        busqueda={search}
+        onBusquedaChange={(val) => {
+          setSearch(val);
+          reiniciar();
+        }}
+        placeholder="Buscar por nombre, email, teléfono o RFC..."
+        switchInactivos={{
+          checked: mostrarInactivos,
+          onCheckedChange: (checked: boolean) => {
+            setMostrarInactivos(checked);
+            reiniciar();
+          },
+          label: 'Mostrar inactivos',
+        }}
+        onActualizar={fetchClientes}
+        cargando={loading}
+        onLimpiar={limpiarFiltros}
+        filtrosActivosCount={filtrosActivosCount}
+        filtrosRapidos={
+          <>
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="text-on-surface-variant font-medium">
+                Estado de Crédito
+              </span>
+              <select
+                value={filtroCredito}
+                onChange={(e) => setFiltroCredito(e.target.value)}
+                className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+              >
+                <option value="todos">Todos los clientes</option>
+                <option value="con_credito">Con cuenta de crédito</option>
+                <option value="con_deuda">Con saldo pendiente (Deuda)</option>
+                <option value="sin_credito">Sin crédito activo</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1 text-xs">
+              <span className="text-on-surface-variant font-medium">
+                Ordenar por
+              </span>
+              <select
+                value={ordenClientes}
+                onChange={(e) => setOrdenClientes(e.target.value)}
+                className="h-9 bg-surface-container-low border border-outline/20 rounded-xl px-3 text-xs focus:border-primary focus:outline-none text-on-surface"
+              >
+                <option value="nombre">Nombre (A-Z)</option>
+                <option value="saldo_desc">Mayor Saldo Pendiente</option>
+                <option value="puntos_desc">Más Puntos de Lealtad</option>
+              </select>
+            </div>
+          </>
+        }
+      />
 
       {/* Modal crear / editar cliente */}
       {isModalOpen && (
@@ -849,31 +960,6 @@ export default function ClientesView() {
 
 
       <div className="bg-surface rounded-xl border border-on-surface/10 p-4 mb-6">
-        <div className="flex items-center gap-4 mb-4 flex-wrap">
-          <Input
-            placeholder="Buscar por nombre, email o teléfono..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              reiniciar();
-            }}
-            className="max-w-md w-full"
-          />
-          <div className="flex items-center gap-2">
-            <Switch
-              id="switch-inactivos"
-              checked={mostrarInactivos}
-              onCheckedChange={(checked: boolean) => {
-                setMostrarInactivos(checked);
-                reiniciar();
-              }}
-            />
-            <Label htmlFor="switch-inactivos" className="text-sm text-on-surface-variant cursor-pointer">
-              Mostrar inactivos
-            </Label>
-          </div>
-        </div>
-
         <Table>
           <TableHeader>
             <TableRow>
@@ -898,7 +984,7 @@ export default function ClientesView() {
                   Cargando clientes...
                 </TableCell>
               </TableRow>
-            ) : clientes.length === 0 ? (
+            ) : clientesFiltrados.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={lealtadVisible ? 9 : 6} className="h-64">
                   <div className="flex flex-col items-center justify-center h-full text-on-surface-variant">
@@ -910,7 +996,7 @@ export default function ClientesView() {
                 </TableCell>
               </TableRow>
             ) : (
-              clientes.map((c) => (
+              clientesFiltrados.map((c) => (
                 <TableRow
                   key={c.id}
                   className={!c.estaActivo ? 'opacity-50 bg-surface-variant/30' : ''}
@@ -1002,6 +1088,18 @@ export default function ClientesView() {
         </Table>
         {meta && <PaginacionControles meta={meta} onPageChange={irAPagina} />}
       </div>
+
+      <ConfirmDialog
+        isOpen={!!clienteADesactivar}
+        onClose={() => setClienteADesactivar(null)}
+        onConfirm={confirmDesactivarCliente}
+        title={`¿Desactivar a ${clienteADesactivar?.nombre}?`}
+        description="Conservará su historial, pero no aparecerá en el punto de venta ni podrá acumular puntos hasta reactivarlo."
+        confirmText="Sí, desactivar"
+        cancelText="Cancelar"
+        variant="warning"
+        isLoading={isDesactivando}
+      />
     </div>
   );
 }
