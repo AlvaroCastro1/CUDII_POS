@@ -2501,7 +2501,8 @@ return (
                   <div className="p-4 bg-surface-container-high/40 rounded-2xl border border-outline/20 flex justify-center items-start min-h-[420px]">
                     {/* Tarjeta Simulación Papel Térmico */}
                     <div
-                      className={`bg-white text-black p-4 rounded-lg shadow-xl font-mono border border-gray-300 space-y-2 transition-all text-left ${
+                      id="printable-ticket"
+                      className={`printable-voucher bg-white text-black p-4 rounded-lg shadow-xl font-mono border border-gray-300 space-y-2 transition-all text-left ${
                         (tabTicket === 'venta' ? configTicket.venta.anchoMm : configTicket.presupuesto.anchoMm) === '58mm'
                           ? 'w-[220px]'
                           : 'w-[280px]'

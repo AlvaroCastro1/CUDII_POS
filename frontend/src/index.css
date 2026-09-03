@@ -267,30 +267,73 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── Estilos de Impresión de Tickets CUDII POS ───────────────────────── */
+/* ── Estilos de Impresión de Tickets CUDII POS (Térmicos y Estándar) ────── */
+@page {
+  margin: 0 !important;
+  size: auto !important;
+}
+
 @media print {
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Ocultar todo el árbol DOM por defecto */
   body * {
     visibility: hidden !important;
   }
+
+  /* Mostrar ÚNICAMENTE el contenedor del ticket con id="printable-ticket" o clase .printable-voucher */
   #printable-ticket,
   #printable-ticket *,
   .printable-voucher,
   .printable-voucher * {
     visibility: visible !important;
   }
+
+  /* Posicionamiento fijo flotante en la esquina superior del papel */
   #printable-ticket,
   .printable-voucher {
-    position: absolute !important;
+    position: fixed !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
-    max-width: 100% !important;
+    max-width: 80mm !important;
     margin: 0 !important;
-    padding: 12px !important;
+    padding: 6mm 4mm !important;
     background: #ffffff !important;
     color: #000000 !important;
     box-shadow: none !important;
     border: none !important;
+    border-radius: 0 !important;
+    font-family: "JetBrains Mono", ui-monospace, monospace !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    z-index: 999999 !important;
+  }
+
+  /* Colores, bordes e imágenes optimizadas para térmicas monocrromáticas */
+  #printable-ticket p,
+  #printable-ticket span,
+  #printable-ticket div,
+  .printable-voucher p,
+  .printable-voucher span,
+  .printable-voucher div {
+    color: #000000 !important;
+    border-color: #000000 !important;
+  }
+
+  #printable-ticket img,
+  .printable-voucher img {
+    max-height: 48px !important;
+    filter: grayscale(100%) contrast(150%) !important;
   }
 }
 
