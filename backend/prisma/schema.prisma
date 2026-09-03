@@ -32,6 +32,8 @@ model Empresa {
   // 0 = sin vencimiento (el precio se conserva según conservarPrecioPresupuesto).
   diasExpiracionPresupuesto Int @default(0)
 
+  secuenciaSolicitudProveedor Int @default(0) // Folio atómico por empresa para solicitudes a proveedores (SOL-000001)
+
   // Configuración y personalización de estilo de tickets (Ventas y Presupuestos)
   configuracionTicket Json?
 
@@ -56,6 +58,7 @@ model Empresa {
   cupones        Cupon[]
   combos         Combo[]
   presupuestos   Presupuesto[]
+  solicitudesProveedor SolicitudProveedor[]
 }
 
 enum ModoCorteZ {
@@ -140,6 +143,7 @@ model Usuario {
   recepciones             RecepcionMercancia[]
   mermasRegistradas       Merma[]                @relation("mermasRegistradas")
   abonosCredito           AbonoCredito[]
+  solicitudesProveedorCreadas SolicitudProveedor[] @relation("solicitudesProveedorCreadas")
   combosCreados           Combo[]             @relation("combosCreados")
   presupuestosCreados     Presupuesto[]       @relation("presupuestosCreados")
 
@@ -193,6 +197,7 @@ model Producto {
   mermas               Merma[]
   combos               ComboProducto[]
   detallesPresupuesto  PresupuestoDetalle[]
+  detallesSolicitudProveedor SolicitudProveedorDetalle[]
 
   @@index([empresaId, estaActivo])
   @@index([empresaId, codigoBarras])
@@ -867,6 +872,7 @@ model Proveedor {
 
   // Relaciones
   lotes Lote[]
+  solicitudesProveedor SolicitudProveedor[]
 
   @@index([empresaId])
   @@index([empresaId, estaActivo])
@@ -1154,5 +1160,66 @@ model PresupuestoDetalle {
   creadoEn DateTime @default(now())
 
   @@index([presupuestoId])
+  @@index([productoId])
+}
+
+// ---------------------------------------------------------
+// SOLICITUDES DE PRODUCTOS A PROVEEDORES / ORDENES DE COMPRA
+// ---------------------------------------------------------
+
+enum EstadoSolicitudProveedor {
+  BORRADOR
+  ENVIADA
+  RECIBIDA
+  CANCELADA
+}
+
+model SolicitudProveedor {
+  id           String                   @id @default(uuid())
+  empresaId    String
+  empresa      Empresa                  @relation(fields: [empresaId], references: [id])
+  
+  // Proveedor Opcional (null = Solicitud Abierta / Requisición Interna)
+  proveedorId  String?
+  proveedor    Proveedor?               @relation(fields: [proveedorId], references: [id])
+
+  creadoPorId  String
+  creadoPor    Usuario                  @relation("solicitudesProveedorCreadas", fields: [creadoPorId], references: [id])
+
+  folio                String                   // Ej: "SOL-000001"
+  estado               EstadoSolicitudProveedor @default(BORRADOR)
+  fechaEmision         DateTime                 @default(now())
+  fechaEntregaEsperada DateTime?
+  notas                String?
+  totalEstimado        Float                    @default(0)
+
+  creadoEn     DateTime                 @default(now())
+  actualizadoEn DateTime                @updatedAt
+
+  detalles     SolicitudProveedorDetalle[]
+
+  @@unique([empresaId, folio])
+  @@index([empresaId, creadoEn])
+  @@index([empresaId, estado])
+  @@index([proveedorId])
+}
+
+model SolicitudProveedorDetalle {
+  id                   String             @id @default(uuid())
+  solicitudProveedorId String
+  solicitudProveedor   SolicitudProveedor @relation(fields: [solicitudProveedorId], references: [id], onDelete: Cascade)
+  productoId           String
+  producto             Producto           @relation(fields: [productoId], references: [id])
+
+  nombreProducto       String             // Snapshot del nombre del producto
+  unidadMedida         String             @default("pieza")
+  cantidadRequerida    Float
+  costoUnitarioEstimado Float             @default(0)
+  subtotalEstimado     Float              @default(0)
+  notas                String?
+
+  creadoEn DateTime @default(now())
+
+  @@index([solicitudProveedorId])
   @@index([productoId])
 }

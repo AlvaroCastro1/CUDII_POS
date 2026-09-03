@@ -933,6 +933,81 @@ Cualquier campo de texto (dirección, teléfono, RFC, slogan, pie) que se encuen
 
 ---
 
+### D14: Módulo de Solicitud de Productos a Proveedores y Requisiciones (V1.5)
+
+#### 1. Propósito y Alcance Operativo
+El módulo de **Solicitud de Productos a Proveedores** (Órdenes de Compra y Requisiciones de Surtido) permite al personal de administración, almacén y gerencia generar solicitudes estructuradas de productos hacia proveedores registrados o como **requisiciones internas abiertas** (`proveedorId` opcional).
+
+- **Gestión de Ciclo de Vida:**
+  - `BORRADOR`: Solicitud en preparación (editable en renglones y eliminable).
+  - `ENVIADA`: Requisición emitida formalmente para surtido.
+  - `RECIBIDA`: Mercancía confirmada al ingresar al inventario de almacén.
+  - `CANCELADA`: Solicitud anulada.
+
+- **Generación Atómica de Folios:**
+  Cada empresa mantiene una secuencia independiente `secuenciaSolicitudProveedor` que genera folios del tipo `SOL-000001`, `SOL-000002` mediante operaciones de incremento atómico en PostgreSQL.
+
+- **Impresión y Exportación Formal:**
+  Generación e impresión limpia mediante `@media print` de comprobantes corporativos tipo orden de compra empresarial, incluyendo datos de la empresa, logo, datos del proveedor destinatario, desglose de ítems con costo unitario estimado, notas por línea y firmas de recepción. Asimismo, incluye la funcionalidad de copia formateada para envíos rápidos vía WhatsApp/Email.
+
+#### 2. Modelo de Datos y Esquema Prisma
+```prisma
+enum EstadoSolicitudProveedor {
+  BORRADOR
+  ENVIADA
+  RECIBIDA
+  CANCELADA
+}
+
+model SolicitudProveedor {
+  id           String                   @id @default(uuid())
+  empresaId    String
+  empresa      Empresa                  @relation(fields: [empresaId], references: [id])
+  proveedorId  String?                  // Opcional: null = Solicitud Abierta / Requisición Interna
+  proveedor    Proveedor?               @relation(fields: [proveedorId], references: [id])
+  creadoPorId  String
+  creadoPor    Usuario                  @relation("solicitudesProveedorCreadas", fields: [creadoPorId], references: [id])
+
+  folio        String                   // Ej: "SOL-000001"
+  estado       EstadoSolicitudProveedor @default(BORRADOR)
+  fechaEmision DateTime                 @default(now())
+  fechaEntregaEsperada DateTime?
+  notas        String?
+  totalEstimado Float                   @default(0)
+
+  creadoEn     DateTime                 @default(now())
+  actualizadoEn DateTime                @updatedAt
+
+  detalles     SolicitudProveedorDetalle[]
+}
+
+model SolicitudProveedorDetalle {
+  id                   String             @id @default(uuid())
+  solicitudProveedorId String
+  solicitudProveedor   SolicitudProveedor @relation(fields: [solicitudProveedorId], references: [id], onDelete: Cascade)
+  productoId           String
+  producto             Producto           @relation(fields: [productoId], references: [id])
+
+  nombreProducto       String             // Snapshot del nombre del producto
+  unidadMedida         String             @default("pieza")
+  cantidadRequerida    Float
+  costoUnitarioEstimado Float             @default(0)
+  subtotalEstimado     Float              @default(0)
+  notas                String?
+}
+```
+
+#### 3. Auditoría de Movimientos y Registro de Logs (`LogActividad`)
+Todas las operaciones realizadas por los usuarios son registradas automáticamente por `SolicitudesProveedorService` mediante el servicio centralizado `AuditService`:
+- `SOLICITUD_PROVEEDOR_CREADA`: Registra folio, proveedor destinatario (o solicitud abierta), costo total estimado y cantidad de ítems.
+- `SOLICITUD_PROVEEDOR_ACTUALIZADA`: Registra cambios en notas, ítems o fechas.
+- `SOLICITUD_PROVEEDOR_ESTADO_CAMBIADO`: Registra el cambio de estado (ej: de `BORRADOR` a `ENVIADA` o `RECIBIDA`).
+- `SOLICITUD_PROVEEDOR_ELIMINADA`: Registra la eliminación de borradores con severidad `warning`.
+
+Todos estos eventos son visibles en el módulo de **Auditoría** (`/admin/auditoria`), permitiendo filtrar por usuario, tipo de acción y rango de fechas con resúmenes detallados.
+
+---
+
 ## Pre-Producción (checklist, NO parte de los sprints)
 
 > Estas tareas se ejecutan SOLO antes de desplegar a producción. No están incluidas en los sprints de desarrollo.

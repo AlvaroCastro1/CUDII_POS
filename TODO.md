@@ -122,3 +122,15 @@
 - [x] **Formateo Avanzado y Tooltips:** Soporte para `EstiloTexto` (Negrita, Subrayado, Alineación Izquierda/Centro/Derecha), tooltips con explicaciones claras sobre omisión de campos vacíos y botón de *"Imprimir Ticket de Prueba"* en `ConfiguracionView.tsx`.
 - [x] **Modales POS (`VoucherModal` y `PresupuestoTicketModal`):** Aplicados estilos dinámicos, omisión estricta de campos vacíos (`!val?.trim()`) y soporte para ticket impreso y digital.
 
+## Fase 4.9: Solicitud de Productos a Proveedores y Requisiciones (D14)
+- [x] **Modelos Prisma (`SolicitudProveedor` y `SolicitudProveedorDetalle`):** Enum `EstadoSolicitudProveedor` (`BORRADOR`, `ENVIADA`, `RECIBIDA`, `CANCELADA`), relaciones con `Empresa`, `Proveedor?` (opcional: null para solicitudes abiertas / requisiciones internas), `Usuario` (creador) y `Producto`. Folio atómico por empresa `SOL-000001` mediante `secuenciaSolicitudProveedor`.
+- [x] **Módulo Backend NestJS `solicitudes-proveedor`:** CRUD completo (`POST`, `GET`, `GET :id`, `PATCH :id`, `DELETE :id`), filtros por proveedor, estado, búsqueda por folio/notas, paginación estandarizada y transacciones atómicas.
+- [x] **Auditoría e Integración de Eventos (`LogActividad`):** Registro automatizado de eventos auditales `SOLICITUD_PROVEEDOR_CREADA`, `SOLICITUD_PROVEEDOR_ACTUALIZADA`, `SOLICITUD_PROVEEDOR_ESTADO_CAMBIADO` y `SOLICITUD_PROVEEDOR_ELIMINADA` vía `AuditService`.
+- [x] **Pantalla de Auditoría ([`AuditoriaView.tsx`](file:///c:/Users/jesus/OneDrive/Desktop/CUDII_POS/frontend/src/views/admin/AuditoriaView.tsx)):** Mapeo de badges, íconos y formateador de resúmenes `resumirDetalles` para visualizar movimientos de solicitudes de proveedores por usuario y fecha.
+- [x] **Frontend React (Vista, Modales e Impresión Formal):**
+  - Vista principal [`SolicitudesProveedorView.tsx`](file:///c:/Users/jesus/OneDrive/Desktop/CUDII_POS/frontend/src/views/admin/SolicitudesProveedorView.tsx) con `BuscadorEstandar`, 4 tarjetas Bento de métricas y tabla interactiva.
+  - Modal de creación/edición [`NuevaSolicitudProveedorModal.tsx`](file:///c:/Users/jesus/OneDrive/Desktop/CUDII_POS/frontend/src/components/admin/NuevaSolicitudProveedorModal.tsx) con selector de proveedor u opción "Solicitud Abierta", selector dinámico de catálogo y cálculo en vivo de totales.
+  - Comprobante formal e imprimible [`SolicitudProveedorPrintModal.tsx`](file:///c:/Users/jesus/OneDrive/Desktop/CUDII_POS/frontend/src/components/admin/SolicitudProveedorPrintModal.tsx) adaptado para orden de compra corporativa, botón de impresión limpia `window.print()` y generador de resumen para WhatsApp/Email.
+- [x] **Integración con Navegación y Permisos:** Registrado en `App.tsx` (`/admin/solicitudes-proveedor`), barra lateral `MainLayout.tsx` (sección Control de Inventario) y matriz de permisos `permisos.ts`.
+
+

@@ -49,6 +49,10 @@ const ACCIONES = [
   { valor: 'COMBO_CREADO', etiqueta: 'Combo creado' },
   { valor: 'COMBO_ACTUALIZADO', etiqueta: 'Combo actualizado' },
   { valor: 'COMBO_DESACTIVADO', etiqueta: 'Combo desactivado' },
+  { valor: 'SOLICITUD_PROVEEDOR_CREADA', etiqueta: 'Solicitud a proveedor creada' },
+  { valor: 'SOLICITUD_PROVEEDOR_ACTUALIZADA', etiqueta: 'Solicitud a proveedor actualizada' },
+  { valor: 'SOLICITUD_PROVEEDOR_ESTADO_CAMBIADO', etiqueta: 'Estado de solicitud cambiado' },
+  { valor: 'SOLICITUD_PROVEEDOR_ELIMINADA', etiqueta: 'Solicitud a proveedor eliminada' },
 ];
 
 const SEVERIDADES = [
@@ -75,12 +79,29 @@ const ACCION_LABEL: Record<string, string> = {
   COMBO_CREADO: 'Combo creado',
   COMBO_ACTUALIZADO: 'Combo actualizado',
   COMBO_DESACTIVADO: 'Combo desactivado',
+  SOLICITUD_PROVEEDOR_CREADA: 'Solicitud a proveedor creada',
+  SOLICITUD_PROVEEDOR_ACTUALIZADA: 'Solicitud a proveedor actualizada',
+  SOLICITUD_PROVEEDOR_ESTADO_CAMBIADO: 'Estado de solicitud cambiado',
+  SOLICITUD_PROVEEDOR_ELIMINADA: 'Solicitud a proveedor eliminada',
 };
 
 // Campos relevantes por acción para resumir los detalles JSON
 function resumirDetalles(accion: string, detalles: Record<string, unknown>): string {
   const d = detalles || {};
   switch (accion) {
+    case 'SOLICITUD_PROVEEDOR_CREADA':
+    case 'SOLICITUD_PROVEEDOR_ACTUALIZADA':
+    case 'SOLICITUD_PROVEEDOR_ESTADO_CAMBIADO':
+    case 'SOLICITUD_PROVEEDOR_ELIMINADA':
+      return [
+        d.folio ? `Folio: ${d.folio}` : '',
+        d.proveedor ? `Proveedor: ${d.proveedor}` : '',
+        d.nuevoEstado ? `Estado: ${d.nuevoEstado}` : (d.estado ? `Estado: ${d.estado}` : ''),
+        d.totalEstimado !== undefined ? `Total Est: $${Number(d.totalEstimado).toFixed(2)}` : '',
+        d.articulosCount !== undefined ? `Artículos: ${d.articulosCount}` : '',
+      ]
+        .filter(Boolean)
+        .join(' • ');
     case 'CORTE_Z':
       return [
         d.cajaNombre ? `Caja: ${d.cajaNombre}` : '',
