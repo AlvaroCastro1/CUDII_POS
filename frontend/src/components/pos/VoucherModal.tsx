@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckCircle, Printer, PlusCircle } from 'lucide-react';
 import type { Venta, VentaDetalle, VentaPago } from '../../types/pos';
+import { api } from '../../lib/api';
+import { CONFIG_TICKET_DEFAULT, type ConfigTicketVenta } from '../../types/ticketConfig';
 
 interface VoucherModalProps {
   venta: Venta | null;
@@ -27,6 +29,18 @@ const fmtHora = (iso?: string) => {
 };
 
 export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) => {
+  const [config, setConfig] = useState<ConfigTicketVenta>(CONFIG_TICKET_DEFAULT.venta);
+
+  useEffect(() => {
+    let activo = true;
+    api.get('/company-settings/ticket').then((res) => {
+      if (activo && res.data?.venta) {
+        setConfig({ ...CONFIG_TICKET_DEFAULT.venta, ...res.data.venta });
+      }
+    }).catch(() => {});
+    return () => { activo = false; };
+  }, []);
+
   if (!venta) return null;
 
   const handlePrint = () => window.print();
@@ -44,6 +58,16 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
         (venta.descuentoCupon ?? 0)) *
         100,
     ) / 100;
+
+  const fontClass =
+    config.tamanoFuente === 'pequena'
+      ? 'text-[10px]'
+      : config.tamanoFuente === 'grande'
+        ? 'text-sm'
+        : 'text-xs';
+
+  const containerWidthClass =
+    config.anchoMm === '58mm' ? 'max-w-[260px] mx-auto' : 'w-full';
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6 sm:p-8 overflow-y-auto">
@@ -72,26 +96,52 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
         )}
 
         {/* Voucher digital imprimible */}
-        <div className="spatial-glass text-on-surface p-5 rounded-2xl border border-outline/20 shadow-inner font-mono text-xs text-left space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+        <div className={`spatial-glass text-on-surface p-5 rounded-2xl border border-outline/20 shadow-inner font-mono text-left space-y-2 max-h-64 overflow-y-auto custom-scrollbar ${fontClass} ${containerWidthClass}`}>
+
+          {/* Logo si está activo */}
+          {config.mostrarLogo && config.logoUrl && (
+            <div className="flex justify-center mb-1">
+              <img src={config.logoUrl} alt="Logo" className="max-h-12 object-contain" />
+            </div>
+          )}
 
           {/* Encabezado */}
-          <div className="text-center font-bold text-sm text-primary border-b border-outline/20 pb-2 font-headline-md">
-            CUDII POS - COMPROBANTE DE VENTA
+          <div className="text-center font-bold text-primary border-b border-outline/20 pb-2 font-headline-md">
+            {config.encabezado || 'CUDII POS - COMPROBANTE DE VENTA'}
+            {config.slogan && (
+              <p className="text-[10px] font-normal text-on-surface-variant mt-0.5 tracking-normal font-sans">
+                {config.slogan}
+              </p>
+            )}
           </div>
+
+          {/* Datos del Negocio */}
+          {(config.direccion || config.telefono || config.rfc || config.email) && (
+            <div className="text-center text-[10px] text-outline border-b border-outline/10 pb-1.5 space-y-0.5">
+              {config.direccion && <p>{config.direccion}</p>}
+              {config.telefono && <p>Tel: {config.telefono}</p>}
+              {config.rfc && <p>RFC: {config.rfc}</p>}
+              {config.email && <p>{config.email}</p>}
+            </div>
+          )}
 
           {/* Folio + Fecha y hora */}
           <div className="flex justify-between text-on-surface-variant text-[11px]">
             <span className="font-semibold">Folio: {venta.folio}</span>
-            <span>{fmtFecha(venta.creadoEn)} {fmtHora(venta.creadoEn)}</span>
+            {config.mostrarFechaHora && (
+              <span>{fmtFecha(venta.creadoEn)} {fmtHora(venta.creadoEn)}</span>
+            )}
           </div>
 
           {/* Cajero */}
-          <div className="text-on-surface-variant text-[11px]">
-            Cajero: <span className="font-semibold text-on-surface">{venta.cajero?.nombre || 'Cajero'}</span>
-          </div>
+          {config.mostrarCajero && (
+            <div className="text-on-surface-variant text-[11px]">
+              Cajero: <span className="font-semibold text-on-surface">{venta.cajero?.nombre || 'Cajero'}</span>
+            </div>
+          )}
 
           {/* Cliente */}
-          {venta.cliente && (
+          {config.mostrarCliente && venta.cliente && (
             <div className="text-on-surface-variant text-[11px]">
               Cliente: <span className="font-semibold text-on-surface">
                 {venta.cliente.nombre} {venta.cliente.apellidoPaterno ?? ''}
@@ -159,7 +209,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
                   )}
                 </>
               )}
-              {(venta.impuestos ?? 0) > 0 && (
+              {config.mostrarImpuestos && (venta.impuestos ?? 0) > 0 && (
                 <div className="flex justify-between text-on-surface-variant text-[11px]">
                   <span>Impuestos</span>
                   <span>{fmtMoneda(venta.impuestos!)}</span>
@@ -177,26 +227,28 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
           </div>
 
           {/* Métodos de pago */}
-          <div className="border-t border-outline/20 pt-1.5 space-y-1">
-            {pagos.map((p: VentaPago, i: number) => (
-              <div key={i} className="flex justify-between text-[11px] text-on-surface-variant">
-                <span className="capitalize">
-                  {p.metodo}
-                  {p.referencia ? ` (${p.referencia})` : ''}
-                </span>
-                <span className="font-medium text-on-surface">
-                  {fmtMoneda(p.montoPagado)}
-                  {p.cambio > 0 && (
-                    <span className="text-outline"> → Recibido {fmtMoneda(p.montoRecibido)}, cambio {fmtMoneda(p.cambio)}</span>
-                  )}
-                </span>
-              </div>
-            ))}
-          </div>
+          {config.mostrarDesglosePagos && (
+            <div className="border-t border-outline/20 pt-1.5 space-y-1">
+              {pagos.map((p: VentaPago, i: number) => (
+                <div key={i} className="flex justify-between text-[11px] text-on-surface-variant">
+                  <span className="capitalize">
+                    {p.metodo}
+                    {p.referencia ? ` (${p.referencia})` : ''}
+                  </span>
+                  <span className="font-medium text-on-surface">
+                    {fmtMoneda(p.montoPagado)}
+                    {p.cambio > 0 && (
+                      <span className="text-outline"> → Recibido {fmtMoneda(p.montoRecibido)}, cambio {fmtMoneda(p.cambio)}</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Pie */}
           <div className="border-t border-outline/20 pt-2 text-center text-[10px] text-outline">
-            ¡Gracias por tu compra!
+            {config.mensajePie || '¡Gracias por tu compra!'}
           </div>
         </div>
 

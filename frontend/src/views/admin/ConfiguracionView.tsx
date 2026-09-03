@@ -15,10 +15,14 @@ import {
   Coins,
   Sparkles,
   Check,
+  Printer,
+  Receipt,
+  FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { api } from '@/lib/api';
+import { CONFIG_TICKET_DEFAULT, type ConfiguracionTicketCompleta } from '@/types/ticketConfig';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -52,6 +56,7 @@ interface ConfiguracionEmpresa {
   conservarPrecioPresupuesto?: boolean;
   /** D12: días que un presupuesto conserva su precio antes de vencerse (0 = sin vencimiento). */
   diasExpiracionPresupuesto?: number;
+  configuracionTicket?: ConfiguracionTicketCompleta | null;
   programaLealtad?: ProgramaLealtadUI | null;
 }
 
@@ -242,6 +247,11 @@ export default function ConfiguracionView() {
     PROGRAMA_LEALTAD_DEFAULT,
   );
 
+  // Configuración de estilo y personalización de tickets (Ventas y Presupuestos)
+  const [configTicket, setConfigTicket] = useState<ConfiguracionTicketCompleta>(CONFIG_TICKET_DEFAULT);
+  const [configTicketOriginal, setConfigTicketOriginal] = useState<ConfiguracionTicketCompleta>(CONFIG_TICKET_DEFAULT);
+  const [tabTicket, setTabTicket] = useState<'venta' | 'presupuesto'>('venta');
+
   // Cargar la configuración actual de la empresa
   useEffect(() => {
     const cargarConfiguracion = async () => {
@@ -258,6 +268,14 @@ export default function ConfiguracionView() {
         const programa = res.data.programaLealtad ?? PROGRAMA_LEALTAD_DEFAULT;
         setLealtad(programa);
         setLealtadOriginal(programa);
+        if (res.data.configuracionTicket) {
+          const cTicket: ConfiguracionTicketCompleta = {
+            venta: { ...CONFIG_TICKET_DEFAULT.venta, ...(res.data.configuracionTicket.venta || {}) },
+            presupuesto: { ...CONFIG_TICKET_DEFAULT.presupuesto, ...(res.data.configuracionTicket.presupuesto || {}) },
+          };
+          setConfigTicket(cTicket);
+          setConfigTicketOriginal(cTicket);
+        }
       } catch (error: unknown) {
         if (axios.isAxiosError(error)) {
           toast.error(
@@ -305,8 +323,10 @@ export default function ConfiguracionView() {
       diasExpiracionPresupuesto !== configuracion?.diasExpiracionPresupuesto;
     const cambiosLealtad =
       JSON.stringify(lealtad) !== JSON.stringify(lealtadOriginal);
+    const cambiosTicket =
+      JSON.stringify(configTicket) !== JSON.stringify(configTicketOriginal);
 
-    if (!cambiosEmpresa && !cambiosLealtad) {
+    if (!cambiosEmpresa && !cambiosLealtad && !cambiosTicket) {
       toast.info('No hay cambios para guardar');
       return true;
     }
@@ -327,6 +347,9 @@ export default function ConfiguracionView() {
         ...(cambiosLealtad
           ? { programaLealtad: { ...lealtad, puntosPorPesos: 1 } }
           : {}),
+        ...(cambiosTicket
+          ? { configuracionTicket: configTicket }
+          : {}),
       });
       setConfiguracion(res.data);
       setModoCorteZ(res.data.modoCorteZ);
@@ -337,6 +360,14 @@ export default function ConfiguracionView() {
       const programaGuardado = res.data.programaLealtad ?? lealtad;
       setLealtad(programaGuardado);
       setLealtadOriginal(programaGuardado);
+      if (res.data.configuracionTicket) {
+        const cTicket: ConfiguracionTicketCompleta = {
+          venta: { ...CONFIG_TICKET_DEFAULT.venta, ...(res.data.configuracionTicket.venta || {}) },
+          presupuesto: { ...CONFIG_TICKET_DEFAULT.presupuesto, ...(res.data.configuracionTicket.presupuesto || {}) },
+        };
+        setConfigTicket(cTicket);
+        setConfigTicketOriginal(cTicket);
+      }
       toast.success('Configuración guardada correctamente');
       return true;
     } catch (error: unknown) {
@@ -364,6 +395,8 @@ export default function ConfiguracionView() {
 
   const hayCambiosLealtad =
     JSON.stringify(lealtad) !== JSON.stringify(lealtadOriginal);
+  const hayCambiosTicket =
+    JSON.stringify(configTicket) !== JSON.stringify(configTicketOriginal);
 
   const hayCambiosSinGuardar =
     configuracion !== null &&
@@ -373,7 +406,8 @@ export default function ConfiguracionView() {
       stockMaximoGlobal !== configuracion.stockMaximoGlobal ||
       conservarPrecioPresupuesto !== configuracion.conservarPrecioPresupuesto ||
       diasExpiracionPresupuesto !== configuracion.diasExpiracionPresupuesto ||
-      hayCambiosLealtad);
+      hayCambiosLealtad ||
+      hayCambiosTicket);
 
   const blocker = useBlocker(hayCambiosSinGuardar);
   const bloquearSalida = blocker.state === 'blocked';
@@ -1546,6 +1580,560 @@ return (
                 </>
               )}
 
+            </div>
+          </section>
+
+          {/* ── Sección: Personalización y Estilos de Tickets ────────────────────── */}
+          <section className="bg-surface border border-outline/10 rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-outline/10">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Printer className="w-5 h-5 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-bold text-lg text-on-background font-headline-md">
+                  Estilo y Personalización de Tickets
+                </h2>
+                <p className="text-xs text-outline font-label-sm mt-0.5">
+                  Personaliza encabezado, logo, datos de contacto, desglose y leyenda de impresión.
+                </p>
+              </div>
+              <AyudaTooltip etiqueta="¿Cómo funciona?">
+                <p className="font-semibold text-sm">Personalización de Tickets</p>
+                <p className="text-xs text-on-surface-variant leading-relaxed">
+                  Configura cómo lucirán los tickets impresos y digitales para Ventas y Presupuestos.
+                  Usa el panel de la derecha para previsualizar los cambios en tiempo real.
+                </p>
+              </AyudaTooltip>
+            </div>
+
+            <div className="p-6">
+              {/* Selector de Pestaña: Venta vs Presupuesto */}
+              <div className="flex items-center gap-2 mb-6 border-b border-outline/10 pb-3">
+                <button
+                  type="button"
+                  onClick={() => setTabTicket('venta')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                    tabTicket === 'venta'
+                      ? 'bg-primary text-on-primary shadow-sm'
+                      : 'bg-surface-container-low text-on-surface-variant hover:bg-on-surface/5'
+                  }`}
+                >
+                  <Receipt className="w-4 h-4" />
+                  <span>Ticket de Venta</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTabTicket('presupuesto')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                    tabTicket === 'presupuesto'
+                      ? 'bg-primary text-on-primary shadow-sm'
+                      : 'bg-surface-container-low text-on-surface-variant hover:bg-on-surface/5'
+                  }`}
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Ticket de Presupuesto / Cotización</span>
+                </button>
+              </div>
+
+              {/* Layout dividido: Controles a la izquierda, Previsualización en Tiempo Real a la derecha */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Formulario de Controles */}
+                <div className="lg:col-span-7 space-y-4">
+                  {/* Encabezado y Marca */}
+                  <div className="p-4 rounded-xl bg-surface-container-low border border-outline/15 space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
+                      Branding y Encabezado
+                    </h3>
+                    
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="mostrar-logo" className="text-xs">Mostrar Logo en Ticket</Label>
+                      <Switch
+                        id="mostrar-logo"
+                        checked={
+                          tabTicket === 'venta'
+                            ? configTicket.venta.mostrarLogo
+                            : configTicket.presupuesto.mostrarLogo
+                        }
+                        onCheckedChange={(v) =>
+                          setConfigTicket((prev) => ({
+                            ...prev,
+                            [tabTicket]: { ...prev[tabTicket], mostrarLogo: v },
+                          }))
+                        }
+                      />
+                    </div>
+
+                    {(tabTicket === 'venta' ? configTicket.venta.mostrarLogo : configTicket.presupuesto.mostrarLogo) && (
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="logo-url" className="text-xs text-on-surface-variant">URL del Logo (Imagen PNG/JPG)</Label>
+                        <Input
+                          id="logo-url"
+                          placeholder="https://ejemplo.com/logo.png"
+                          value={
+                            tabTicket === 'venta'
+                              ? configTicket.venta.logoUrl ?? ''
+                              : configTicket.presupuesto.logoUrl ?? ''
+                          }
+                          onChange={(e) =>
+                            setConfigTicket((prev) => ({
+                              ...prev,
+                              [tabTicket]: { ...prev[tabTicket], logoUrl: e.target.value },
+                            }))
+                          }
+                          className="text-xs"
+                        />
+                      </div>
+                    )}
+
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="encabezado-text" className="text-xs">Título de Encabezado</Label>
+                      <Input
+                        id="encabezado-text"
+                        value={
+                          tabTicket === 'venta'
+                            ? configTicket.venta.encabezado
+                            : configTicket.presupuesto.encabezado
+                        }
+                        onChange={(e) =>
+                          setConfigTicket((prev) => ({
+                            ...prev,
+                            [tabTicket]: { ...prev[tabTicket], encabezado: e.target.value },
+                          }))
+                        }
+                        className="text-xs"
+                      />
+                    </div>
+
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="slogan-text" className="text-xs">Slogan / Subtítulo</Label>
+                      <Input
+                        id="slogan-text"
+                        placeholder="Ej. ¡La mejor calidad!"
+                        value={
+                          tabTicket === 'venta'
+                            ? configTicket.venta.slogan ?? ''
+                            : configTicket.presupuesto.slogan ?? ''
+                        }
+                        onChange={(e) =>
+                          setConfigTicket((prev) => ({
+                            ...prev,
+                            [tabTicket]: { ...prev[tabTicket], slogan: e.target.value },
+                          }))
+                        }
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Datos del Negocio */}
+                  <div className="p-4 rounded-xl bg-surface-container-low border border-outline/15 space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
+                      Datos de Contacto del Negocio
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid gap-1">
+                        <Label htmlFor="dir-text" className="text-xs">Dirección</Label>
+                        <Input
+                          id="dir-text"
+                          value={
+                            tabTicket === 'venta'
+                              ? configTicket.venta.direccion ?? ''
+                              : configTicket.presupuesto.direccion ?? ''
+                          }
+                          onChange={(e) =>
+                            setConfigTicket((prev) => ({
+                              ...prev,
+                              [tabTicket]: { ...prev[tabTicket], direccion: e.target.value },
+                            }))
+                          }
+                          className="text-xs"
+                        />
+                      </div>
+                      <div className="grid gap-1">
+                        <Label htmlFor="tel-text" className="text-xs">Teléfono</Label>
+                        <Input
+                          id="tel-text"
+                          value={
+                            tabTicket === 'venta'
+                              ? configTicket.venta.telefono ?? ''
+                              : configTicket.presupuesto.telefono ?? ''
+                          }
+                          onChange={(e) =>
+                            setConfigTicket((prev) => ({
+                              ...prev,
+                              [tabTicket]: { ...prev[tabTicket], telefono: e.target.value },
+                            }))
+                          }
+                          className="text-xs"
+                        />
+                      </div>
+                      <div className="grid gap-1">
+                        <Label htmlFor="rfc-text" className="text-xs">RFC / ID Fiscal</Label>
+                        <Input
+                          id="rfc-text"
+                          value={
+                            tabTicket === 'venta'
+                              ? configTicket.venta.rfc ?? ''
+                              : configTicket.presupuesto.rfc ?? ''
+                          }
+                          onChange={(e) =>
+                            setConfigTicket((prev) => ({
+                              ...prev,
+                              [tabTicket]: { ...prev[tabTicket], rfc: e.target.value },
+                            }))
+                          }
+                          className="text-xs"
+                        />
+                      </div>
+                      <div className="grid gap-1">
+                        <Label htmlFor="email-text" className="text-xs">Correo Electrónico</Label>
+                        <Input
+                          id="email-text"
+                          value={
+                            tabTicket === 'venta'
+                              ? configTicket.venta.email ?? ''
+                              : configTicket.presupuesto.email ?? ''
+                          }
+                          onChange={(e) =>
+                            setConfigTicket((prev) => ({
+                              ...prev,
+                              [tabTicket]: { ...prev[tabTicket], email: e.target.value },
+                            }))
+                          }
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Opciones de Visualización */}
+                  <div className="p-4 rounded-xl bg-surface-container-low border border-outline/15 space-y-2.5 text-xs">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-primary mb-2">
+                      Información a Mostrar
+                    </h3>
+
+                    <div className="flex items-center justify-between">
+                      <span>Mostrar nombre del Cajero</span>
+                      <Switch
+                        checked={
+                          tabTicket === 'venta'
+                            ? configTicket.venta.mostrarCajero
+                            : configTicket.presupuesto.mostrarCajero
+                        }
+                        onCheckedChange={(v) =>
+                          setConfigTicket((prev) => ({
+                            ...prev,
+                            [tabTicket]: { ...prev[tabTicket], mostrarCajero: v },
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span>Mostrar nombre del Cliente</span>
+                      <Switch
+                        checked={
+                          tabTicket === 'venta'
+                            ? configTicket.venta.mostrarCliente
+                            : configTicket.presupuesto.mostrarCliente
+                        }
+                        onCheckedChange={(v) =>
+                          setConfigTicket((prev) => ({
+                            ...prev,
+                            [tabTicket]: { ...prev[tabTicket], mostrarCliente: v },
+                          }))
+                        }
+                      />
+                    </div>
+
+                    {tabTicket === 'venta' ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span>Mostrar Fecha y Hora</span>
+                          <Switch
+                            checked={configTicket.venta.mostrarFechaHora}
+                            onCheckedChange={(v) =>
+                              setConfigTicket((prev) => ({
+                                ...prev,
+                                venta: { ...prev.venta, mostrarFechaHora: v },
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Mostrar desglose de Impuestos</span>
+                          <Switch
+                            checked={configTicket.venta.mostrarImpuestos}
+                            onCheckedChange={(v) =>
+                              setConfigTicket((prev) => ({
+                                ...prev,
+                                venta: { ...prev.venta, mostrarImpuestos: v },
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Mostrar desglose de Métodos de Pago</span>
+                          <Switch
+                            checked={configTicket.venta.mostrarDesglosePagos}
+                            onCheckedChange={(v) =>
+                              setConfigTicket((prev) => ({
+                                ...prev,
+                                venta: { ...prev.venta, mostrarDesglosePagos: v },
+                              }))
+                            }
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <span>Mostrar Fecha de Vencimiento</span>
+                        <Switch
+                          checked={configTicket.presupuesto.mostrarVencimiento}
+                          onCheckedChange={(v) =>
+                            setConfigTicket((prev) => ({
+                              ...prev,
+                              presupuesto: { ...prev.presupuesto, mostrarVencimiento: v },
+                            }))
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Formato e Impresión */}
+                  <div className="p-4 rounded-xl bg-surface-container-low border border-outline/15 space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
+                      Formato de Papel y Cierre
+                    </h3>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid gap-1">
+                        <Label className="text-xs">Ancho de Papel</Label>
+                        <Select
+                          value={
+                            tabTicket === 'venta'
+                              ? configTicket.venta.anchoMm
+                              : configTicket.presupuesto.anchoMm
+                          }
+                          onValueChange={(v) =>
+                            setConfigTicket((prev) => ({
+                              ...prev,
+                              [tabTicket]: {
+                                ...prev[tabTicket],
+                                anchoMm: v as '80mm' | '58mm',
+                              },
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="80mm">Estándar (80mm)</SelectItem>
+                            <SelectItem value="58mm">Compacto (58mm)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="grid gap-1">
+                        <Label className="text-xs">Tamaño de Letra</Label>
+                        <Select
+                          value={
+                            tabTicket === 'venta'
+                              ? configTicket.venta.tamanoFuente
+                              : configTicket.presupuesto.tamanoFuente
+                          }
+                          onValueChange={(v) =>
+                            setConfigTicket((prev) => ({
+                              ...prev,
+                              [tabTicket]: {
+                                ...prev[tabTicket],
+                                tamanoFuente: v as 'pequena' | 'normal' | 'grande',
+                              },
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pequena">Pequeña (10px)</SelectItem>
+                            <SelectItem value="normal">Normal (12px)</SelectItem>
+                            <SelectItem value="grande">Grande (14px)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-1">
+                      <Label htmlFor="pie-text" className="text-xs">Mensaje de Cierre / Pie de Ticket</Label>
+                      <textarea
+                        id="pie-text"
+                        rows={2}
+                        value={
+                          tabTicket === 'venta'
+                            ? configTicket.venta.mensajePie
+                            : configTicket.presupuesto.mensajePie
+                        }
+                        onChange={(e) =>
+                          setConfigTicket((prev) => ({
+                            ...prev,
+                            [tabTicket]: { ...prev[tabTicket], mensajePie: e.target.value },
+                          }))
+                        }
+                        className="w-full p-2.5 bg-surface border border-outline/20 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Previsualización en Tiempo Real */}
+                <div className="lg:col-span-5 space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-outline flex items-center gap-1.5">
+                      <Eye className="w-3.5 h-3.5" />
+                      Vista Previa Interactiva
+                    </span>
+                    <span className="text-[10px] font-mono text-outline">
+                      {tabTicket === 'venta' ? 'Ticket Venta' : 'Ticket Cotización'} ({(tabTicket === 'venta' ? configTicket.venta.anchoMm : configTicket.presupuesto.anchoMm)})
+                    </span>
+                  </div>
+
+                  <div className="p-4 bg-surface-container-high/40 rounded-2xl border border-outline/20 flex justify-center items-start min-h-[420px]">
+                    {/* Tarjeta Simulación Papel Térmico */}
+                    <div
+                      className={`bg-white text-black p-4 rounded-lg shadow-xl font-mono border border-gray-300 space-y-2 transition-all text-left ${
+                        (tabTicket === 'venta' ? configTicket.venta.anchoMm : configTicket.presupuesto.anchoMm) === '58mm'
+                          ? 'w-[220px]'
+                          : 'w-[280px]'
+                      } ${
+                        (tabTicket === 'venta' ? configTicket.venta.tamanoFuente : configTicket.presupuesto.tamanoFuente) === 'pequena'
+                          ? 'text-[10px]'
+                          : (tabTicket === 'venta' ? configTicket.venta.tamanoFuente : configTicket.presupuesto.tamanoFuente) === 'grande'
+                            ? 'text-sm'
+                            : 'text-xs'
+                      }`}
+                    >
+                      {/* Logo */}
+                      {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).mostrarLogo &&
+                        (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).logoUrl && (
+                          <div className="flex justify-center mb-1">
+                            <img
+                              src={(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).logoUrl!}
+                              alt="Logo Ticket"
+                              className="max-h-10 object-contain"
+                            />
+                          </div>
+                        )}
+
+                      {/* Header */}
+                      <div className="text-center font-bold border-b border-dashed border-gray-400 pb-1.5">
+                        <p className="leading-tight">
+                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).encabezado || 'CUDII POS'}
+                        </p>
+                        {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).slogan && (
+                          <p className="text-[9px] font-normal text-gray-600 mt-0.5 font-sans">
+                            {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).slogan}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Contact Info */}
+                      {((tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).direccion ||
+                        (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).telefono ||
+                        (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).rfc ||
+                        (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).email) && (
+                        <div className="text-center text-[9px] text-gray-600 border-b border-dashed border-gray-300 pb-1 leading-tight">
+                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).direccion && (
+                            <p>{(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).direccion}</p>
+                          )}
+                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).telefono && (
+                            <p>Tel: {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).telefono}</p>
+                          )}
+                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).rfc && (
+                            <p>RFC: {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).rfc}</p>
+                          )}
+                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).email && (
+                            <p>{(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).email}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Meta Info */}
+                      <div className="text-[10px] space-y-0.5 border-b border-dashed border-gray-300 pb-1">
+                        <div className="flex justify-between font-bold">
+                          <span>Folio: {tabTicket === 'venta' ? 'CJ3A11-000320' : 'P-000014'}</span>
+                          {tabTicket === 'venta' && configTicket.venta.mostrarFechaHora && (
+                            <span className="font-normal text-gray-600">01/09/2026 21:45</span>
+                          )}
+                        </div>
+                        {(tabTicket === 'venta' ? configTicket.venta.mostrarCajero : configTicket.presupuesto.mostrarCajero) && (
+                          <p className="text-gray-700">Cajero: Carlos Admin</p>
+                        )}
+                        {(tabTicket === 'venta' ? configTicket.venta.mostrarCliente : configTicket.presupuesto.mostrarCliente) && (
+                          <p className="text-gray-700">Cliente: María López</p>
+                        )}
+                        {tabTicket === 'presupuesto' && configTicket.presupuesto.mostrarVencimiento && (
+                          <p className="text-red-600 font-semibold">Vence: 15/09/2026</p>
+                        )}
+                      </div>
+
+                      {/* Sample Items */}
+                      <div className="space-y-1 text-[10px] py-1 border-b border-dashed border-gray-300">
+                        <div className="flex justify-between">
+                          <span>2x Coca-Cola Original 600ml</span>
+                          <span className="font-bold">$36.00</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>1x Pan Bimbo Blanco 680g</span>
+                          <span className="font-bold">$52.00</span>
+                        </div>
+                      </div>
+
+                      {/* Totales */}
+                      <div className="text-[10px] space-y-0.5 pt-0.5">
+                        <div className="flex justify-between">
+                          <span>Subtotal</span>
+                          <span>$88.00</span>
+                        </div>
+                        {tabTicket === 'venta' && configTicket.venta.mostrarImpuestos && (
+                          <div className="flex justify-between text-gray-600">
+                            <span>Impuestos (IVA 0%)</span>
+                            <span>$0.00</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-extrabold text-xs pt-1 border-t border-black">
+                          <span>{tabTicket === 'venta' ? 'TOTAL' : 'TOTAL COTIZADO'}</span>
+                          <span>$88.00</span>
+                        </div>
+                      </div>
+
+                      {/* Pagos */}
+                      {tabTicket === 'venta' && configTicket.venta.mostrarDesglosePagos && (
+                        <div className="text-[9px] text-gray-700 pt-1 border-t border-dashed border-gray-300 space-y-0.5">
+                          <div className="flex justify-between">
+                            <span>Efectivo</span>
+                            <span>$100.00</span>
+                          </div>
+                          <div className="flex justify-between font-semibold">
+                            <span>Cambio</span>
+                            <span>$12.00</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Footer Message */}
+                      <div className="text-center text-[9px] text-gray-600 pt-2 border-t border-dashed border-gray-400">
+                        {(tabTicket === 'venta' ? configTicket.venta.mensajePie : configTicket.presupuesto.mensajePie) || '¡Gracias por su visita!'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
             </div>
           </section>
 

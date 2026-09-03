@@ -159,4 +159,8 @@ export class UpdateSettingsDto {
   @IsInt()
   @Min(0)
   diasExpiracionPresupuesto?: number;
+
+  /** Configuración y estilo personalizado para tickets (Venta y Presupuesto). */
+  @IsOptional()
+  configuracionTicket?: Record<string, any>;
 }

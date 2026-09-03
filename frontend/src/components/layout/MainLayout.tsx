@@ -281,7 +281,7 @@ export default function MainLayout() {
             </div>
           )}
 
-          {(puede('usuarios') || puede('auditoria') || puede('configuracion')) && (
+          {(puede('usuarios') || puede('auditoria')) && (
             <div className="px-4">
               <h3 className={`font-label-sm text-[10px] text-outline uppercase tracking-widest whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 mb-3 px-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:mb-0 md:px-0 md:h-0'}`}>
                 Administración
@@ -308,18 +308,6 @@ export default function MainLayout() {
                     <span className="material-symbols-outlined !text-xl shrink-0">history</span>
                     <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
                       Auditoría
-                    </span>
-                  </button>
-                )}
-                {puede('configuracion') && (
-                  <button
-                    onClick={() => { navigate('/admin/configuracion'); setIsMobileMenuOpen(false); }}
-                    className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/admin/configuracion' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
-                    title={!isSidebarOpen ? 'Configuración' : ''}
-                  >
-                    <span className="material-symbols-outlined !text-xl shrink-0">settings</span>
-                    <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
-                      Configuración
                     </span>
                   </button>
                 )}

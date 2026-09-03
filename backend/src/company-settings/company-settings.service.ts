@@ -28,6 +28,7 @@ export class CompanySettingsService {
         stockMaximoGlobal: true,
         conservarPrecioPresupuesto: true,
         diasExpiracionPresupuesto: true,
+        configuracionTicket: true,
         programaLealtad: {
           include: {
             niveles: { orderBy: { umbralPuntos: 'asc' } },
@@ -41,6 +42,17 @@ export class CompanySettingsService {
     }
 
     return empresa;
+  }
+
+  /**
+   * Obtiene la configuración de estilos de tickets de la Empresa para los comprobantes del POS.
+   */
+  async getConfiguracionTicket(empresaId: string) {
+    const empresa = await this.prisma.empresa.findUnique({
+      where: { id: empresaId },
+      select: { configuracionTicket: true, nombre: true },
+    });
+    return empresa?.configuracionTicket ?? null;
   }
 
   /**
@@ -110,6 +122,9 @@ export class CompanySettingsService {
         ...(dto.diasExpiracionPresupuesto !== undefined
           ? { diasExpiracionPresupuesto: dto.diasExpiracionPresupuesto }
           : {}),
+        ...(dto.configuracionTicket !== undefined
+          ? { configuracionTicket: dto.configuracionTicket }
+          : {}),
       },
       select: {
         id: true,
@@ -120,6 +135,7 @@ export class CompanySettingsService {
         stockMaximoGlobal: true,
         conservarPrecioPresupuesto: true,
         diasExpiracionPresupuesto: true,
+        configuracionTicket: true,
         programaLealtad: {
           include: { niveles: { orderBy: { umbralPuntos: 'asc' } } },
         },

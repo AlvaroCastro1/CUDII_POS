@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { FileText, Printer } from 'lucide-react';
+import { api } from '@/lib/api';
+import { CONFIG_TICKET_DEFAULT, type ConfigTicketPresupuesto } from '@/types/ticketConfig';
 
 export interface PresupuestoTicketData {
   id: string;
@@ -57,6 +59,18 @@ export const PresupuestoTicketModal: React.FC<PresupuestoTicketModalProps> = ({
   presupuesto,
   onClose,
 }) => {
+  const [config, setConfig] = useState<ConfigTicketPresupuesto>(CONFIG_TICKET_DEFAULT.presupuesto);
+
+  useEffect(() => {
+    let activo = true;
+    api.get('/company-settings/ticket').then((res) => {
+      if (activo && res.data?.presupuesto) {
+        setConfig({ ...CONFIG_TICKET_DEFAULT.presupuesto, ...res.data.presupuesto });
+      }
+    }).catch(() => {});
+    return () => { activo = false; };
+  }, []);
+
   if (!presupuesto) return null;
 
   const handlePrint = () => {
@@ -64,6 +78,16 @@ export const PresupuestoTicketModal: React.FC<PresupuestoTicketModalProps> = ({
   };
 
   const detalles = presupuesto.detalles ?? [];
+
+  const fontClass =
+    config.tamanoFuente === 'pequena'
+      ? 'text-[10px]'
+      : config.tamanoFuente === 'grande'
+        ? 'text-sm'
+        : 'text-xs';
+
+  const containerWidthClass =
+    config.anchoMm === '58mm' ? 'max-w-[260px] mx-auto' : 'w-full';
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6 sm:p-8 overflow-y-auto">
@@ -82,11 +106,34 @@ export const PresupuestoTicketModal: React.FC<PresupuestoTicketModalProps> = ({
         </div>
 
         {/* Voucher Imprimible */}
-        <div className="spatial-glass text-on-surface p-5 rounded-2xl border border-outline/20 shadow-inner font-mono text-xs text-left space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+        <div className={`spatial-glass text-on-surface p-5 rounded-2xl border border-outline/20 shadow-inner font-mono text-left space-y-2 max-h-64 overflow-y-auto custom-scrollbar ${fontClass} ${containerWidthClass}`}>
+          
+          {/* Logo si está activo */}
+          {config.mostrarLogo && config.logoUrl && (
+            <div className="flex justify-center mb-1">
+              <img src={config.logoUrl} alt="Logo" className="max-h-12 object-contain" />
+            </div>
+          )}
+
           {/* Encabezado */}
-          <div className="text-center font-bold text-sm text-primary border-b border-outline/20 pb-2 font-headline-md">
-            CUDII POS - COTIZACIÓN / PRESUPUESTO
+          <div className="text-center font-bold text-primary border-b border-outline/20 pb-2 font-headline-md">
+            {config.encabezado || 'CUDII POS - COTIZACIÓN / PRESUPUESTO'}
+            {config.slogan && (
+              <p className="text-[10px] font-normal text-on-surface-variant mt-0.5 tracking-normal font-sans">
+                {config.slogan}
+              </p>
+            )}
           </div>
+
+          {/* Datos del Negocio */}
+          {(config.direccion || config.telefono || config.rfc || config.email) && (
+            <div className="text-center text-[10px] text-outline border-b border-outline/10 pb-1.5 space-y-0.5">
+              {config.direccion && <p>{config.direccion}</p>}
+              {config.telefono && <p>Tel: {config.telefono}</p>}
+              {config.rfc && <p>RFC: {config.rfc}</p>}
+              {config.email && <p>{config.email}</p>}
+            </div>
+          )}
 
           {/* Folio + Fecha */}
           <div className="flex justify-between text-on-surface-variant text-[11px]">
@@ -95,14 +142,14 @@ export const PresupuestoTicketModal: React.FC<PresupuestoTicketModalProps> = ({
           </div>
 
           {/* Cajero */}
-          {presupuesto.cajero?.nombre && (
+          {config.mostrarCajero && presupuesto.cajero?.nombre && (
             <div className="text-on-surface-variant text-[11px]">
               Atendido por: <span className="font-semibold text-on-surface">{presupuesto.cajero.nombre}</span>
             </div>
           )}
 
           {/* Cliente */}
-          {presupuesto.cliente && (
+          {config.mostrarCliente && presupuesto.cliente && (
             <div className="text-on-surface-variant text-[11px]">
               Cliente: <span className="font-semibold text-on-surface">
                 {presupuesto.cliente.nombre} {presupuesto.cliente.apellidoPaterno ?? ''}
@@ -111,7 +158,7 @@ export const PresupuestoTicketModal: React.FC<PresupuestoTicketModalProps> = ({
           )}
 
           {/* Vencimiento */}
-          {presupuesto.fechaVencimiento && (
+          {config.mostrarVencimiento && presupuesto.fechaVencimiento && (
             <div className="text-warning text-[11px] font-semibold">
               Vence: {fmtFecha(presupuesto.fechaVencimiento)}
             </div>
@@ -185,7 +232,7 @@ export const PresupuestoTicketModal: React.FC<PresupuestoTicketModalProps> = ({
 
           {/* Leyenda */}
           <div className="border-t border-outline/20 pt-2 text-center text-[9px] text-outline leading-tight">
-            * Cotización informativa. Precios y existencias sujetos a cambios tras la fecha de vencimiento.
+            {config.mensajePie || '* Cotización informativa. Precios y existencias sujetos a cambios tras la fecha de vencimiento.'}
           </div>
         </div>
 

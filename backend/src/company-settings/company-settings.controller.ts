@@ -51,4 +51,13 @@ export class CompanySettingsController {
   async getProgramaLealtad(@CurrentUser() user: CurrentUserPayload) {
     return this.companySettingsService.getProgramaLealtad(user.empresaId);
   }
+
+  /**
+   * Configuración de estilos de tickets accesible a todos los usuarios autenticados
+   * para el formateo de comprobantes e impresión en terminales POS.
+   */
+  @Get('ticket')
+  async getConfiguracionTicket(@CurrentUser() user: CurrentUserPayload) {
+    return this.companySettingsService.getConfiguracionTicket(user.empresaId);
+  }
 }

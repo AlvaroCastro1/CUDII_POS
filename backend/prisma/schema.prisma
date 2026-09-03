@@ -32,6 +32,9 @@ model Empresa {
   // 0 = sin vencimiento (el precio se conserva según conservarPrecioPresupuesto).
   diasExpiracionPresupuesto Int @default(0)
 
+  // Configuración y personalización de estilo de tickets (Ventas y Presupuestos)
+  configuracionTicket Json?
+
   estaActivo            Boolean    @default(true)
   creadoEn              DateTime   @default(now())
   actualizadoEn         DateTime   @updatedAt
