@@ -56,6 +56,37 @@ export class CompanySettingsService {
   }
 
   /**
+   * Elimina archivos de logo no utilizados pertenecientes a la empresa especificada.
+   * Garantiza aislamiento multitenant por empresa y evita la acumulación de archivos huérfanos en disco.
+   * @param empresaId Identificador de la empresa
+   * @param urlLogoActual URL del logo activo a conservar (o null si se removió completamente)
+   */
+  async limpiarArchivosLogoNoUsados(empresaId: string, urlLogoActual?: string | null) {
+    const fs = await import('fs');
+    const path = await import('path');
+    const dirEmpresa = path.join(process.cwd(), 'uploads', 'logos', `empresa_${empresaId}`);
+
+    if (!fs.existsSync(dirEmpresa)) return;
+
+    try {
+      const archivos = fs.readdirSync(dirEmpresa);
+      for (const archivo of archivos) {
+        const rutaCompleta = path.join(dirEmpresa, archivo);
+        const urlRelativa = `/uploads/logos/empresa_${empresaId}/${archivo}`;
+        
+        // Si el archivo en disco no es la URL activa actual de la empresa, borrarlo
+        if (!urlLogoActual || !urlLogoActual.endsWith(archivo)) {
+          if (fs.existsSync(rutaCompleta)) {
+            fs.unlinkSync(rutaCompleta);
+          }
+        }
+      }
+    } catch {
+      // Ignorar errores menores de IO durante limpieza
+    }
+  }
+
+  /**
    * D10: Obtiene únicamente la configuración del Programa de Lealtad.
    * Pensado para roles operativos (CAJERO/GERENTE) que necesitan leer los
    * descuentos y reglas en el punto de venta sin acceso a la configuración completa.
@@ -101,6 +132,15 @@ export class CompanySettingsService {
     // D10: Aplicar cambios del programa de lealtad si vienen informados
     if (dto.programaLealtad) {
       await this.actualizarProgramaLealtad(empresaId, dto.programaLealtad);
+    }
+
+    // Limpieza de logos huérfanos si la configuración de tickets es actualizada
+    if (dto.configuracionTicket) {
+      const activeLogoUrl =
+        dto.configuracionTicket.venta?.logoUrl ||
+        dto.configuracionTicket.presupuesto?.logoUrl ||
+        null;
+      await this.limpiarArchivosLogoNoUsados(empresaId, activeLogoUrl);
     }
 
     return this.prisma.empresa.update({
