@@ -137,6 +137,14 @@ const ACCIONES: AccionBusqueda[] = [
     palabras: 'proveedores proveedor compras distribuidor marcas surtido abastecimiento',
   },
   {
+    titulo: 'Solicitud a Proveedores (Requisiciones)',
+    descripcion: 'Generar órdenes de compra y requisiciones de surtido a proveedores',
+    icono: 'request_quote',
+    ruta: '/admin/solicitudes-proveedor',
+    roles: ['SUPER_ADMIN', 'ADMIN', 'GERENTE', 'ALMACEN', 'CAJERO'],
+    palabras: 'solicitud solicitudes proveedor proveedores requisicion requisiciones orden de compra ordenes surtido pedido abastecimiento compra',
+  },
+  {
     titulo: 'Control de Cajas',
     descripcion: 'Gestión de terminales de caja y turnos',
     icono: 'savings',

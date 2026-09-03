@@ -131,6 +131,6 @@
   - Vista principal [`SolicitudesProveedorView.tsx`](file:///c:/Users/jesus/OneDrive/Desktop/CUDII_POS/frontend/src/views/admin/SolicitudesProveedorView.tsx) con `BuscadorEstandar`, 4 tarjetas Bento de métricas y tabla interactiva.
   - Modal de creación/edición [`NuevaSolicitudProveedorModal.tsx`](file:///c:/Users/jesus/OneDrive/Desktop/CUDII_POS/frontend/src/components/admin/NuevaSolicitudProveedorModal.tsx) con selector de proveedor u opción "Solicitud Abierta", selector dinámico de catálogo y cálculo en vivo de totales.
   - Comprobante formal e imprimible [`SolicitudProveedorPrintModal.tsx`](file:///c:/Users/jesus/OneDrive/Desktop/CUDII_POS/frontend/src/components/admin/SolicitudProveedorPrintModal.tsx) adaptado para orden de compra corporativa, botón de impresión limpia `window.print()` y generador de resumen para WhatsApp/Email.
-- [x] **Integración con Navegación y Permisos:** Registrado en `App.tsx` (`/admin/solicitudes-proveedor`), barra lateral `MainLayout.tsx` (sección Control de Inventario) y matriz de permisos `permisos.ts`.
+- [x] **Integración con Navegación, Buscador y Permisos:** Registrado en `App.tsx` (`/admin/solicitudes-proveedor`), barra lateral `MainLayout.tsx` (sección Control de Inventario), buscador global `GlobalSearch.tsx` (`Ctrl + K`) y matriz de permisos `permisos.ts`.
 
 
