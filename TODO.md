@@ -113,3 +113,12 @@
 - [x] **Integración en 12 pestañas:** Implementado en Clientes, Fiados, Devoluciones (Historial), Cajas Abiertas, Presupuestos, Categorías, Productos, Cupones, Stock por Producto (Inventario), Lotes y Caducidades, Proveedores y Usuarios.
 - [x] **Filtros Rápidos Personalizados:** Implementados filtros específicos desplegables por pestaña (por estado de crédito, nivel de deuda, tipo de resolución, fechas/periodos, antigüedad de caja, tipo de cupón/vigencia, roles de usuario, categorías y tipo de venta). Verificado con `docker compose exec frontend npx tsc --noEmit` con 0 errores de sintaxis y tipos.
 
+## Fase 4.8: Estilo, Personalización y Almacenamiento Estático de Tickets (D13)
+- [x] **Configuración en BD (`configuracionTicket` Json):** Schema Prisma actualizado en `Empresa` con `configuracionTicket Json?`; defaults centralizados en `ticketConfig.ts`.
+- [x] **Almacenamiento Estático y Servidor NestJS:** Habilitado `app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' })` en `main.ts`.
+- [x] **Aisle multitenant para imágenes:** Subcarpeta `uploads/logos/empresa_<empresaId>/` para aislar logos por empresa y evitar colisiones entre clientes.
+- [x] **Manejo de Espacio en Disco (`ENOSPC`):** Captura de espacio lleno respondiendo mensaje estandarizado: *"En este momento no podemos subir el archivo debido al espacio insuficiente."* y toast informativo en frontend.
+- [x] **Limpieza Automática de Archivos Huérfanos:** Implementado `CompanySettingsService.limpiarArchivosLogoNoUsados` para borrar logos antiguos no referenciados al actualizar o remover la imagen.
+- [x] **Formateo Avanzado y Tooltips:** Soporte para `EstiloTexto` (Negrita, Subrayado, Alineación Izquierda/Centro/Derecha), tooltips con explicaciones claras sobre omisión de campos vacíos y botón de *"Imprimir Ticket de Prueba"* en `ConfiguracionView.tsx`.
+- [x] **Modales POS (`VoucherModal` y `PresupuestoTicketModal`):** Aplicados estilos dinámicos, omisión estricta de campos vacíos (`!val?.trim()`) y soporte para ticket impreso y digital.
+

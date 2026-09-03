@@ -875,6 +875,61 @@ model PresupuestoDetalle {
 - [x] D12: Configuración `conservarPrecioPresupuesto` visible/editable y aplicada por la empresa.
 - [x] D12: Un presupuesto que supera `diasExpiracionPresupuesto` se marca `vencido` y su `precioEfectivo` se recalcula al vigente del catálogo; la lista/detalle muestran `fechaVencimiento`; se puede vender/cancelar a precio vigente.
 - [x] D12: Un presupuesto cancelado puede descancelarse (vuelve a `abierto`, o `vencido` si venció estando cancelado).
+- [x] D13: Configuración completa de estilo y personalización de tickets (Ventas y Presupuestos) almacenada en `Empresa.configuracionTicket`.
+- [x] D13: Servidor de archivos estáticos `/uploads/` en NestJS con aislamiento multitenant por subcarpeta `uploads/logos/empresa_<empresaId>/`.
+- [x] D13: Captura de espacio en disco lleno (`ENOSPC`) respondiendo mensaje estandarizado: *"En este momento no podemos subir el archivo debido al espacio insuficiente."*.
+- [x] D13: Política de limpieza de archivos huérfanos: eliminación automática de logos anteriores no utilizados de la empresa al subir un nuevo archivo o remover el actual.
+- [x] D13: Formateo avanzado de texto (`negrita`, `subrayado`, `alineacion`), tooltips informativos y omisión estricta de campos vacíos en comprobantes e impresión.
+
+---
+
+### D13 — Estilo, Personalización y Patrón Estándar de Almacenamiento de Archivos
+
+#### 1. Arquitectura de Almacenamiento Estático y Multitenancy
+Para seguir las mejores prácticas de software empresarial y evitar sobrecargar la base de datos PostgreSQL, los archivos binarios (logos, comprobantes) se almacenan en el sistema de archivos local (`/uploads/`) y solo se guardan URLs relativas en la base de datos (`/uploads/logos/empresa_<empresaId>/filename.png`).
+
+- **Aislamiento Multitenant:** Cada empresa dispone de su propio subdirectorio aislado: `uploads/logos/empresa_<empresaId>/`.
+- **Servidor Estático:** NestJS expone la carpeta estática mediante `app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' })`.
+- **Manejo de Espacio en Disco (`ENOSPC`):** Al fallar la escritura por almacenamiento lleno o error de disco, el controlador captura el error y responde con el mensaje estandarizado:
+  > *"En este momento no podemos subir el archivo debido al espacio insuficiente."*
+- **Política de Limpieza Automática:** El método `limpiarArchivosLogoNoUsados(empresaId, urlLogoActual)` escanea el directorio de la empresa y elimina cualquier archivo antiguo de logo que ya no esté referenciado en la configuración activa.
+
+#### 2. Configuración y Formateo Avanzado de Tickets
+La estructura Json `Empresa.configuracionTicket` define los estilos tanto para el Ticket de Venta como para el Ticket de Presupuesto:
+
+```ts
+export interface EstiloTexto {
+  negrita?: boolean;
+  subrayado?: boolean;
+  alineacion?: 'left' | 'center' | 'right';
+}
+
+export interface ConfigTicketVenta {
+  mostrarLogo: boolean;
+  logoUrl?: string;
+  encabezado: string;
+  estiloEncabezado?: EstiloTexto;
+  slogan?: string;
+  estiloSlogan?: EstiloTexto;
+  direccion?: string;
+  telefono?: string;
+  rfc?: string;
+  email?: string;
+  estiloContacto?: EstiloTexto;
+  mostrarCajero: boolean;
+  mostrarCliente: boolean;
+  mostrarFechaHora: boolean;
+  mostrarImpuestos: boolean;
+  mostrarDesglosePagos: boolean;
+  mensajePie: string;
+  estiloPie?: EstiloTexto;
+  anchoMm: '80mm' | '58mm';
+  tamanoFuente: 'pequena' | 'normal' | 'grande';
+}
+```
+
+#### 3. Regla de Omisión Estricta de Campos Vacíos
+Cualquier campo de texto (dirección, teléfono, RFC, slogan, pie) que se encuentre vacío o contenga únicamente espacios en blanco (`!val?.trim()`) es ignorado automáticamente durante la renderización e impresión del comprobante, garantizando tickets limpios sin saltos de línea innecesarios.
 
 ---
 
