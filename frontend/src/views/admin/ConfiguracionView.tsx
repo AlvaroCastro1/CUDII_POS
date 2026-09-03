@@ -25,6 +25,9 @@ import {
   AlignCenter,
   AlignRight,
   Image as ImageIcon,
+  Boxes,
+  Building2,
+  CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
@@ -301,10 +304,13 @@ function BarraEstiloTexto({
 
 // ─── Vista Principal de Configuración ─────────────────────────────────────────
 
+type SeccionConfig = 'general' | 'caja' | 'inventario' | 'lealtad' | 'tickets';
+
 export default function ConfiguracionView() {
   const { user } = useAuthStore();
   const rootRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [seccionActiva, setSeccionActiva] = useState<SeccionConfig>('general');
   const [configuracion, setConfiguracion] = useState<ConfiguracionEmpresa | null>(null);
   const [modoCorteZ, setModoCorteZ] = useState<ModoCorteZ>('ciego');
   const [umbralFaltanteCritico, setUmbralFaltanteCritico] = useState<number>(50);
@@ -684,73 +690,262 @@ export default function ConfiguracionView() {
   const umbralesEnUso = lealtad.niveles.map((n) => n.umbralPuntos);
 
 return (
-  <div ref={rootRef} className="p-6 max-w-3xl mx-auto w-full space-y-6">
-      {/* ── Encabezado ─────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-          <Settings2 className="w-7 h-7 text-primary" />
+  <div ref={rootRef} className="p-6 max-w-6xl mx-auto w-full space-y-6">
+      {/* ── Encabezado Principal y Acciones ──────────────────────────── */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-outline/10 pb-4">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 shadow-sm">
+            <Settings2 className="w-7 h-7 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold font-display-lg text-on-background">
+              Configuración del Sitio
+            </h1>
+            <p className="text-on-surface-variant text-sm mt-0.5 font-body-md">
+              {configuracion?.nombre || 'Cargando empresa...'} ·{' '}
+              <span className="text-primary font-semibold capitalize font-mono">
+                {user?.rol?.toLowerCase()}
+              </span>
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold font-display-lg text-on-background">
-            Configuración del Sitio
-          </h1>
-          <p className="text-on-surface-variant text-sm mt-0.5">
-            {configuracion?.nombre || 'Cargando empresa...'} ·{' '}
-            <span className="text-primary font-semibold capitalize">
-              {user?.rol?.toLowerCase()}
+
+        <div className="flex items-center gap-3">
+          {hayCambiosSinGuardar && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-warning/10 border border-warning/30 text-warning text-xs font-label-sm font-semibold animate-pulse">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              Cambios sin guardar
             </span>
-          </p>
+          )}
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving || isLoading}
+            className="shadow-md font-bold text-xs sm:text-sm"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-1.5" />
+                Guardar Cambios
+              </>
+            )}
+          </Button>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16 gap-3 text-outline">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span className="text-sm font-body-md">Cargando configuración...</span>
+        <div className="flex items-center justify-center py-20 gap-3 text-outline">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <span className="text-sm font-body-md">Cargando parámetros de configuración...</span>
         </div>
       ) : (
         <form onSubmit={handleSave} className="space-y-6">
-          {/* ── Sección: Datos de la Empresa ────────────────────────── */}
-          <section className="bg-surface border border-outline/10 rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-outline/10">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                <Store className="w-5 h-5 text-primary" />
+          {/* ── Tarjetas de Resumen Ejecutivo (Bento Summary Bar) ──────────────── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: Corte Z */}
+            <div
+              onClick={() => setSeccionActiva('caja')}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center gap-3.5 ${
+                seccionActiva === 'caja'
+                  ? 'bg-primary/5 border-primary shadow-sm'
+                  : 'bg-surface border-outline/15 hover:border-outline/40 hover:bg-surface-container-low'
+              }`}
+            >
+              <div className="w-10 h-10 rounded-xl bg-warning/10 border border-warning/20 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-5 h-5 text-warning" />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="font-bold text-lg text-on-background font-headline-md">
-                  Datos de la Empresa
-                </h2>
-                <p className="text-xs text-outline font-label-sm mt-0.5">
-                  Información general del negocio.
-                </p>
-              </div>
-              <AyudaTooltip etiqueta="¿Qué es?">
-                <p className="font-semibold text-sm">Datos de la Empresa</p>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Información general con la que opera tu negocio. El nombre se muestra
-                  en el encabezado de esta pantalla y en los recibos.
-                </p>
-              </AyudaTooltip>
-            </div>
-
-            <div className="p-6">
-              <div className="grid gap-2">
-                <Label htmlFor="nombre-empresa">Nombre del negocio</Label>
-                <Input
-                  id="nombre-empresa"
-                  value={configuracion?.nombre ?? ''}
-                  disabled
-                  className="bg-surface-variant/30 text-on-surface-variant"
-                />
-                <p className="text-xs text-on-surface-variant font-label-sm leading-relaxed">
-                  Nombre registrado de la empresa. Por ahora es de solo lectura.
-                </p>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-outline font-label-sm">Modo Corte Z</div>
+                <div className="text-sm font-bold text-on-surface truncate capitalize">{modoCorteZ}</div>
+                <div className="text-[10px] text-outline truncate font-mono">Umbral faltante ${umbralFaltanteCritico}</div>
               </div>
             </div>
-          </section>
 
-          {/* ── Sección: Caja y Cortes de Caja ──────────────────────── */}
-          <section className="bg-surface border border-outline/10 rounded-2xl shadow-sm overflow-hidden">
+            {/* Card 2: Stock & Cotizaciones */}
+            <div
+              onClick={() => setSeccionActiva('inventario')}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center gap-3.5 ${
+                seccionActiva === 'inventario'
+                  ? 'bg-primary/5 border-primary shadow-sm'
+                  : 'bg-surface border-outline/15 hover:border-outline/40 hover:bg-surface-container-low'
+              }`}
+            >
+              <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+                <Boxes className="w-5 h-5 text-teal-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-outline font-label-sm">Stock & Cotizaciones</div>
+                <div className="text-sm font-bold text-on-surface truncate font-mono">Mín {stockMinimoGlobal} / Máx {stockMaximoGlobal}</div>
+                <div className="text-[10px] text-outline truncate font-sans">
+                  {diasExpiracionPresupuesto > 0 ? `Vencimiento ${diasExpiracionPresupuesto} días` : 'Cotizaciones sin fecha tope'}
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: Programa Lealtad */}
+            <div
+              onClick={() => setSeccionActiva('lealtad')}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center gap-3.5 ${
+                seccionActiva === 'lealtad'
+                  ? 'bg-primary/5 border-primary shadow-sm'
+                  : 'bg-surface border-outline/15 hover:border-outline/40 hover:bg-surface-container-low'
+              }`}
+            >
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Gift className="w-5 h-5 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-outline font-label-sm">Programa Lealtad</div>
+                <div className="text-sm font-bold text-on-surface truncate">
+                  {lealtad.activo ? `Activo (${lealtad.niveles.length} Tiers)` : 'Desactivado'}
+                </div>
+                <div className="text-[10px] text-outline truncate font-mono">{lealtad.puntosMínimosCanje} pts mín. canje</div>
+              </div>
+            </div>
+
+            {/* Card 4: Tickets */}
+            <div
+              onClick={() => setSeccionActiva('tickets')}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center gap-3.5 ${
+                seccionActiva === 'tickets'
+                  ? 'bg-primary/5 border-primary shadow-sm'
+                  : 'bg-surface border-outline/15 hover:border-outline/40 hover:bg-surface-container-low'
+              }`}
+            >
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Printer className="w-5 h-5 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-outline font-label-sm">Ticket & Branding</div>
+                <div className="text-sm font-bold text-on-surface truncate font-mono">{configTicket.venta.anchoMm}</div>
+                <div className="text-[10px] text-outline truncate">
+                  {configTicket.venta.mostrarLogo ? 'Con Logo' : 'Sin Logo'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Navegación por Pestañas Categorizadas ────────────────────────── */}
+          <div className="flex items-center gap-2 border-b border-outline/15 pb-2 overflow-x-auto custom-scrollbar">
+            <button
+              type="button"
+              onClick={() => setSeccionActiva('general')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+                seccionActiva === 'general'
+                  ? 'bg-primary text-on-primary shadow-sm'
+                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Empresa y Datos</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSeccionActiva('caja')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+                seccionActiva === 'caja'
+                  ? 'bg-primary text-on-primary shadow-sm'
+                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Caja y Operaciones</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSeccionActiva('inventario')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+                seccionActiva === 'inventario'
+                  ? 'bg-primary text-on-primary shadow-sm'
+                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              <Boxes className="w-4 h-4" />
+              <span>Inventario y Cotizaciones</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSeccionActiva('lealtad')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+                seccionActiva === 'lealtad'
+                  ? 'bg-primary text-on-primary shadow-sm'
+                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              <Gift className="w-4 h-4" />
+              <span>Programa de Lealtad</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSeccionActiva('tickets')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+                seccionActiva === 'tickets'
+                  ? 'bg-primary text-on-primary shadow-sm'
+                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              <Printer className="w-4 h-4" />
+              <span>Estilos de Tickets</span>
+            </button>
+          </div>
+
+          {/* ── Pestaña 1: General ──────────────────────────────────────────── */}
+          {seccionActiva === 'general' && (
+            <div className="animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
+              <section className="bg-surface border border-outline/10 rounded-2xl shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-6 py-4 border-b border-outline/10">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <Store className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="font-bold text-lg text-on-background font-headline-md">
+                      Datos de la Empresa
+                    </h2>
+                    <p className="text-xs text-outline font-label-sm mt-0.5">
+                      Información general del negocio.
+                    </p>
+                  </div>
+                  <AyudaTooltip etiqueta="¿Qué es?">
+                    <p className="font-semibold text-sm">Datos de la Empresa</p>
+                    <p className="text-xs text-on-surface-variant leading-relaxed">
+                      Información general con la que opera tu negocio. El nombre se muestra
+                      en el encabezado de esta pantalla y en los recibos.
+                    </p>
+                  </AyudaTooltip>
+                </div>
+
+                <div className="p-6">
+                  <div className="grid gap-2 max-w-lg">
+                    <Label htmlFor="nombre-empresa">Nombre del negocio</Label>
+                    <Input
+                      id="nombre-empresa"
+                      value={configuracion?.nombre ?? ''}
+                      disabled
+                      className="bg-surface-variant/30 text-on-surface-variant"
+                    />
+                    <p className="text-xs text-on-surface-variant font-label-sm leading-relaxed">
+                      Nombre registrado de la empresa. Por ahora es de solo lectura.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* ── Pestaña 2: Caja y Operaciones ────────────────────────────────── */}
+          {seccionActiva === 'caja' && (
+            <div className="animate-in fade-in-0 slide-in-from-bottom-2 duration-200 space-y-6">
+              {/* Sección: Caja y Cortes de Caja */}
+              <section className="bg-surface border border-outline/10 rounded-2xl shadow-sm overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-outline/10">
               <div className="w-10 h-10 rounded-xl bg-warning/10 border border-warning/20 flex items-center justify-center shrink-0">
                 <ShieldCheck className="w-5 h-5 text-warning" />
@@ -1005,7 +1200,12 @@ return (
               </div>
             </div>
           </section>
+        </div>
+      )}
 
+      {/* ── Pestaña 3: Inventario y Cotizaciones ─────────────────────────── */}
+      {seccionActiva === 'inventario' && (
+        <div className="animate-in fade-in-0 slide-in-from-bottom-2 duration-200 space-y-6">
           {/* ── Sección: Control de Inventario ────────────────────── */}
           <section className="bg-surface border border-outline/10 rounded-2xl shadow-sm overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-outline/10">
@@ -1084,7 +1284,12 @@ return (
               </div>
             </div>
           </section>
+        </div>
+      )}
 
+      {/* ── Pestaña 4: Programa de Lealtad ───────────────────────────────── */}
+      {seccionActiva === 'lealtad' && (
+        <div className="animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
           {/* ── Sección: Programa de Lealtad (D10) ─────────────────── */}
           <section className="bg-surface border border-outline/10 rounded-2xl shadow-sm overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-outline/10">
@@ -1715,7 +1920,12 @@ return (
 
             </div>
           </section>
+        </div>
+      )}
 
+      {/* ── Pestaña 5: Tickets y Personalización ─────────────────────────── */}
+      {seccionActiva === 'tickets' && (
+        <div className="animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
           {/* ── Sección: Personalización y Estilos de Tickets ────────────────────── */}
           <section className="bg-surface border border-outline/10 rounded-2xl shadow-sm overflow-hidden">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-outline/10">
@@ -2476,6 +2686,8 @@ return (
               </div>
             </div>
           </section>
+        </div>
+      )}
 
           {/* ── Acciones ───────────────────────────────────────────── */}
           <div className="flex justify-end items-center gap-3">

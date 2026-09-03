@@ -114,7 +114,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
         )}
 
         {/* Voucher digital imprimible */}
-        <div className={`spatial-glass text-on-surface p-5 rounded-2xl border border-outline/20 shadow-inner font-mono text-left space-y-2 max-h-64 overflow-y-auto custom-scrollbar ${fontClass} ${containerWidthClass}`}>
+        <div id="printable-ticket" className={`printable-voucher spatial-glass text-on-surface p-5 rounded-2xl border border-outline/20 shadow-inner font-mono text-left space-y-2 max-h-64 overflow-y-auto custom-scrollbar ${fontClass} ${containerWidthClass}`}>
 
           {/* Logo si está activo */}
           {config.mostrarLogo && config.logoUrl?.trim() && (
