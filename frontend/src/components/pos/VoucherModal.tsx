@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, Printer, PlusCircle } from 'lucide-react';
 import type { Venta, VentaDetalle, VentaPago } from '../../types/pos';
-import { api } from '../../lib/api';
+import { api, obtenerUrlImagen } from '../../lib/api';
 import { CONFIG_TICKET_DEFAULT, type ConfigTicketVenta } from '../../types/ticketConfig';
 
 interface VoucherModalProps {
@@ -69,6 +69,24 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
   const containerWidthClass =
     config.anchoMm === '58mm' ? 'max-w-[260px] mx-auto' : 'w-full';
 
+  const getEstiloClasses = (estilo?: typeof config.estiloEncabezado, defAlign = 'text-center') => {
+    if (!estilo) return defAlign;
+    const parts: string[] = [];
+    if (estilo.negrita) parts.push('font-bold');
+    if (estilo.subrayado) parts.push('underline');
+    if (estilo.alineacion === 'left') parts.push('text-left');
+    else if (estilo.alineacion === 'right') parts.push('text-right');
+    else parts.push('text-center');
+    return parts.join(' ');
+  };
+
+  const tieneContacto = Boolean(
+    config.direccion?.trim() ||
+      config.telefono?.trim() ||
+      config.rfc?.trim() ||
+      config.email?.trim(),
+  );
+
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6 sm:p-8 overflow-y-auto">
       <div className="bg-surface border border-outline/20 rounded-[28px] max-w-md w-full p-6 shadow-2xl space-y-4 text-on-surface my-auto max-h-[85vh] overflow-y-auto custom-scrollbar">
@@ -99,29 +117,31 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
         <div className={`spatial-glass text-on-surface p-5 rounded-2xl border border-outline/20 shadow-inner font-mono text-left space-y-2 max-h-64 overflow-y-auto custom-scrollbar ${fontClass} ${containerWidthClass}`}>
 
           {/* Logo si está activo */}
-          {config.mostrarLogo && config.logoUrl && (
+          {config.mostrarLogo && config.logoUrl?.trim() && (
             <div className="flex justify-center mb-1">
-              <img src={config.logoUrl} alt="Logo" className="max-h-12 object-contain" />
+              <img src={obtenerUrlImagen(config.logoUrl)} alt="Logo" className="max-h-12 object-contain" />
             </div>
           )}
 
           {/* Encabezado */}
-          <div className="text-center font-bold text-primary border-b border-outline/20 pb-2 font-headline-md">
-            {config.encabezado || 'CUDII POS - COMPROBANTE DE VENTA'}
-            {config.slogan && (
-              <p className="text-[10px] font-normal text-on-surface-variant mt-0.5 tracking-normal font-sans">
-                {config.slogan}
-              </p>
-            )}
-          </div>
+          {config.encabezado?.trim() && (
+            <div className={`border-b border-outline/20 pb-2 ${getEstiloClasses(config.estiloEncabezado, 'text-center')}`}>
+              <p className="text-primary font-headline-md leading-tight">{config.encabezado}</p>
+              {config.slogan?.trim() && (
+                <p className={`text-[10px] text-on-surface-variant mt-0.5 tracking-normal font-sans ${getEstiloClasses(config.estiloSlogan, 'text-center')}`}>
+                  {config.slogan}
+                </p>
+              )}
+            </div>
+          )}
 
-          {/* Datos del Negocio */}
-          {(config.direccion || config.telefono || config.rfc || config.email) && (
-            <div className="text-center text-[10px] text-outline border-b border-outline/10 pb-1.5 space-y-0.5">
-              {config.direccion && <p>{config.direccion}</p>}
-              {config.telefono && <p>Tel: {config.telefono}</p>}
-              {config.rfc && <p>RFC: {config.rfc}</p>}
-              {config.email && <p>{config.email}</p>}
+          {/* Datos del Negocio (Solo se imprime si al menos un campo tiene texto) */}
+          {tieneContacto && (
+            <div className={`text-[10px] text-outline border-b border-outline/10 pb-1.5 space-y-0.5 ${getEstiloClasses(config.estiloContacto, 'text-center')}`}>
+              {config.direccion?.trim() && <p>{config.direccion}</p>}
+              {config.telefono?.trim() && <p>Tel: {config.telefono}</p>}
+              {config.rfc?.trim() && <p>RFC: {config.rfc}</p>}
+              {config.email?.trim() && <p>{config.email}</p>}
             </div>
           )}
 
@@ -247,9 +267,11 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
           )}
 
           {/* Pie */}
-          <div className="border-t border-outline/20 pt-2 text-center text-[10px] text-outline">
-            {config.mensajePie || '¡Gracias por tu compra!'}
-          </div>
+          {config.mensajePie?.trim() && (
+            <div className={`border-t border-outline/20 pt-2 text-[10px] text-outline ${getEstiloClasses(config.estiloPie, 'text-center')}`}>
+              {config.mensajePie}
+            </div>
+          )}
         </div>
 
         {/* Botones de acción */}

@@ -18,11 +18,22 @@ import {
   Printer,
   Receipt,
   FileText,
+  Upload,
+  Bold,
+  Underline,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
-import { api } from '@/lib/api';
-import { CONFIG_TICKET_DEFAULT, type ConfiguracionTicketCompleta } from '@/types/ticketConfig';
+import { api, obtenerUrlImagen } from '@/lib/api';
+import {
+  CONFIG_TICKET_DEFAULT,
+  type ConfiguracionTicketCompleta,
+  type EstiloTexto,
+} from '@/types/ticketConfig';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -223,11 +234,77 @@ function AyudaTooltip({
   );
 }
 
+function BarraEstiloTexto({
+  estilo,
+  onChange,
+}: {
+  estilo?: EstiloTexto;
+  onChange: (nuevo: EstiloTexto) => void;
+}) {
+  const e = estilo || { negrita: false, subrayado: false, alineacion: 'center' };
+  return (
+    <div className="flex items-center gap-1 bg-surface p-1 rounded-lg border border-outline/20 shrink-0">
+      <button
+        type="button"
+        title="Negrita"
+        onClick={() => onChange({ ...e, negrita: !e.negrita })}
+        className={`p-1.5 rounded-md text-xs font-bold transition-colors ${
+          e.negrita ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant hover:bg-on-surface/10'
+        }`}
+      >
+        <Bold className="w-3.5 h-3.5" />
+      </button>
+      <button
+        type="button"
+        title="Subrayado"
+        onClick={() => onChange({ ...e, subrayado: !e.subrayado })}
+        className={`p-1.5 rounded-md text-xs font-bold transition-colors ${
+          e.subrayado ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant hover:bg-on-surface/10'
+        }`}
+      >
+        <Underline className="w-3.5 h-3.5" />
+      </button>
+      <div className="w-[1px] h-4 bg-outline/20 mx-0.5" />
+      <button
+        type="button"
+        title="Alinear Izquierda"
+        onClick={() => onChange({ ...e, alineacion: 'left' })}
+        className={`p-1.5 rounded-md text-xs transition-colors ${
+          e.alineacion === 'left' ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant hover:bg-on-surface/10'
+        }`}
+      >
+        <AlignLeft className="w-3.5 h-3.5" />
+      </button>
+      <button
+        type="button"
+        title="Alinear Centro"
+        onClick={() => onChange({ ...e, alineacion: 'center' })}
+        className={`p-1.5 rounded-md text-xs transition-colors ${
+          (!e.alineacion || e.alineacion === 'center') ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant hover:bg-on-surface/10'
+        }`}
+      >
+        <AlignCenter className="w-3.5 h-3.5" />
+      </button>
+      <button
+        type="button"
+        title="Alinear Derecha"
+        onClick={() => onChange({ ...e, alineacion: 'right' })}
+        className={`p-1.5 rounded-md text-xs transition-colors ${
+          e.alineacion === 'right' ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant hover:bg-on-surface/10'
+        }`}
+      >
+        <AlignRight className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Vista Principal de Configuración ─────────────────────────────────────────
 
 export default function ConfiguracionView() {
   const { user } = useAuthStore();
   const rootRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [configuracion, setConfiguracion] = useState<ConfiguracionEmpresa | null>(null);
   const [modoCorteZ, setModoCorteZ] = useState<ModoCorteZ>('ciego');
   const [umbralFaltanteCritico, setUmbralFaltanteCritico] = useState<number>(50);
@@ -239,6 +316,7 @@ export default function ConfiguracionView() {
   const [diasExpiracionPresupuesto, setDiasExpiracionPresupuesto] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isGuardandoYSalir, setIsGuardandoYSalir] = useState(false);
 
   // D10: Estado del Programa de Lealtad (configurable) y su instantánea para detectar cambios
@@ -453,14 +531,69 @@ export default function ConfiguracionView() {
     const guardado = await guardarCambios();
     setIsGuardandoYSalir(false);
     if (guardado) {
-      blocker.proceed();
+      if (blocker.state === 'blocked') blocker.proceed();
     } else {
-      blocker.reset();
+      if (blocker.state === 'blocked') blocker.reset();
     }
   };
 
-  const manejarDescartar = () => blocker.proceed();
-  const manejarCancelar = () => blocker.reset();
+  const manejarDescartar = () => {
+    if (blocker.state === 'blocked') blocker.proceed();
+  };
+  const manejarCancelar = () => {
+    if (blocker.state === 'blocked') blocker.reset();
+  };
+
+  // ── Handlers de Subida de Logo y Prueba de Impresión ────────────────
+  const handleSubirLogoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setIsUploadingLogo(true);
+    try {
+      const res = await api.post<{ url: string }>(
+        '/company-settings/logo-upload',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
+      setConfigTicket((prev) => ({
+        ...prev,
+        [tabTicket]: {
+          ...prev[tabTicket],
+          logoUrl: res.data.url,
+          mostrarLogo: true,
+        },
+      }));
+      toast.success(
+        'Logo subido correctamente. Los archivos anteriores no utilizados se han eliminado del servidor.',
+      );
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        'En este momento no podemos subir el archivo debido al espacio insuficiente.';
+      toast.error(msg);
+    } finally {
+      setIsUploadingLogo(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoverLogo = () => {
+    setConfigTicket((prev) => ({
+      ...prev,
+      [tabTicket]: { ...prev[tabTicket], logoUrl: '', mostrarLogo: false },
+    }));
+    toast.info(
+      'Logo removido. El archivo no utilizado se eliminará del servidor al guardar los cambios.',
+    );
+  };
+
+  const handleImprimirPrueba = () => {
+    window.print();
+  };
 
   const tipoSeleccionado = TIPOS_CORTE_Z.find((t) => t.valor === modoCorteZ);
 
@@ -1608,43 +1741,73 @@ return (
 
             <div className="p-6">
               {/* Selector de Pestaña: Venta vs Presupuesto */}
-              <div className="flex items-center gap-2 mb-6 border-b border-outline/10 pb-3">
-                <button
+              <div className="flex items-center justify-between gap-2 mb-6 border-b border-outline/10 pb-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTabTicket('venta')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                      tabTicket === 'venta'
+                        ? 'bg-primary text-on-primary shadow-sm'
+                        : 'bg-surface-container-low text-on-surface-variant hover:bg-on-surface/5'
+                    }`}
+                  >
+                    <Receipt className="w-4 h-4" />
+                    <span>Ticket de Venta</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTabTicket('presupuesto')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                      tabTicket === 'presupuesto'
+                        ? 'bg-primary text-on-primary shadow-sm'
+                        : 'bg-surface-container-low text-on-surface-variant hover:bg-on-surface/5'
+                    }`}
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>Ticket de Presupuesto / Cotización</span>
+                  </button>
+                </div>
+
+                <Button
                   type="button"
-                  onClick={() => setTabTicket('venta')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                    tabTicket === 'venta'
-                      ? 'bg-primary text-on-primary shadow-sm'
-                      : 'bg-surface-container-low text-on-surface-variant hover:bg-on-surface/5'
-                  }`}
+                  variant="outline"
+                  size="sm"
+                  onClick={handleImprimirPrueba}
+                  className="text-xs gap-2 border-primary/30 text-primary hover:bg-primary/10"
                 >
-                  <Receipt className="w-4 h-4" />
-                  <span>Ticket de Venta</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTabTicket('presupuesto')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                    tabTicket === 'presupuesto'
-                      ? 'bg-primary text-on-primary shadow-sm'
-                      : 'bg-surface-container-low text-on-surface-variant hover:bg-on-surface/5'
-                  }`}
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>Ticket de Presupuesto / Cotización</span>
-                </button>
+                  <Printer className="w-4 h-4" />
+                  Imprimir Ticket de Prueba
+                </Button>
               </div>
 
-              {/* Layout dividido: Controles a la izquierda, Previsualización en Tiempo Real a la derecha */}
+              {/* Input de archivo oculto */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/svg+xml"
+                onChange={handleSubirLogoFile}
+                className="hidden"
+              />
+
+              {/* Layout dividido: Controles a la izquierda, Previsualización a la derecha */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
                 {/* Formulario de Controles */}
                 <div className="lg:col-span-7 space-y-4">
                   {/* Encabezado y Marca */}
                   <div className="p-4 rounded-xl bg-surface-container-low border border-outline/15 space-y-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
-                      Branding y Encabezado
-                    </h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
+                        Branding y Logo de la Empresa
+                      </h3>
+                      <AyudaTooltip etiqueta="Limpieza automática">
+                        <p className="font-semibold text-sm">Almacenamiento de Logos</p>
+                        <p className="text-xs text-on-surface-variant leading-relaxed">
+                          Al subir un nuevo logo o remover el actual, cualquier archivo anterior no utilizado perteneciente a esta empresa se eliminará automáticamente del servidor para no ocupar espacio.
+                        </p>
+                      </AyudaTooltip>
+                    </div>
                     
                     <div className="flex items-center justify-between">
                       <Label htmlFor="mostrar-logo" className="text-xs">Mostrar Logo en Ticket</Label>
@@ -1665,31 +1828,95 @@ return (
                     </div>
 
                     {(tabTicket === 'venta' ? configTicket.venta.mostrarLogo : configTicket.presupuesto.mostrarLogo) && (
-                      <div className="grid gap-1.5">
-                        <Label htmlFor="logo-url" className="text-xs text-on-surface-variant">URL del Logo (Imagen PNG/JPG)</Label>
-                        <Input
-                          id="logo-url"
-                          placeholder="https://ejemplo.com/logo.png"
-                          value={
-                            tabTicket === 'venta'
-                              ? configTicket.venta.logoUrl ?? ''
-                              : configTicket.presupuesto.logoUrl ?? ''
-                          }
-                          onChange={(e) =>
-                            setConfigTicket((prev) => ({
-                              ...prev,
-                              [tabTicket]: { ...prev[tabTicket], logoUrl: e.target.value },
-                            }))
-                          }
-                          className="text-xs"
-                        />
+                      <div className="space-y-2 pt-1 border-t border-outline/10">
+                        <Label className="text-xs text-on-surface-variant">Imagen del Logo</Label>
+                        
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {/* Vista previa de miniatura si existe logo */}
+                          {(tabTicket === 'venta' ? configTicket.venta.logoUrl : configTicket.presupuesto.logoUrl) ? (
+                            <div className="relative group w-20 h-16 rounded-xl border border-outline/20 bg-surface flex items-center justify-center p-1 overflow-hidden shrink-0">
+                              <img
+                                src={obtenerUrlImagen(
+                                  tabTicket === 'venta'
+                                    ? configTicket.venta.logoUrl
+                                    : configTicket.presupuesto.logoUrl,
+                                )}
+                                alt="Logo"
+                                className="max-h-full max-w-full object-contain"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-20 h-16 rounded-xl border border-dashed border-outline/30 bg-surface-variant/30 flex flex-col items-center justify-center text-outline text-[10px] shrink-0">
+                              <ImageIcon className="w-5 h-5 mb-0.5 opacity-50" />
+                              <span>Sin logo</span>
+                            </div>
+                          )}
+
+                          <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={isUploadingLogo}
+                                onClick={() => fileInputRef.current?.click()}
+                                className="text-xs gap-1.5 flex-1"
+                              >
+                                {isUploadingLogo ? (
+                                  <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    Subiendo...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="w-3.5 h-3.5" />
+                                    Subir Imagen
+                                  </>
+                                )}
+                              </Button>
+
+                              {(tabTicket === 'venta' ? configTicket.venta.logoUrl : configTicket.presupuesto.logoUrl) && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={handleRemoverLogo}
+                                  className="text-xs text-error hover:bg-error/10"
+                                >
+                                  Remover
+                                </Button>
+                              )}
+                            </div>
+
+                            <p className="text-[10px] text-outline font-label-sm">
+                              Formatos permitidos: PNG, JPG, WEBP, SVG (máx. 5MB).
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     )}
 
-                    <div className="grid gap-1.5">
-                      <Label htmlFor="encabezado-text" className="text-xs">Título de Encabezado</Label>
+                    {/* Título de Encabezado + Formato */}
+                    <div className="space-y-1.5 pt-2 border-t border-outline/10">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label htmlFor="encabezado-text" className="text-xs">Título de Encabezado</Label>
+                        <BarraEstiloTexto
+                          estilo={
+                            tabTicket === 'venta'
+                              ? configTicket.venta.estiloEncabezado
+                              : configTicket.presupuesto.estiloEncabezado
+                          }
+                          onChange={(nuevo) =>
+                            setConfigTicket((prev) => ({
+                              ...prev,
+                              [tabTicket]: { ...prev[tabTicket], estiloEncabezado: nuevo },
+                            }))
+                          }
+                        />
+                      </div>
                       <Input
                         id="encabezado-text"
+                        placeholder="Dejar en blanco para omitir"
                         value={
                           tabTicket === 'venta'
                             ? configTicket.venta.encabezado
@@ -1705,11 +1932,27 @@ return (
                       />
                     </div>
 
-                    <div className="grid gap-1.5">
-                      <Label htmlFor="slogan-text" className="text-xs">Slogan / Subtítulo</Label>
+                    {/* Slogan + Formato */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label htmlFor="slogan-text" className="text-xs">Slogan / Subtítulo</Label>
+                        <BarraEstiloTexto
+                          estilo={
+                            tabTicket === 'venta'
+                              ? configTicket.venta.estiloSlogan
+                              : configTicket.presupuesto.estiloSlogan
+                          }
+                          onChange={(nuevo) =>
+                            setConfigTicket((prev) => ({
+                              ...prev,
+                              [tabTicket]: { ...prev[tabTicket], estiloSlogan: nuevo },
+                            }))
+                          }
+                        />
+                      </div>
                       <Input
                         id="slogan-text"
-                        placeholder="Ej. ¡La mejor calidad!"
+                        placeholder="Dejar en blanco para omitir"
                         value={
                           tabTicket === 'venta'
                             ? configTicket.venta.slogan ?? ''
@@ -1728,15 +1971,39 @@ return (
 
                   {/* Datos del Negocio */}
                   <div className="p-4 rounded-xl bg-surface-container-low border border-outline/15 space-y-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
-                      Datos de Contacto del Negocio
-                    </h3>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
+                        Datos de Contacto del Negocio
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <AyudaTooltip etiqueta="Omisión de campos">
+                          <p className="font-semibold text-sm">Campos vacíos</p>
+                          <p className="text-xs text-on-surface-variant leading-relaxed">
+                            Cualquier campo que dejes en blanco o contenga solo espacios no ocupará espacio ni se imprimirá en el ticket.
+                          </p>
+                        </AyudaTooltip>
+                        <BarraEstiloTexto
+                          estilo={
+                            tabTicket === 'venta'
+                              ? configTicket.venta.estiloContacto
+                              : configTicket.presupuesto.estiloContacto
+                          }
+                          onChange={(nuevo) =>
+                            setConfigTicket((prev) => ({
+                              ...prev,
+                              [tabTicket]: { ...prev[tabTicket], estiloContacto: nuevo },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="grid gap-1">
                         <Label htmlFor="dir-text" className="text-xs">Dirección</Label>
                         <Input
                           id="dir-text"
+                          placeholder="Sin dirección"
                           value={
                             tabTicket === 'venta'
                               ? configTicket.venta.direccion ?? ''
@@ -1755,6 +2022,7 @@ return (
                         <Label htmlFor="tel-text" className="text-xs">Teléfono</Label>
                         <Input
                           id="tel-text"
+                          placeholder="Sin teléfono"
                           value={
                             tabTicket === 'venta'
                               ? configTicket.venta.telefono ?? ''
@@ -1773,6 +2041,7 @@ return (
                         <Label htmlFor="rfc-text" className="text-xs">RFC / ID Fiscal</Label>
                         <Input
                           id="rfc-text"
+                          placeholder="Sin RFC"
                           value={
                             tabTicket === 'venta'
                               ? configTicket.venta.rfc ?? ''
@@ -1791,6 +2060,7 @@ return (
                         <Label htmlFor="email-text" className="text-xs">Correo Electrónico</Label>
                         <Input
                           id="email-text"
+                          placeholder="Sin correo"
                           value={
                             tabTicket === 'venta'
                               ? configTicket.venta.email ?? ''
@@ -1968,11 +2238,27 @@ return (
                       </div>
                     </div>
 
-                    <div className="grid gap-1">
-                      <Label htmlFor="pie-text" className="text-xs">Mensaje de Cierre / Pie de Ticket</Label>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label htmlFor="pie-text" className="text-xs">Mensaje de Cierre / Pie de Ticket</Label>
+                        <BarraEstiloTexto
+                          estilo={
+                            tabTicket === 'venta'
+                              ? configTicket.venta.estiloPie
+                              : configTicket.presupuesto.estiloPie
+                          }
+                          onChange={(nuevo) =>
+                            setConfigTicket((prev) => ({
+                              ...prev,
+                              [tabTicket]: { ...prev[tabTicket], estiloPie: nuevo },
+                            }))
+                          }
+                        />
+                      </div>
                       <textarea
                         id="pie-text"
                         rows={2}
+                        placeholder="Dejar en blanco para omitir"
                         value={
                           tabTicket === 'venta'
                             ? configTicket.venta.mensajePie
@@ -2019,10 +2305,12 @@ return (
                     >
                       {/* Logo */}
                       {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).mostrarLogo &&
-                        (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).logoUrl && (
+                        (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).logoUrl?.trim() && (
                           <div className="flex justify-center mb-1">
                             <img
-                              src={(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).logoUrl!}
+                              src={obtenerUrlImagen(
+                                (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).logoUrl,
+                              )}
                               alt="Logo Ticket"
                               className="max-h-10 object-contain"
                             />
@@ -2030,33 +2318,71 @@ return (
                         )}
 
                       {/* Header */}
-                      <div className="text-center font-bold border-b border-dashed border-gray-400 pb-1.5">
-                        <p className="leading-tight">
-                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).encabezado || 'CUDII POS'}
-                        </p>
-                        {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).slogan && (
-                          <p className="text-[9px] font-normal text-gray-600 mt-0.5 font-sans">
-                            {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).slogan}
+                      {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).encabezado?.trim() && (
+                        <div
+                          className={`border-b border-dashed border-gray-400 pb-1.5 ${
+                            (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloEncabezado?.negrita ? 'font-bold' : 'font-normal'
+                          } ${
+                            (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloEncabezado?.subrayado ? 'underline' : ''
+                          } ${
+                            (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloEncabezado?.alineacion === 'left'
+                              ? 'text-left'
+                              : (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloEncabezado?.alineacion === 'right'
+                                ? 'text-right'
+                                : 'text-center'
+                          }`}
+                        >
+                          <p className="leading-tight">
+                            {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).encabezado}
                           </p>
-                        )}
-                      </div>
+                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).slogan?.trim() && (
+                            <p
+                              className={`text-[9px] text-gray-600 mt-0.5 font-sans ${
+                                (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloSlogan?.negrita ? 'font-bold' : 'font-normal'
+                              } ${
+                                (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloSlogan?.subrayado ? 'underline' : ''
+                              } ${
+                                (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloSlogan?.alineacion === 'left'
+                                  ? 'text-left'
+                                  : (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloSlogan?.alineacion === 'right'
+                                    ? 'text-right'
+                                    : 'text-center'
+                              }`}
+                            >
+                              {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).slogan}
+                            </p>
+                          )}
+                        </div>
+                      )}
 
-                      {/* Contact Info */}
-                      {((tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).direccion ||
-                        (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).telefono ||
-                        (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).rfc ||
-                        (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).email) && (
-                        <div className="text-center text-[9px] text-gray-600 border-b border-dashed border-gray-300 pb-1 leading-tight">
-                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).direccion && (
+                      {/* Contact Info (Omitido si todos están vacíos) */}
+                      {((tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).direccion?.trim() ||
+                        (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).telefono?.trim() ||
+                        (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).rfc?.trim() ||
+                        (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).email?.trim()) && (
+                        <div
+                          className={`text-[9px] text-gray-600 border-b border-dashed border-gray-300 pb-1 leading-tight ${
+                            (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloContacto?.negrita ? 'font-bold' : 'font-normal'
+                          } ${
+                            (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloContacto?.subrayado ? 'underline' : ''
+                          } ${
+                            (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloContacto?.alineacion === 'left'
+                              ? 'text-left'
+                              : (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloContacto?.alineacion === 'right'
+                                ? 'text-right'
+                                : 'text-center'
+                          }`}
+                        >
+                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).direccion?.trim() && (
                             <p>{(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).direccion}</p>
                           )}
-                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).telefono && (
+                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).telefono?.trim() && (
                             <p>Tel: {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).telefono}</p>
                           )}
-                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).rfc && (
+                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).rfc?.trim() && (
                             <p>RFC: {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).rfc}</p>
                           )}
-                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).email && (
+                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).email?.trim() && (
                             <p>{(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).email}</p>
                           )}
                         </div>
@@ -2126,9 +2452,23 @@ return (
                       )}
 
                       {/* Footer Message */}
-                      <div className="text-center text-[9px] text-gray-600 pt-2 border-t border-dashed border-gray-400">
-                        {(tabTicket === 'venta' ? configTicket.venta.mensajePie : configTicket.presupuesto.mensajePie) || '¡Gracias por su visita!'}
-                      </div>
+                      {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).mensajePie?.trim() && (
+                        <div
+                          className={`text-[9px] text-gray-600 pt-2 border-t border-dashed border-gray-400 ${
+                            (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloPie?.negrita ? 'font-bold' : 'font-normal'
+                          } ${
+                            (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloPie?.subrayado ? 'underline' : ''
+                          } ${
+                            (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloPie?.alineacion === 'left'
+                              ? 'text-left'
+                              : (tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).estiloPie?.alineacion === 'right'
+                                ? 'text-right'
+                                : 'text-center'
+                          }`}
+                        >
+                          {(tabTicket === 'venta' ? configTicket.venta : configTicket.presupuesto).mensajePie}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

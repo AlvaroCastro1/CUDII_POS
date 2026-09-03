@@ -49,3 +49,22 @@ export function errorMessage(err: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+/**
+ * Convierte una URL relativa de recurso estático (ej: /uploads/logos/...)
+ * en una URL absoluta respaldada por la baseURL del backend.
+ */
+export function obtenerUrlImagen(url?: string | null): string {
+  if (!url || !url.trim()) return '';
+  if (
+    url.startsWith('http://') ||
+    url.startsWith('https://') ||
+    url.startsWith('data:')
+  ) {
+    return url;
+  }
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const cleanBase = baseUrl.replace(/\/+$/, '');
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${cleanBase}${cleanPath}`;
+}
