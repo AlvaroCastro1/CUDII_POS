@@ -33,6 +33,7 @@ model Empresa {
   diasExpiracionPresupuesto Int @default(0)
 
   secuenciaSolicitudProveedor Int @default(0) // Folio atómico por empresa para solicitudes a proveedores (SOL-000001)
+  secuenciaTraspaso          Int @default(0) // Folio atómico por empresa para traspasos entre sucursales (TRASP-000001)
 
   // Configuración y personalización de estilo de tickets (Ventas y Presupuestos)
   configuracionTicket Json?
@@ -59,6 +60,7 @@ model Empresa {
   combos         Combo[]
   presupuestos   Presupuesto[]
   solicitudesProveedor SolicitudProveedor[]
+  traspasos      Traspaso[]
 }
 
 enum ModoCorteZ {
@@ -87,6 +89,8 @@ model Sucursal {
   recepciones           RecepcionMercancia[]
   mermas                Merma[]
   movimientosInventario MovimientoInventario[]
+  traspasosOrigen       Traspaso[] @relation("traspasosOrigen")
+  traspasosDestino      Traspaso[] @relation("traspasosDestino")
 
   @@index([empresaId])
 }
@@ -146,6 +150,9 @@ model Usuario {
   solicitudesProveedorCreadas SolicitudProveedor[] @relation("solicitudesProveedorCreadas")
   combosCreados           Combo[]             @relation("combosCreados")
   presupuestosCreados     Presupuesto[]       @relation("presupuestosCreados")
+  traspasosCreados        Traspaso[]          @relation("traspasosCreados")
+  traspasosRecibidos      Traspaso[]          @relation("traspasosRecibidos")
+  egresosCaja             EgresoCaja[]
 
   @@index([empresaId])
 }
@@ -198,6 +205,7 @@ model Producto {
   combos               ComboProducto[]
   detallesPresupuesto  PresupuestoDetalle[]
   detallesSolicitudProveedor SolicitudProveedorDetalle[]
+  traspasoDetalles     TraspasoDetalle[]
 
   @@index([empresaId, estaActivo])
   @@index([empresaId, codigoBarras])
@@ -249,10 +257,10 @@ model MovimientoInventario {
   lote          Lote?                    @relation(fields: [loteId], references: [id])
   tipo          TipoMovimientoInventario
   cantidad      Float
-  stockAnterior Float
-  stockNuevo    Float
+  stockAnterior Float                    @default(0)
+  stockNuevo    Float                    @default(0)
   referencia    String? // ID de venta, traspaso
-  motivo        String
+  motivo        String                   @default("")
   usuarioId     String
   usuario       Usuario                  @relation(fields: [usuarioId], references: [id])
   fechaHora     DateTime                 @default(now())
@@ -291,6 +299,9 @@ enum TipoMovimientoInventario {
   compra
   apertura_inicial
   merma
+  ENTRADA_COMPRA
+  SALIDA_TRASPASO
+  ENTRADA_TRASPASO
 }
 
 // ---------------------------------------------------------
@@ -349,6 +360,7 @@ model Lote {
   detallesVenta        DetalleVentaLote[]
   mermas               Merma[]
   devolucionesProducto DevolucionProducto[]
+  traspasoDetalles     TraspasoDetalle[]
 
   @@index([sucursalId, productoId, fechaCaducidad])
   @@index([empresaId, estado])
@@ -361,6 +373,10 @@ model RecepcionMercancia {
   empresa    Empresa  @relation(fields: [empresaId], references: [id])
   sucursalId String
   sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  solicitudProveedorId String?
+  solicitudProveedor   SolicitudProveedor? @relation(fields: [solicitudProveedorId], references: [id])
+  folioFacturaProveedor String?
+
   folio      String
   proveedor  String?
   notas      String?
@@ -373,6 +389,7 @@ model RecepcionMercancia {
   @@index([empresaId])
   @@index([sucursalId])
   @@index([usuarioId])
+  @@index([solicitudProveedorId])
 }
 
 model RecepcionDetalle {
@@ -456,6 +473,7 @@ model SesionCaja {
   totalVentasTarjeta  Float @default(0)
   totalVentasOtros    Float @default(0)
   totalRetiros        Float @default(0)
+  totalEgresos        Float @default(0)
 
   estado EstadoSesionCaja @default(abierta)
 
@@ -466,6 +484,7 @@ model SesionCaja {
   // Relaciones
   ventas  Venta[]
   retiros RetiroParcial[]
+  egresos EgresoCaja[]
   cortesX CorteX[]
   corteZ  CorteZ?
 
@@ -492,16 +511,18 @@ model RetiroParcial {
   @@index([usuarioId])
 }
 
+
 model CorteX {
   id                  String     @id @default(uuid())
   sesionCajaId        String
   sesionCaja          SesionCaja @relation(fields: [sesionCajaId], references: [id])
   usuarioId           String
   usuario             Usuario    @relation(fields: [usuarioId], references: [id])
+  montoInicial        Float
   totalVentasEfectivo Float
   totalVentasTarjeta  Float
-  montoInicial        Float
   montoRetiros        Float
+  totalEgresos        Float      @default(0)
   efectivoEnCaja      Float
   fechaHora           DateTime   @default(now())
 
@@ -520,6 +541,7 @@ model CorteZ {
   totalVentasEfectivo Float
   totalVentasTarjeta  Float
   totalRetiros        Float
+  totalEgresos        Float      @default(0)
   montoEsperado       Float
   montoDeclarado      Float
   diferencia          Float
@@ -1197,6 +1219,7 @@ model SolicitudProveedor {
   actualizadoEn DateTime                @updatedAt
 
   detalles     SolicitudProveedorDetalle[]
+  recepciones  RecepcionMercancia[]
 
   @@unique([empresaId, folio])
   @@index([empresaId, creadoEn])
@@ -1223,3 +1246,103 @@ model SolicitudProveedorDetalle {
   @@index([solicitudProveedorId])
   @@index([productoId])
 }
+
+// ---------------------------------------------------------
+// EGRESOS DE CAJA (D17)
+// ---------------------------------------------------------
+
+enum CategoriaEgresoCaja {
+  FLETE
+  LIMPIEZA
+  INSUMOS
+  PROPINAS
+  OTROS
+}
+
+model EgresoCaja {
+  id           String              @id @default(uuid())
+  sesionCajaId String
+  sesionCaja   SesionCaja          @relation(fields: [sesionCajaId], references: [id])
+  usuarioId    String
+  usuario      Usuario             @relation(fields: [usuarioId], references: [id])
+
+  monto        Float
+  categoria    CategoriaEgresoCaja @default(OTROS)
+  concepto     String
+  comprobanteUrl String?
+
+  fechaHora    DateTime            @default(now())
+
+  @@index([sesionCajaId])
+  @@index([usuarioId])
+}
+
+// ---------------------------------------------------------
+// TRASPASOS ENTRE SUCURSALES (D16)
+// ---------------------------------------------------------
+
+enum EstadoTraspaso {
+  BORRADOR
+  EN_TRANSITO
+  RECIBIDO
+  RECIBIDO_PARCIAL
+  CANCELADO
+}
+
+model Traspaso {
+  id               String         @id @default(uuid())
+  empresaId        String
+  empresa          Empresa        @relation(fields: [empresaId], references: [id])
+
+  sucursalOrigenId String
+  sucursalOrigen   Sucursal       @relation("traspasosOrigen", fields: [sucursalOrigenId], references: [id])
+  sucursalDestinoId String
+  sucursalDestino  Sucursal       @relation("traspasosDestino", fields: [sucursalDestinoId], references: [id])
+
+  creadoPorId      String
+  creadoPor        Usuario        @relation("traspasosCreados", fields: [creadoPorId], references: [id])
+  recibidoPorId    String?
+  recibidoPor      Usuario?       @relation("traspasosRecibidos", fields: [recibidoPorId], references: [id])
+
+  folio            String         // Ej: "TRASP-000001"
+  secuenciaFolio   Int            // Secuencial por empresa
+  estado           EstadoTraspaso @default(BORRADOR)
+
+  notasEmision     String?
+  notasRecepcion   String?
+
+  fechaSalida      DateTime?
+  fechaRecepcion   DateTime?
+
+  creadoEn         DateTime       @default(now())
+  actualizadoEn    DateTime       @updatedAt
+
+  detalles         TraspasoDetalle[]
+
+  @@unique([empresaId, folio])
+  @@index([empresaId, estado])
+  @@index([sucursalOrigenId])
+  @@index([sucursalDestinoId])
+}
+
+model TraspasoDetalle {
+  id               String   @id @default(uuid())
+  traspasoId       String
+  traspaso         Traspaso @relation(fields: [traspasoId], references: [id], onDelete: Cascade)
+  productoId       String
+  producto         Producto @relation(fields: [productoId], references: [id])
+  loteId           String?
+  lote             Lote?    @relation(fields: [loteId], references: [id])
+
+  nombreProducto   String
+  unidadMedida     String   @default("pieza")
+  cantidadEnviada  Float
+  cantidadRecibida Float    @default(0)
+
+  creadoEn         DateTime @default(now())
+
+  @@index([traspasoId])
+  @@index([productoId])
+  @@index([loteId])
+}
+
