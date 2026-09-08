@@ -7,6 +7,7 @@ import {
   User,
   Gift,
   ChevronDown,
+  Receipt,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
@@ -23,6 +24,7 @@ import { VoucherModal } from '../components/pos/VoucherModal';
 import { OpenCashRegisterModal } from '../components/pos/OpenCashRegisterModal';
 import { CloseRegisterModal } from '../components/pos/CloseRegisterModal';
 import { CashWithdrawalModal } from '../components/pos/CashWithdrawalModal';
+import { RegistrarEgresoModal } from '../components/pos/RegistrarEgresoModal';
 import { CantidadProductoModal } from '../components/pos/CantidadProductoModal';
 import type { PresentacionSeleccion } from '../components/pos/CantidadProductoModal';
 import { useNavigate } from 'react-router-dom';
@@ -48,6 +50,7 @@ export const PosView: React.FC = () => {
   const [isOpenOpenRegister, setIsOpenOpenRegister] = useState(false);
   const [isOpenCloseRegister, setIsOpenCloseRegister] = useState(false);
   const [isOpenWithdrawal, setIsOpenWithdrawal] = useState(false);
+  const [isOpenEgreso, setIsOpenEgreso] = useState(false);
   const [completedSale, setCompletedSale] = useState<Venta | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -343,6 +346,14 @@ export const PosView: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setIsOpenEgreso(true)}
+            className="px-4 py-2 spatial-glass rounded-full text-xs font-label-sm font-semibold text-primary hover:bg-surface-container-high transition-colors flex items-center gap-1.5"
+          >
+            <Receipt className="w-4 h-4 text-error" />
+            <span>Registrar Egreso</span>
+          </button>
+
+          <button
             onClick={() => setIsOpenCloseRegister(true)}
             className="px-4 py-2 spatial-glass rounded-full text-xs font-label-sm font-bold text-error border border-error/30 hover:bg-error/10 transition-colors flex items-center gap-1.5"
           >
@@ -538,6 +549,15 @@ export const PosView: React.FC = () => {
         isOpen={isOpenWithdrawal}
         onClose={() => setIsOpenWithdrawal(false)}
         onSuccess={() => {}}
+      />
+
+      <RegistrarEgresoModal
+        isOpen={isOpenEgreso}
+        onClose={() => setIsOpenEgreso(false)}
+        onSuccess={() => {
+          setIsOpenEgreso(false);
+          setRefreshKey((prev) => prev + 1);
+        }}
       />
 
       <CantidadProductoModal

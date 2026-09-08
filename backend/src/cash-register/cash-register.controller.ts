@@ -18,10 +18,12 @@ import { AbrirCajaDto } from './dto/abrir-caja.dto';
 import { RetiroParcialDto } from './dto/retiro-parcial.dto';
 import { CorteZDto } from './dto/corte-z.dto';
 
+import { RegistrarEgresoDto } from './dto/registrar-egreso.dto';
+
 /**
  * Controlador del módulo de Caja Registradora.
  * Gestiona el ciclo de vida completo de una sesión de caja:
- * apertura → retiros parciales → corte X → corte Z (cierre).
+ * apertura → retiros parciales → egresos → corte X → corte Z (cierre).
  */
 @Controller('cash-register')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -113,6 +115,33 @@ export class CashRegisterController {
   }
 
   /**
+   * Registrar un egreso o gasto directo de caja.
+   * POST /cash-register/expenses
+   */
+  @Post('expenses')
+  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO)
+  async addExpense(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: RegistrarEgresoDto,
+  ) {
+    return this.cashRegisterService.addExpense(
+      user.id,
+      user.empresaId,
+      dto,
+    );
+  }
+
+  /**
+   * Obtener los egresos registrados de una sesión de caja.
+   * GET /cash-register/expenses/:sesionCajaId
+   */
+  @Get('expenses/:sesionCajaId')
+  @Roles(Rol.ADMIN, Rol.GERENTE, Rol.CAJERO)
+  async getExpenses(@Param('sesionCajaId') sesionCajaId: string) {
+    return this.cashRegisterService.getExpenses(sesionCajaId);
+  }
+
+  /**
    * Generar un Corte X (informativo, no cierra la sesión).
    * POST /cash-register/close-x
    */
@@ -146,3 +175,4 @@ export class CashRegisterController {
     );
   }
 }
+

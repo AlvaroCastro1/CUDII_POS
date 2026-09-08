@@ -67,7 +67,8 @@ export const CloseRegisterModal: React.FC<CloseRegisterModalProps> = ({
   const montoEsperado = activeSession
     ? (activeSession.montoInicial || 0) +
       (activeSession.totalVentasEfectivo || 0) -
-      (activeSession.totalRetiros || 0)
+      (activeSession.totalRetiros || 0) -
+      (activeSession.totalEgresos || 0)
     : 0;
 
   // En modo ciego la diferencia NO se calcula ni se muestra al cajero:

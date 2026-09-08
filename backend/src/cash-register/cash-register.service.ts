@@ -84,6 +84,7 @@ export class CashRegisterService {
           select: { id: true, nombre: true, email: true, rol: true },
         },
         retiros: { select: { id: true, monto: true, motivo: true } },
+        egresos: { select: { id: true, monto: true, categoria: true, concepto: true } },
       },
       orderBy: { fechaApertura: 'asc' },
     });
@@ -91,7 +92,7 @@ export class CashRegisterService {
     const ahora = new Date();
     return sesiones.map((s) => {
       const efectivoEsperado =
-        s.montoInicial + s.totalVentasEfectivo - s.totalRetiros;
+        s.montoInicial + s.totalVentasEfectivo - s.totalRetiros - s.totalEgresos;
       const minutosAbierta = Math.floor(
         (ahora.getTime() - new Date(s.fechaApertura).getTime()) / 60000,
       );
@@ -407,7 +408,7 @@ export class CashRegisterService {
     }
 
     const efectivoEnCaja =
-      sesion.montoInicial + sesion.totalVentasEfectivo - sesion.totalRetiros;
+      sesion.montoInicial + sesion.totalVentasEfectivo - sesion.totalRetiros - sesion.totalEgresos;
 
     const corteX = await this.prisma.corteX.create({
       data: {
@@ -417,6 +418,7 @@ export class CashRegisterService {
         totalVentasEfectivo: sesion.totalVentasEfectivo,
         totalVentasTarjeta: sesion.totalVentasTarjeta,
         montoRetiros: sesion.totalRetiros,
+        totalEgresos: sesion.totalEgresos,
         efectivoEnCaja,
       },
     });
@@ -496,7 +498,7 @@ export class CashRegisterService {
 
     // Calcular el efectivo esperado y la diferencia
     const montoEsperado =
-      sesion.montoInicial + sesion.totalVentasEfectivo - sesion.totalRetiros;
+      sesion.montoInicial + sesion.totalVentasEfectivo - sesion.totalRetiros - sesion.totalEgresos;
     const diferencia = dto.montoDeclarado - montoEsperado;
 
     // Clasificar la discrepancia
@@ -562,6 +564,7 @@ export class CashRegisterService {
           totalVentasEfectivo: sesion.totalVentasEfectivo,
           totalVentasTarjeta: sesion.totalVentasTarjeta,
           totalRetiros: sesion.totalRetiros,
+          totalEgresos: sesion.totalEgresos,
           montoEsperado,
           montoDeclarado: dto.montoDeclarado,
           diferencia,
@@ -650,5 +653,88 @@ export class CashRegisterService {
     });
 
     return resultado;
+  }
+
+  /**
+   * Registrar un egreso / gasto directo de efectivo de la caja activa.
+   */
+  async addExpense(
+    usuarioId: string,
+    empresaId: string,
+    dto: import('./dto/registrar-egreso.dto').RegistrarEgresoDto,
+  ) {
+    const sesion = await this.prisma.sesionCaja.findUnique({
+      where: { id: dto.sesionCajaId },
+      include: { caja: true },
+    });
+
+    if (!sesion || sesion.estado !== 'abierta') {
+      throw new BadRequestException(
+        'La sesión de caja no existe o ya está cerrada',
+      );
+    }
+
+    const disponibleActual =
+      sesion.montoInicial + sesion.totalVentasEfectivo - sesion.totalRetiros - sesion.totalEgresos;
+
+    if (dto.monto > disponibleActual) {
+      throw new BadRequestException(
+        `El monto del egreso ($${dto.monto.toFixed(2)}) supera el efectivo disponible en caja ($${disponibleActual.toFixed(2)})`,
+      );
+    }
+
+    const egreso = await this.prisma.$transaction(async (tx) => {
+      const reg = await tx.egresoCaja.create({
+        data: {
+          sesionCajaId: dto.sesionCajaId,
+          usuarioId,
+          monto: dto.monto,
+          categoria: dto.categoria || 'OTROS',
+          concepto: dto.concepto,
+          comprobanteUrl: dto.comprobanteUrl || null,
+        },
+      });
+
+      await tx.sesionCaja.update({
+        where: { id: dto.sesionCajaId },
+        data: {
+          totalEgresos: { increment: dto.monto },
+        },
+      });
+
+      return reg;
+    });
+
+    await this.auditService.registrarEvento({
+      empresaId,
+      sucursalId: sesion.caja?.sucursalId,
+      usuarioId,
+      accion: 'EGRESO_CAJA_REGISTRADO',
+      entidadTipo: 'egreso_caja',
+      entidadId: egreso.id,
+      detalles: {
+        sesionCajaId: dto.sesionCajaId,
+        monto: dto.monto,
+        categoria: egreso.categoria,
+        concepto: dto.concepto,
+        cajaNombre: sesion.caja?.nombre,
+      },
+      severidad: 'info',
+    });
+
+    return egreso;
+  }
+
+  /**
+   * Obtener listado de egresos de una sesión de caja.
+   */
+  async getExpenses(sesionCajaId: string) {
+    return this.prisma.egresoCaja.findMany({
+      where: { sesionCajaId },
+      include: {
+        usuario: { select: { id: true, nombre: true, rol: true } },
+      },
+      orderBy: { fechaHora: 'desc' },
+    });
   }
 }
