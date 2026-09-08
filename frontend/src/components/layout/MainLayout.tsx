@@ -289,6 +289,18 @@ export default function MainLayout() {
                     </span>
                   </button>
                 )}
+                {puede('traspasos') && (
+                  <button
+                    onClick={() => { navigate('/admin/traspasos'); setIsMobileMenuOpen(false); }}
+                    className={`nav-link w-full flex items-center h-11 rounded-xl transition-colors animate-hover animate-press pl-[14px] ${location.pathname === '/admin/traspasos' ? 'bg-primary text-on-primary font-medium' : 'text-on-surface-variant hover:bg-on-surface/5'}`}
+                    title={!isSidebarOpen ? 'Traspasos de Sucursal' : ''}
+                  >
+                    <span className="material-symbols-outlined !text-xl shrink-0">sync_alt</span>
+                    <span className={`text-sm whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-3 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
+                      Traspasos de Sucursal
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
           )}

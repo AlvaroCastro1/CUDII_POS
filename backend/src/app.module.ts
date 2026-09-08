@@ -25,6 +25,7 @@ import { CouponsModule } from './coupons/coupons.module';
 import { CombosModule } from './combos/combos.module';
 import { PresupuestosModule } from './presupuestos/presupuestos.module';
 import { SolicitudesProveedorModule } from './solicitudes-proveedor/solicitudes-proveedor.module';
+import { TraspasosModule } from './traspasos/traspasos.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { SolicitudesProveedorModule } from './solicitudes-proveedor/solicitudes-
     CombosModule,
     PresupuestosModule,
     SolicitudesProveedorModule,
+    TraspasosModule,
   ],
   controllers: [AppController],
   providers: [

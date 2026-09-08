@@ -145,6 +145,14 @@ const ACCIONES: AccionBusqueda[] = [
     palabras: 'solicitud solicitudes proveedor proveedores requisicion requisiciones orden de compra ordenes surtido pedido abastecimiento compra',
   },
   {
+    titulo: 'Traspasos entre Sucursales',
+    descripcion: 'Transferencia e intercambio de inventario y stock entre sucursales',
+    icono: 'sync_alt',
+    ruta: '/admin/traspasos',
+    roles: ['SUPER_ADMIN', 'ADMIN', 'GERENTE', 'ALMACEN', 'CAJERO'],
+    palabras: 'traspaso traspasos sucursal sucursales transferencias envios salidas entradas stock intercambio tienda almacenes',
+  },
+  {
     titulo: 'Control de Cajas',
     descripcion: 'Gestión de terminales de caja y turnos',
     icono: 'savings',
