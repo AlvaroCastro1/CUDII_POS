@@ -1,7 +1,7 @@
-import { memo, useState, useEffect, useRef } from 'react';
-import { Search, X, Package, Scale, Droplet, Ruler, Wrench } from 'lucide-react';
+import { Search, X, Package, Scale, Droplet, Ruler, Wrench, Camera } from 'lucide-react';
 import { api } from '../../lib/api';
 import type { Categoria, Producto, ProductoInventario } from '../../types/pos';
+import { CameraBarcodeScannerModal } from '../ui/CameraBarcodeScannerModal';
 
 interface ProductSearchProps {
   onSelectProduct: (producto: Producto) => void;
@@ -40,6 +40,7 @@ export const ProductSearch = memo(function ProductSearch({
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [isOpenDropdown, setIsOpenDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Si el padre provee una ref externa (para atajos de teclado como Ctrl+F),
@@ -134,22 +135,38 @@ export const ProductSearch = memo(function ProductSearch({
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Escanear código de barras o buscar producto..."
-          className="w-full h-12 bg-surface-container-high border border-outline/20 rounded-full py-2.5 pl-11 pr-10 text-sm text-primary placeholder:text-outline/60 focus:outline-none focus:ring-0 focus:border-outline/50 focus:bg-surface-container-high transition-all duration-200"
+          className="w-full h-12 bg-surface-container-high border border-outline/20 rounded-full py-2.5 pl-11 pr-20 text-sm text-primary placeholder:text-outline/60 focus:outline-none focus:ring-0 focus:border-outline/50 focus:bg-surface-container-high transition-all duration-200"
           autoFocus
         />
-        {searchTerm && (
+        <div className="absolute right-3.5 flex items-center gap-1">
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setIsOpenDropdown(false);
+              }}
+              className="p-1 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-container-high"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => {
-              setSearchTerm('');
-              setIsOpenDropdown(false);
-            }}
-            className="absolute right-3.5 p-1 text-outline hover:text-primary transition-colors rounded-full hover:bg-surface-container-high"
+            onClick={() => setIsCameraOpen(true)}
+            className="p-1.5 text-primary hover:text-primary-hover hover:bg-primary/10 transition-colors rounded-full"
+            title="Escanear con Cámara"
           >
-            <X className="w-4 h-4" />
+            <Camera className="w-4 h-4" />
           </button>
-        )}
+        </div>
       </div>
+
+      <CameraBarcodeScannerModal
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onScan={(code) => setSearchTerm(code)}
+      />
 
       {/* Categorías (Filter Chips Píldora - Estilo code.html) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none select-none">
