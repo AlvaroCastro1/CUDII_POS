@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import axios from 'axios';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-import { Pencil, PowerOff, Power, Eye } from 'lucide-react';
+import { Pencil, PowerOff, Power, Eye, Printer } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import {
   ProductoModalForm,
 } from '@/components/admin/ProductoModalForm';
+import { ImpresionEtiquetasModal } from '@/components/admin/ImpresionEtiquetasModal';
 import type {
   Producto,
   Categoria,
@@ -40,6 +41,7 @@ export default function ProductosView() {
   // Control del modal aislado
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Producto | null>(null);
+  const [isImpresionOpen, setIsImpresionOpen] = useState(false);
 
   // Toggle inactivo/activo
   const [productToToggle, setProductToToggle] = useState<Producto | null>(null);
@@ -141,10 +143,16 @@ export default function ProductosView() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold font-display-lg text-on-background">Catálogo de Productos</h1>
 
-        <Button onClick={handleOpenNuevo}>
-          <span className="material-symbols-outlined mr-2 !text-[18px]">add</span>
-          Nuevo Producto
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => setIsImpresionOpen(true)} className="border-outline/20">
+            <Printer className="w-4 h-4 mr-2 text-primary" />
+            Imprimir Etiquetas
+          </Button>
+          <Button onClick={handleOpenNuevo}>
+            <span className="material-symbols-outlined mr-2 !text-[18px]">add</span>
+            Nuevo Producto
+          </Button>
+        </div>
       </div>
 
       {/* Modal Aislado (No re-renderiza la tabla mientras escribes) */}
@@ -362,6 +370,13 @@ export default function ProductosView() {
         variant={productToToggle?.estaActivo ? 'warning' : 'info'}
         isLoading={isToggling}
       />
+      {/* Modal Masivo de Impresión de Etiquetas y Códigos de Barras */}
+      {isImpresionOpen && (
+        <ImpresionEtiquetasModal
+          isOpen={isImpresionOpen}
+          onClose={() => setIsImpresionOpen(false)}
+        />
+      )}
     </div>
   );
 }
