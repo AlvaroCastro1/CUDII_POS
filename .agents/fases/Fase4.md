@@ -806,6 +806,18 @@ model PresupuestoDetalle {
 - [x] D12: `PATCH /presupuestos/:id/descancelar` (cancelado→abierto o vencido) + auditoría `PRESUPUESTO_DESCANCELADO`
 - [x] D12: Frontend expiración/descancelar — badge/filtro estado `vencido`, "Vence/Vencía el" en lista/detalle, acciones Vender/Cancelar en vencido, botón "Reactivar", aviso de precio recalculado y rediseño del modal de detalle
 - [x] D12: Frontend ticket — grupos de combo expandibles para líneas de presupuesto + indicador de cambio de precio por línea (`Cotizado X → actual Y, se cobra Z`)
+- [x] D13: `Empresa.configuracionTicket` — personalización de tickets (Ventas y Presupuestos) con servidor estático multitenant `/uploads/` y limpieza de logos huérfanos
+- [x] D14: Módulo backend `solicitudes-proveedor` (CRUD + RBAC + estados) registrado en `AppModule` + `SolicitudesProveedorView`/`SolicitudProveedorPrintModal` + buscador global
+- [x] D15: Migración `20260907000000_add_traspasos_egresos_grn` aplicada (`EgresoCaja`, `CategoriaEgresoCaja`, `Traspaso`, `TraspasoDetalle`, `EstadoTraspaso`, `SesionCaja/CorteX/CorteZ.totalEgresos`, `RecepcionMercancia.solicitudProveedorId`, `TipoMovimientoInventario.ENTRADA_COMPRA/SALIDA_TRASPASO/ENTRADA_TRASPASO`)
+- [x] D15: Módulo `solicitudes-proveedor` — `POST /:id/recibir` (GRN) que crea `RecepcionMercancia` + lotes con caducidad, incrementa `InventarioSucursal.stockActual` y registra `ENTRADA_COMPRA` con costo real, en transacción
+- [x] D15: `RecibirSolicitudProveedorModal` (cantidades, costo real, lote, vencimiento, factura) + botón "Recibir GRN" en `SolicitudesProveedorView`
+- [x] D16: Módulo backend `traspasos` (create/list/detalle/recibir) con folios atómicos `TRASP-000001` (`Empresa.secuenciaTraspaso`) y estados `BORRADOR`/`EN_TRANSITO`/`RECIBIDO`/`RECIBIDO_PARCIAL`/`CANCELADO`
+- [x] D16: Emisión decrementa stock origen + `SALIDA_TRASPASO`; recepción (aun parcial) incrementa stock destino + `ENTRADA_TRASPASO`; auditoría `TRASPASO_CREADO`/`TRASPASO_RECIBIDO`
+- [x] D16: Frontend — `TraspasosView` (lista paginada con filtros) + `NuevoTraspasoModal` + `RecibirTraspasoModal` + ruta/per-misos/menú/buscador
+- [x] D17: `POST /cash-register/expenses` — validación de sesión `ABIERTA` y efectivo disponible (`Inicial + Ventas − Retiros − Egresos`), `totalEgresos` atómico en `SesionCaja`, incluido en Corte X/Z + auditoría `EGRESO_CAJA_REGISTRADO`
+- [x] D17: Frontend — `RegistrarEgresoModal` en el POS (categorías FLETE/LIMPIEZA/INSUMOS/PROPINAS/OTROS) + botón en `PosView` + arqueo con egresos en `CloseRegisterModal`
+- [x] D18: `ImpresionEtiquetasModal` — diseñador dinámico de etiquetas (58mm/80mm/A4 stickers), elementos on/off, códigos de barras y `@media print` + botón en `ProductosView`
+- [x] D19: `CameraBarcodeScannerModal` — Web API `BarcodeDetector` con fallback a canvas, cámara trasera en modo environment, flash/linterna y beep + ícono de cámara en `ProductSearch`
 
 ---
 
@@ -880,6 +892,11 @@ model PresupuestoDetalle {
 - [x] D13: Captura de espacio en disco lleno (`ENOSPC`) respondiendo mensaje estandarizado: *"En este momento no podemos subir el archivo debido al espacio insuficiente."*.
 - [x] D13: Política de limpieza de archivos huérfanos: eliminación automática de logos anteriores no utilizados de la empresa al subir un nuevo archivo o remover el actual.
 - [x] D13: Formateo avanzado de texto (`negrita`, `subrayado`, `alineacion`), tooltips informativos y omisión estricta de campos vacíos en comprobantes e impresión.
+- [x] D15: Al recibir una solicitud de proveedor, el inventario de la sucursal se incrementa en la misma transacción, los lotes con caducidad quedan registrados y el movimiento `ENTRADA_COMPRA` se registra con costo real; la solicitud queda `RECIBIDA`/`RECIBIDA_PARCIAL`.
+- [x] D16: Un traspaso emitido decrementa el stock origen (SALIDA_TRASPASO); al recibirse incrementa el destino (ENTRADA_TRASPASO); la recepción parcial se soporta y registra observaciones.
+- [x] D17: Un egreso solo se registra con sesión `ABIERTA` y no excede el efectivo disponible; el esperado del Corte X/Z es `Inicial + Ventas − Retiros − Egresos`.
+- [x] D18: La impresión de etiquetas permite elegir formato, alternar elementos y generar códigos de barras imprimibles por `@media print`.
+- [x] D19: La cámara del dispositivo escanea códigos de barras y agrega productos al ticket del POS.
 
 ---
 
@@ -1005,6 +1022,90 @@ Todas las operaciones realizadas por los usuarios son registradas automáticamen
 - `SOLICITUD_PROVEEDOR_ELIMINADA`: Registra la eliminación de borradores con severidad `warning`.
 
 Todos estos eventos son visibles en el módulo de **Auditoría** (`/admin/auditoria`), permitiendo filtrar por usuario, tipo de acción y rango de fechas con resúmenes detallados.
+
+---
+
+### D15: Convertir Requisición en Recepción de Mercancía (GRN - Goods Received Note)
+
+#### 1. Propósito y Alcance Operativo
+El módulo de **Recepción de Mercancía (GRN)** completa el ciclo de abastecimiento conectando una **Solicitud de Productos a Proveedores** (`SolicitudProveedor`) o una entrada directa con la **actualización real del inventario** en el almacén de la sucursal.
+
+- **¿Por qué?** Una solicitud formal a un proveedor o requisición interna no debe quedar únicamente como un documento en papel o borrador, sino que debe reflejarse en las existencias reales cuando llega la mercancía física.
+- **¿Para qué?** Para incrementar el `stockActual` en `InventarioSucursal`, dar de alta los lotes recibidos con sus respectivas fechas de caducidad (política FEFO/FIFO), registrar el número de factura/remisión del proveedor y registrar el movimiento de inventario `ENTRADA_COMPRA` con costo unitario real.
+- **¿Cómo?** Endpoint `POST /solicitudes-proveedor/:id/recibir` (o recepción directa) que procesa dentro de una transacción de PostgreSQL:
+  1. Validación de cantidades recibidas por renglón (soporta recepción parcial o completa).
+  2. Creación o actualización de registros `Lote` (número de lote y fecha de vencimiento).
+  3. Incremento atómico en `InventarioSucursal.stockActual`.
+  4. Generación de `MovimientoInventario` con tipo `ENTRADA_COMPRA` y costo real.
+  5. Actualización del estado de `SolicitudProveedor` a `RECIBIDA` o `RECIBIDA_PARCIAL`.
+  6. Registro de evento de auditoría `REQUISICION_RECIBIDA_INVENTARIO` en `LogActividad`.
+
+---
+
+### D16: Traspasos de Inventario entre Sucursales (Branch Transfers)
+
+#### 1. Propósito y Alcance Operativo
+El módulo de **Traspasos de Inventario entre Sucursales** habilita la movilización de mercancía entre diferentes sucursales o almacenes de la misma empresa con control y trazabilidad en dos fases.
+
+- **¿Por qué?** En operaciones multi-sucursal, mover productos de un almacén central a una tienda secundaria sin un registro formal genera descuadres invisibles y pérdidas no rastreables.
+- **¿Para qué?** Para garantizar la consistencia del inventario mientras la mercancía está físicamente "en tránsito" entre sucursal origen y sucursal destino.
+- **¿Cómo?**
+  - **Esquema de BD:** Modelos `Traspaso` y `TraspasoDetalle` con folios atómicos del tipo `TRASP-000001`, sucursal origen, sucursal destino, usuario emisor y usuario receptor.
+  - **Flujo de Ciclo de Vida:**
+    1. `BORRADOR`: Traspaso en preparación.
+    2. `EN_TRANSITO`: Al emitir la salida, el backend decrementar el stock en la sucursal origen y genera un `MovimientoInventario` de tipo `SALIDA_TRASPASO`.
+    3. `RECIBIDO`: Al llegar a la sucursal destino, el usuario receptor valida las cantidades físicamente recibidas, incrementa el stock en la sucursal destino y genera un `MovimientoInventario` de tipo `ENTRADA_TRASPASO`. Si existen diferencias, se marca como `RECIBIDO_PARCIAL` con observaciones.
+    4. `CANCELADO`: Reversión del traspaso antes de ser recibido.
+  - **Auditoría:** Registro automático de eventos `TRASPASO_CREADO`, `TRASPASO_ENVIADO`, `TRASPASO_RECIBIDO` y `TRASPASO_CANCELADO`.
+
+---
+
+### D17: Registro de Egresos / Gastos Directos de Caja
+
+#### 1. Propósito y Alcance Operativo
+El módulo de **Egresos y Gastos Directos de Caja** permite al cajero registrar salidas de dinero en efectivo de la caja activa para cubrir gastos operativos menores del turno (flete, propinas de reparto, compra de insumos de limpieza, papelería de emergencia).
+
+- **¿Por qué?** Cuando un cajero toma dinero del cajón para pagar un gasto operativo y no existe un registro formal en el sistema, al final del turno en el `Corte X` o `Corte Z` la caja reporta un faltante artificial no justificado.
+- **¿Para qué?** Para mantener un arqueo exacto de efectivo en tiempo real y justificar contablemente cada salida de dinero sin confundirla con retiros de valores hacia caja fuerte o banco.
+- **¿Cómo?**
+  - **Esquema de BD:** Modelo `EgresoCaja` vinculado a la `SesionCaja` activa (`sesionCajaId`, `usuarioId`, `monto`, `categoria` [FLETE, LIMPIEZA, INSUMOS, OTROS], `concepto`, `comprobanteUrl?`, `fechaHora`).
+  - **Reglas de Negocio:**
+    1. Solo se permite registrar egresos en sesiones de caja con estado `ABIERTA`.
+    2. El monto del egreso debe ser menor o igual al efectivo disponible calculado en la sesión.
+    3. En el cierre de caja (`Corte X` y `Corte Z`), el resumen financiero aplica la fórmula autoritativa:
+       $$\text{Efectivo Esperado} = \text{Monto Inicial} + \text{Ventas Efectivo} - \text{Retiros Parciales} - \text{Egresos Directos}$$
+  - **Auditoría:** Registro automatizado de eventos `EGRESO_CAJA_REGISTRADO` en `LogActividad`.
+
+---
+
+### D18: Impresión Masiva de Etiquetas y Códigos de Barras
+
+#### 1. Propósito y Alcance Operativo
+El módulo de **Impresión Masiva de Etiquetas y Códigos de Barras** provee un diseñador dinámico e impresor especializado para productos, combos y lotes.
+
+- **¿Por qué?** Muchos comercios re-empacan mercancía a granel, elaboran combos propios o manejan productos sin código de barras de fábrica, dificultando el cobro rápido en la terminal POS.
+- **¿Para qué?** Permitir la generación instantánea e impresión en lote de etiquetas adhesivas para anaquel o empaque con códigos de barras EAN-13/Code-128 o códigos QR.
+- **¿Cómo?**
+  - **Frontend:** Vista/Modal de herramientas de etiquetado con buscador dinámico de catálogo o importación directa desde una recepción de compra / orden a proveedor.
+  - **Diseñador de Etiquetas:** Configuración en vivo del tamaño de la etiqueta (58mm, 80mm, planchas de stickers A4/Avery), toggle de elementos visibles (Nombre, Precio de venta, Código de barras, Código QR, SKU, Lote/Caducidad, Logotipo de la empresa).
+  - **Motor de Renderizado e Impresión:** Generación de simbología en SVG/Canvas mediante librerías nativas JavaScript (`jsbarcode`, `qrcode`) y formateo CSS `@media print` optimizado para impresoras térmicas de etiquetas (Zebra, Xprinter, Godex, TSC) y mini-printers térmicas.
+
+---
+
+### D19: Lector de Código de Barras con Cámara del Celular / Web
+
+#### 1. Propósito y Alcance Operativo
+El módulo de **Lector por Cámara** transforma la cámara integrada de cualquier smartphone, tablet o laptop en un escáner de código de barras omnidireccional de alta velocidad.
+
+- **¿Por qué?** Pequeños comercios o empleados en almacén no siempre cuentan con un escáner láser USB o Bluetooth físico a la mano.
+- **¿Para qué?** Facilitar la búsqueda e incorporación inmediata de productos al carrito del POS, el escaneo en recepción de mercancía y la toma de inventarios directamente desde dispositivos móviles.
+- **¿Cómo?**
+  - **Tecnología Frontend:** Componente reutilizable `CameraBarcodeScanner` que implementa la Web API nativa `BarcodeDetector` (aceleración por hardware en navegadores móviles/modernos) con fallback automático transparente a motor JavaScript (`ZXing` / `html5-qrcode`).
+  - **Integración Transversal:**
+    1. Terminal POS (`ProductSearch.tsx`): Ícono de cámara para escanear y agregar directo al ticket.
+    2. Catálogo de Productos (`ProductoModalForm.tsx`): Captura rápida del código de barras físico al dar de alta un producto.
+    3. Inventarios y Recepciones: Escaneo en almacén para conteos físicos.
+  - **Experiencia de Usuario (UX):** Selección de cámara trasera (`facingMode: environment`), control de flash/linterna (cuando está disponible por hardware) y señal sonora opcional (beeping de confirmación).
 
 ---
 

@@ -133,4 +133,12 @@
   - Comprobante formal e imprimible [`SolicitudProveedorPrintModal.tsx`](file:///c:/Users/jesus/OneDrive/Desktop/CUDII_POS/frontend/src/components/admin/SolicitudProveedorPrintModal.tsx) adaptado para orden de compra corporativa, botón de impresión limpia `window.print()` y generador de resumen para WhatsApp/Email.
 - [x] **Integración con Navegación, Buscador y Permisos:** Registrado en `App.tsx` (`/admin/solicitudes-proveedor`), barra lateral `MainLayout.tsx` (sección Control de Inventario), buscador global `GlobalSearch.tsx` (`Ctrl + K`) y matriz de permisos `permisos.ts`.
 
+## Fase 4.10: Funcionalidades Avanzadas de Operación y Experiencia (D15 - D19)
+- [x] **D15: Recepción de Compras (GRN - Goods Received Note):** Conversión de requisiciones/órdenes a ingreso real de stock, alta de lotes con caducidad (FEFO/FIFO), número de factura de proveedor y log auditable `REQUISICION_RECIBIDA_INVENTARIO`.
+- [x] **D16: Traspasos de Inventario entre Sucursales:** Modelos Prisma `Traspaso` y `TraspasoDetalle`, folios atómicos `TRASP-000001`, estados (`BORRADOR`, `EN_TRANSITO`, `RECIBIDO`, `RECIBIDO_PARCIAL`, `CANCELADO`), movimientos de inventario `SALIDA_TRASPASO` y `ENTRADA_TRASPASO`, vista `TraspasosView.tsx` y auditoría.
+- [x] **D17: Registro de Egresos / Gastos Directos de Caja:** Modelo Prisma `EgresoCaja`, endpoint `POST /cash-register/egresos`, validación de disponible en sesión abierta, cálculo autoritativo en Corte X/Z (`Esperado = Inicial + Ventas - Retiros - Egresos`), modal `RegistrarEgresoModal.tsx` y auditoría.
+- [x] **D18: Impresión Masiva de Etiquetas y Códigos de Barras:** Diseñador dinámico e impresor de etiquetas adhesivas para anaquel y productos (formatos 58mm, 80mm y planchas de stickers), motor SVG/Canvas con JSBarcode/QRCode y reglas `@media print`.
+- [x] **D19: Lector de Código de Barras con Cámara (Móvil / Web):** Componente reutilizable `CameraBarcodeScanner.tsx` basado en la Web API nativa `BarcodeDetector` con fallback automático a ZXing, integrado en la terminal POS (`ProductSearch.tsx`), catálogo de productos (`ProductoModalForm.tsx`) e inventarios.
+
+
 
