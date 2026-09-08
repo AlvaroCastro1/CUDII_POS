@@ -32,6 +32,7 @@ import {
 import type { SolicitudProveedor, EstadoSolicitudProveedor } from '@/types/solicitudProveedor';
 import { NuevaSolicitudProveedorModal } from '@/components/admin/NuevaSolicitudProveedorModal';
 import { SolicitudProveedorPrintModal } from '@/components/admin/SolicitudProveedorPrintModal';
+import { RecibirSolicitudProveedorModal } from '@/components/admin/RecibirSolicitudProveedorModal';
 
 interface ProveedorOption {
   id: string;
@@ -53,6 +54,7 @@ export default function SolicitudesProveedorView() {
   const [modalNueva, setModalNueva] = useState(false);
   const [solicitudAEditar, setSolicitudAEditar] = useState<SolicitudProveedor | null>(null);
   const [solicitudAImprimir, setSolicitudAImprimir] = useState<SolicitudProveedor | null>(null);
+  const [solicitudARecibir, setSolicitudARecibir] = useState<SolicitudProveedor | null>(null);
 
   // Diálogo de confirmación para eliminar
   const [idAEliminar, setIdAEliminar] = useState<string | null>(null);
@@ -446,12 +448,12 @@ export default function SolicitudesProveedorView() {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleCambiarEstado(sol.id, 'RECIBIDA')}
-                          title="Marcar como Recibida"
-                          className="h-8 py-1 px-2 text-xs font-semibold text-success hover:bg-success/10"
+                          onClick={() => setSolicitudARecibir(sol)}
+                          title="Recibir Mercancía (GRN)"
+                          className="h-8 py-1 px-2.5 text-xs font-semibold text-success hover:bg-success/10 border border-success/30 rounded-lg shadow-2xs"
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                          Recibida
+                          <Boxes className="w-3.5 h-3.5 mr-1 text-success" />
+                          Recibir GRN
                         </Button>
                       )}
                     </div>
@@ -481,6 +483,18 @@ export default function SolicitudesProveedorView() {
           onGuardado={() => {
             setModalNueva(false);
             setSolicitudAEditar(null);
+            cargarSolicitudes();
+          }}
+        />
+      )}
+
+      {/* Modal Recepción de Mercancía GRN */}
+      {solicitudARecibir && (
+        <RecibirSolicitudProveedorModal
+          solicitud={solicitudARecibir}
+          onClose={() => setSolicitudARecibir(null)}
+          onExito={() => {
+            setSolicitudARecibir(null);
             cargarSolicitudes();
           }}
         />

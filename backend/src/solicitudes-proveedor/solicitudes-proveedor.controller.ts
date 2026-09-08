@@ -19,6 +19,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserPayload } from '../auth/interfaces/jwt-payload.interface';
 import { EstadoSolicitudProveedor, Rol } from '@prisma/client';
 
+import { RecibirMercanciaSolicitudDto } from './dto/recibir-mercancia.dto';
+
 @Controller('solicitudes-proveedor')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class SolicitudesProveedorController {
@@ -31,6 +33,21 @@ export class SolicitudesProveedorController {
     @Body() createDto: CreateSolicitudProveedorDto,
   ) {
     return this.solicitudesProveedorService.create(user.empresaId, user.id, createDto);
+  }
+
+  @Post(':id/recibir')
+  @Roles(Rol.SUPER_ADMIN, Rol.ADMIN, Rol.GERENTE, Rol.ALMACEN)
+  recibirMercancia(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id') id: string,
+    @Body() recibirDto: RecibirMercanciaSolicitudDto,
+  ) {
+    return this.solicitudesProveedorService.recibirMercancia(
+      user.empresaId,
+      user.id,
+      id,
+      recibirDto,
+    );
   }
 
   @Get()
@@ -78,3 +95,4 @@ export class SolicitudesProveedorController {
     return this.solicitudesProveedorService.remove(user.empresaId, user.id, id);
   }
 }
+

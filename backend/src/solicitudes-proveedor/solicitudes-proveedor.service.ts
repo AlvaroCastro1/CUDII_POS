@@ -336,4 +336,195 @@ export class SolicitudesProveedorService {
 
     return { message: 'Solicitud eliminada correctamente.' };
   }
+
+  /**
+   * Recibir mercancía e ingresar stock al inventario (GRN)
+   */
+  async recibirMercancia(
+    empresaId: string,
+    usuarioId: string,
+    id: string,
+    dto: import('./dto/recibir-mercancia.dto').RecibirMercanciaSolicitudDto,
+  ) {
+    const solicitud = await this.findOne(empresaId, id);
+
+    if (
+      solicitud.estado === EstadoSolicitudProveedor.RECIBIDA ||
+      solicitud.estado === EstadoSolicitudProveedor.CANCELADA
+    ) {
+      throw new BadRequestException('Esta solicitud ya se encuentra recibida o cancelada.');
+    }
+
+    if (!dto.detalles || dto.detalles.length === 0) {
+      throw new BadRequestException('Debe especificar al menos un ítem a recibir.');
+    }
+
+    const sucursal = await this.prisma.sucursal.findFirst({
+      where: { id: dto.sucursalId, empresaId },
+    });
+    if (!sucursal) {
+      throw new NotFoundException('La sucursal especificada no existe.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const numRecepciones = await tx.recepcionMercancia.count({
+        where: { empresaId },
+      });
+      const folioRecepcion = `REC-${String(numRecepciones + 1).padStart(6, '0')}`;
+
+      const recepcion = await tx.recepcionMercancia.create({
+        data: {
+          empresaId,
+          sucursalId: dto.sucursalId,
+          solicitudProveedorId: id,
+          folioFacturaProveedor: dto.folioFacturaProveedor || null,
+          folio: folioRecepcion,
+          proveedor: solicitud.proveedor?.nombre || 'Solicitud Abierta',
+          notas: dto.notas || null,
+          usuarioId,
+        },
+      });
+
+      let itemsProcesados = 0;
+
+      for (const item of dto.detalles) {
+        if (item.cantidadRecibida <= 0) continue;
+
+        const producto = await tx.producto.findFirst({
+          where: { id: item.productoId, empresaId },
+        });
+
+        if (!producto) continue;
+
+        itemsProcesados++;
+
+        await tx.recepcionDetalle.create({
+          data: {
+            recepcionId: recepcion.id,
+            productoId: item.productoId,
+            cantidad: item.cantidadRecibida,
+            costoUnitario: item.costoUnitarioReal,
+            codigoLote: item.codigoLote || null,
+            fechaFabricacion: item.fechaFabricacion ? new Date(item.fechaFabricacion) : null,
+            fechaCaducidad: item.fechaCaducidad ? new Date(item.fechaCaducidad) : null,
+          },
+        });
+
+        if (producto.manejaInventario) {
+          const codigoLoteUsar =
+            item.codigoLote ||
+            `LT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+          let lote = await tx.lote.findFirst({
+            where: {
+              empresaId,
+              sucursalId: dto.sucursalId,
+              productoId: item.productoId,
+              codigoLote: codigoLoteUsar,
+            },
+          });
+
+          if (!lote) {
+            lote = await tx.lote.create({
+              data: {
+                empresaId,
+                sucursalId: dto.sucursalId,
+                productoId: item.productoId,
+                codigoLote: codigoLoteUsar,
+                fechaFabricacion: item.fechaFabricacion ? new Date(item.fechaFabricacion) : null,
+                fechaCaducidad: item.fechaCaducidad ? new Date(item.fechaCaducidad) : null,
+                cantidadInicial: item.cantidadRecibida,
+                cantidadRestante: item.cantidadRecibida,
+                costoUnitario: item.costoUnitarioReal,
+                proveedorId: solicitud.proveedorId || null,
+                creadoPorId: usuarioId,
+              },
+            });
+          } else {
+            lote = await tx.lote.update({
+              where: { id: lote.id },
+              data: {
+                cantidadInicial: { increment: item.cantidadRecibida },
+                cantidadRestante: { increment: item.cantidadRecibida },
+                costoUnitario: item.costoUnitarioReal,
+              },
+            });
+          }
+
+          const inv = await tx.inventarioSucursal.findUnique({
+            where: {
+              sucursalId_productoId: {
+                sucursalId: dto.sucursalId,
+                productoId: item.productoId,
+              },
+            },
+          });
+
+          if (inv) {
+            await tx.inventarioSucursal.update({
+              where: { id: inv.id },
+              data: {
+                stockActual: { increment: item.cantidadRecibida },
+              },
+            });
+          } else {
+            await tx.inventarioSucursal.create({
+              data: {
+                sucursalId: dto.sucursalId,
+                productoId: item.productoId,
+                stockActual: item.cantidadRecibida,
+                stockMinimo: 5,
+                stockMaximo: 100,
+              },
+            });
+          }
+
+          await tx.movimientoInventario.create({
+            data: {
+              sucursalId: dto.sucursalId,
+              productoId: item.productoId,
+              loteId: lote.id,
+              usuarioId,
+              tipo: 'ENTRADA_COMPRA',
+              cantidad: item.cantidadRecibida,
+              motivo: `Recepción de compra GRN (${folioRecepcion}) - Solicitud ${solicitud.folio}`,
+            },
+          });
+        }
+      }
+
+      const solicitudActualizada = await tx.solicitudProveedor.update({
+        where: { id },
+        data: {
+          estado: EstadoSolicitudProveedor.RECIBIDA,
+        },
+        include: {
+          proveedor: true,
+          detalles: true,
+        },
+      });
+
+      await this.auditService.registrarEvento({
+        empresaId,
+        usuarioId,
+        accion: 'REQUISICION_RECIBIDA_INVENTARIO',
+        entidadTipo: 'solicitud_proveedor',
+        entidadId: id,
+        severidad: 'info',
+        detalles: {
+          folioSolicitud: solicitud.folio,
+          folioRecepcion,
+          sucursalId: dto.sucursalId,
+          folioFacturaProveedor: dto.folioFacturaProveedor || null,
+          articulosRecibidosCount: itemsProcesados,
+        },
+      });
+
+      return {
+        solicitud: solicitudActualizada,
+        recepcion,
+      };
+    });
+  }
 }
+
