@@ -1,24 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle2, Truck, FileText, PackageCheck, AlertCircle } from 'lucide-react';
+import { X, CheckCircle2, Truck, FileText, ShoppingBag, AlertCircle } from 'lucide-react';
 import { api } from '../../lib/api';
 import { toast } from 'sonner';
-
-interface SolicitudDetalle {
-  id?: string;
-  productoId: string;
-  nombreProducto: string;
-  unidadMedida?: string;
-  cantidadRequerida: number;
-  costoUnitarioEstimado: number;
-}
-
-interface SolicitudProveedor {
-  id: string;
-  folio: string;
-  proveedorId?: string | null;
-  proveedor?: { nombre: string } | null;
-  detalles: SolicitudDetalle[];
-}
+import type { SolicitudProveedor } from '@/types/solicitudProveedor';
 
 interface RecibirSolicitudProveedorModalProps {
   isOpen: boolean;
@@ -54,6 +38,7 @@ export const RecibirSolicitudProveedorModal: React.FC<RecibirSolicitudProveedorM
       costoUnitarioReal: number;
       codigoLote: string;
       fechaCaducidad: string;
+      tieneCaducidad: boolean;
     }[]
   >([]);
 
@@ -70,6 +55,7 @@ export const RecibirSolicitudProveedorModal: React.FC<RecibirSolicitudProveedorM
           costoUnitarioReal: d.costoUnitarioEstimado || 0,
           codigoLote: '',
           fechaCaducidad: '',
+          tieneCaducidad: Boolean(d.producto?.tieneCaducidad),
         })),
       );
     }
@@ -103,6 +89,16 @@ export const RecibirSolicitudProveedorModal: React.FC<RecibirSolicitudProveedorM
       return;
     }
 
+    // Validación estricta: productos con caducidad activa deben tener fecha de caducidad obligatoria
+    for (const item of itemsAProcesar) {
+      if (item.tieneCaducidad && !item.fechaCaducidad) {
+        toast.error(
+          `El producto "${item.nombreProducto}" maneja caducidad y requiere su fecha de vencimiento obligatoria.`,
+        );
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       await api.post(`/solicitudes-proveedor/${solicitud.id}/recibir`, {
@@ -114,11 +110,11 @@ export const RecibirSolicitudProveedorModal: React.FC<RecibirSolicitudProveedorM
           cantidadRecibida: Number(i.cantidadRecibida),
           costoUnitarioReal: Number(i.costoUnitarioReal),
           codigoLote: i.codigoLote.trim() || undefined,
-          fechaCaducidad: i.fechaCaducidad || undefined,
+          fechaCaducidad: i.tieneCaducidad && i.fechaCaducidad ? i.fechaCaducidad : undefined,
         })),
       });
 
-      toast.success('Mercancía recibida e ingresada al inventario correctamente.');
+      toast.success('Solicitud convertida a compra e inventario ingresado correctamente.');
       onSuccess();
       onClose();
     } catch (err: unknown) {
@@ -136,11 +132,11 @@ export const RecibirSolicitudProveedorModal: React.FC<RecibirSolicitudProveedorM
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline/10 bg-surface/50">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-2xl bg-primary/10 text-primary">
-              <PackageCheck className="w-6 h-6" />
+              <ShoppingBag className="w-6 h-6" />
             </div>
             <div>
               <h3 className="font-headline-md font-bold text-on-surface text-lg">
-                Recepción de Mercancía (GRN) — {solicitud.folio}
+                Convertir Solicitud a Compra (Recepción) — {solicitud.folio}
               </h3>
               <p className="font-body-md text-xs text-on-surface-variant">
                 Proveedor: <span className="font-semibold text-primary">{solicitud.proveedor?.nombre || 'Solicitud Abierta'}</span>
@@ -282,17 +278,33 @@ export const RecibirSolicitudProveedorModal: React.FC<RecibirSolicitudProveedorM
                         />
                       </td>
                       <td className="p-3">
-                        <input
-                          type="date"
-                          value={item.fechaCaducidad}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setItemsRecibidos((prev) =>
-                              prev.map((i, k) => (k === idx ? { ...i, fechaCaducidad: val } : i)),
-                            );
-                          }}
-                          className="w-32 h-9 px-2 text-xs font-mono rounded-xl bg-surface border border-outline/30 text-on-surface focus:outline-none focus:border-primary"
-                        />
+                        {item.tieneCaducidad ? (
+                          <div className="flex flex-col gap-1">
+                            <input
+                              type="date"
+                              value={item.fechaCaducidad}
+                              required
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setItemsRecibidos((prev) =>
+                                  prev.map((i, k) => (k === idx ? { ...i, fechaCaducidad: val } : i)),
+                                );
+                              }}
+                              className={`w-32 h-9 px-2 text-xs font-mono rounded-xl bg-surface border text-on-surface focus:outline-none focus:border-primary ${
+                                !item.fechaCaducidad
+                                  ? 'border-warning/70 bg-warning/5 font-semibold text-warning'
+                                  : 'border-outline/30'
+                              }`}
+                            />
+                            <span className="text-[10px] text-warning font-semibold">
+                              * Obligatoria
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center text-[11px] text-outline font-medium px-2 py-1 bg-surface-container-low rounded-lg border border-outline/10">
+                            No aplica
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -306,7 +318,7 @@ export const RecibirSolicitudProveedorModal: React.FC<RecibirSolicitudProveedorM
         <div className="flex items-center justify-between px-6 py-4 border-t border-outline/10 bg-surface/50">
           <div className="flex items-center gap-2 text-xs text-on-surface-variant font-body-md">
             <AlertCircle className="w-4 h-4 text-primary" />
-            <span>Al confirmar, el stock incrementará atómicamente en el almacén.</span>
+            <span>Al convertir en compra, el stock incrementará atómicamente en el inventario.</span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -324,7 +336,7 @@ export const RecibirSolicitudProveedorModal: React.FC<RecibirSolicitudProveedorM
               className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-label-sm text-xs font-bold shadow-md hover:opacity-90 transition-all flex items-center gap-2"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>{loading ? 'Procesando...' : 'Confirmar e Ingresar Stock'}</span>
+              <span>{loading ? 'Procesando...' : 'Convertir a Compra e Ingresar Stock'}</span>
             </button>
           </div>
         </div>
@@ -332,3 +344,4 @@ export const RecibirSolicitudProveedorModal: React.FC<RecibirSolicitudProveedorM
     </div>
   );
 };
+

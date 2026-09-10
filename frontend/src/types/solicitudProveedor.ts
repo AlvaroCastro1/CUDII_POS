@@ -1,7 +1,14 @@
-export type EstadoSolicitudProveedor = 'BORRADOR' | 'ENVIADA' | 'RECIBIDA' | 'CANCELADA';
+export type EstadoSolicitudProveedor =
+  | 'BORRADOR'
+  | 'ENVIADA'
+  | 'APROBADA'
+  | 'RECHAZADA'
+  | 'RECIBIDA'
+  | 'CANCELADA';
 
 export interface SolicitudProveedorDetalle {
   id?: string;
+  solicitudProveedorId?: string;
   productoId: string;
   nombreProducto: string;
   unidadMedida?: string;
@@ -15,6 +22,7 @@ export interface SolicitudProveedorDetalle {
     codigoBarras: string;
     unidadMedida?: string;
     precioCompra?: number;
+    tieneCaducidad?: boolean;
   };
 }
 
@@ -44,6 +52,8 @@ export interface SolicitudProveedor {
   fechaEntregaEsperada?: string | null;
   notas?: string | null;
   totalEstimado: number;
+  estaActivo?: boolean;
+  eliminadoEn?: string | null;
   creadoEn: string;
   actualizadoEn: string;
   detalles: SolicitudProveedorDetalle[];

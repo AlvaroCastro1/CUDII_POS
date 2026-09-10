@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer, Copy, Check } from 'lucide-react';
+import { X, Printer, Copy, Check, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import type { SolicitudProveedor } from '@/types/solicitudProveedor';
@@ -22,6 +22,7 @@ interface SolicitudProveedorPrintModalProps {
   nombreEmpresa?: string;
   logoEmpresaUrl?: string;
   onClose: () => void;
+  onConvertirCompra?: (solicitud: SolicitudProveedor) => void;
 }
 
 export const SolicitudProveedorPrintModal: React.FC<SolicitudProveedorPrintModalProps> = ({
@@ -29,6 +30,7 @@ export const SolicitudProveedorPrintModal: React.FC<SolicitudProveedorPrintModal
   nombreEmpresa = 'CUDII POS',
   logoEmpresaUrl,
   onClose,
+  onConvertirCompra,
 }) => {
   const [copiado, setCopiado] = useState(false);
   const [logoTicket, setLogoTicket] = useState<string | undefined>(logoEmpresaUrl);
@@ -161,6 +163,20 @@ export const SolicitudProveedorPrintModal: React.FC<SolicitudProveedorPrintModal
           </div>
 
           <div className="flex items-center gap-2">
+            {onConvertirCompra && (solicitud.estado === 'ENVIADA' || solicitud.estado === 'APROBADA') && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  onClose();
+                  onConvertirCompra(solicitud);
+                }}
+                className="font-bold text-xs shadow-sm bg-primary text-on-primary hover:opacity-90"
+              >
+                <ShoppingBag className="w-4 h-4 mr-1.5" />
+                Convertir a Compra
+              </Button>
+            )}
             <Button type="button" variant="outline" size="sm" onClick={handleCopiarTexto} className="text-xs">
               {copiado ? <Check className="w-4 h-4 mr-1 text-success" /> : <Copy className="w-4 h-4 mr-1" />}
               {copiado ? '¡Copiado!' : 'Copiar para WhatsApp'}
