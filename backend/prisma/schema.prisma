@@ -1192,6 +1192,8 @@ model PresupuestoDetalle {
 enum EstadoSolicitudProveedor {
   BORRADOR
   ENVIADA
+  APROBADA
+  RECHAZADA
   RECIBIDA
   CANCELADA
 }
@@ -1215,6 +1217,10 @@ model SolicitudProveedor {
   notas                String?
   totalEstimado        Float                    @default(0)
 
+  // Soft Delete para auditoría e integridad referencial
+  estaActivo           Boolean                  @default(true)
+  eliminadoEn          DateTime?
+
   creadoEn     DateTime                 @default(now())
   actualizadoEn DateTime                @updatedAt
 
@@ -1224,6 +1230,7 @@ model SolicitudProveedor {
   @@unique([empresaId, folio])
   @@index([empresaId, creadoEn])
   @@index([empresaId, estado])
+  @@index([empresaId, estaActivo])
   @@index([proveedorId])
 }
 

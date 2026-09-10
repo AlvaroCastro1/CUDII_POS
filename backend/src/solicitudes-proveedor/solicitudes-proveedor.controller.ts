@@ -59,6 +59,7 @@ export class SolicitudesProveedorController {
     @Query('q') q?: string,
     @Query('fechaInicio') fechaInicio?: string,
     @Query('fechaFin') fechaFin?: string,
+    @Query('incluirInactivos') incluirInactivos?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -68,6 +69,7 @@ export class SolicitudesProveedorController {
       q,
       fechaInicio,
       fechaFin,
+      incluirInactivos: incluirInactivos === 'true',
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
     });
@@ -87,6 +89,12 @@ export class SolicitudesProveedorController {
     @Body() updateDto: UpdateSolicitudProveedorDto,
   ) {
     return this.solicitudesProveedorService.update(user.empresaId, user.id, id, updateDto);
+  }
+
+  @Patch(':id/reactivar')
+  @Roles(Rol.SUPER_ADMIN, Rol.ADMIN, Rol.GERENTE)
+  reactivar(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
+    return this.solicitudesProveedorService.update(user.empresaId, user.id, id, { estaActivo: true });
   }
 
   @Delete(':id')
