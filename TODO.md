@@ -140,5 +140,9 @@
 - [x] **D18: Impresión Masiva de Etiquetas y Códigos de Barras:** Diseñador dinámico e impresor de etiquetas adhesivas para anaquel y productos (formatos 58mm, 80mm y planchas de stickers), motor SVG/Canvas con JSBarcode/QRCode y reglas `@media print`.
 - [x] **D19: Lector de Código de Barras con Cámara (Móvil / Web):** Componente reutilizable `CameraBarcodeScanner.tsx` basado en la Web API nativa `BarcodeDetector` con fallback automático a ZXing, integrado en la terminal POS (`ProductSearch.tsx`), catálogo de productos (`ProductoModalForm.tsx`) e inventarios.
 
-
-
+## Fase 4: Estabilización, Pulido Visual y Tipado Estricto (✅ Completada)
+- [x] **Aislamiento de Modales al Área de Trabajo:** Creación del contenedor portal `#tab-modal-portal` en `MainLayout.tsx` para acotar los modales a la pestaña activa (ej. `SolicitudProveedorPrintModal.tsx`), evitando que el backdrop oscurezca o inhabilite el menú lateral o el encabezado superior.
+- [x] **Sincronización del Logo de Tickets en Documentos:** Conexión automática de comprobantes formales con `/company-settings/ticket`, reutilizando de manera fidedigna el logo, encabezado y datos fiscales configurados para la empresa.
+- [x] **Correcciones de Accesibilidad y UI en POS:** Ajuste de contraste para notas en `RegistrarEgresoModal.tsx` y eliminación de filtros de desenfoque (`backdrop-blur`) para maximizar rendimiento y legibilidad.
+- [x] **Tipado Estricto sin `any` (Regla de Oro #2):** Refactorización completa en `company-settings.controller.ts` (MulterFileInfo, MulterRequest, captura tipada de errores `NodeJS.ErrnoException`) y tipado riguroso en vistas administrativas.
+- [x] **Auditoría y Validación Global de Fase 4:** Compilación exitosa con 0 errores de TypeScript (`tsc -b && vite build`) y validación en navegador de todos los flujos de D15 a D19.

@@ -1,6 +1,6 @@
 # Fase 4 — Clientes, Dashboard, Reportes y Arquitectura
 
-> **Estado:** 🔴 PENDIENTE  
+> **Estado:** ✅ COMPLETADA  
 > **Versión objetivo:** V1.5  
 > **Dependencia de:** Fase 3+ (completada)  
 > **Produce para:** Fase 5
@@ -758,41 +758,41 @@ model PresupuestoDetalle {
 
 ## Entregables
 
-- [ ] Migración `cleanup_dead_fields` aplicada
-- [ ] Migración `add_critical_indexes` aplicada (25+ índices)
-- [ ] Route collisions resueltos (`notifications/mark-all-read`, `suppliers/:id/reactivate-status`)
-- [ ] CORS restringido a `FRONTEND_URL`
-- [ ] Paginación estandarizada en 5 endpoints (sales, notifications, audit, suppliers, inventory/lotes)
-- [ ] 4 patrones N+1 corregidos (sales, returns, inventory, lotes.helper)
-- [ ] Migración `add_clientes_credito_lealtad` aplicada
-- [ ] `backend/src/modules/customers/` — módulo completo
-- [ ] `backend/src/modules/reports/` — endpoints de los 5 reportes principales
-- [ ] `backend/src/companies/` — endpoint `GET /companies/my/sucursales`
-- [ ] `frontend/src/views/DashboardView.tsx` — dashboard con KPIs y gráficas reales
-- [ ] `frontend/src/views/ClientesView.tsx` — CRUD de clientes
-- [ ] `frontend/src/views/FiadosView.tsx` — gestión de crédito y abonos
-- [ ] `frontend/src/views/ReportesView.tsx` — visualización de reportes con CSV
-- [ ] DevolucionesView actualizado con historial (`GET /returns`)
-- [ ] InventarioView actualizado con historial de recepciones
-- [ ] RBAC en sidebar filtrado por rol
-- [ ] Integración de `clienteId` en la terminal POS
-- [ ] Acumulación de puntos al finalizar la venta
-- [ ] D10: Migración `add_programa_lealtad_configurable` aplicada (siembra + mapeo de tiers)
-- [ ] D10: Configuración de lealtad editable desde Configuración del sitio (con tooltips)
-- [ ] D10: Descuento por nivel y canje de puntos operativos en ventas
-- [ ] D10: Puntos/nivel/descuento visibles en ClientesView y en el POS
-- [ ] D11: Migración `add_combos` aplicada (`Combo`, `ComboProducto`, `DetalleVenta.comboId`/`nombreCombo`)
-- [ ] D11: Módulo backend `combos` (CRUD + RBAC + validaciones) registrado en `AppModule`
-- [ ] D11: Integración en `POST /sales` (expansión server-side con precios autoritativos)
-- [ ] D11: POS — chip/grid de combos + `ComboDetalleModal` + auto-aplicación en carrito (auto-detección)
-- [ ] D11: Ticket — combo como bloque (agrupar/stepper/eliminar)
-- [ ] D11: Admin — `CombosView` + `ComboModalForm` con builder de items y ahorro en vivo
-- [ ] D11: Rutas/permisos/menú configurados para combos
-- [ ] D11: Auditoría de combos (`COMBO_CREADO`/`ACTUALIZADO`/`DESACTIVADO`) visible en `AuditoriaView`
-- [ ] D11: Detalle de venta muestra el combo aplicado (badge + descuento por línea)
-- [ ] D11: Sin campos muertos en combos (tipos, store, includes)
-- [ ] D11: Fuentes verificadas — solo Geist / JetBrains Mono / Material Symbols en todo CUDII
-- [ ] D11: Sidebar recomposado en secciones temáticas y filtrado por rol (cajas → Operaciones, Promociones nueva)
+- [x] Migración `cleanup_dead_fields` aplicada
+- [x] Migración `add_critical_indexes` aplicada (25+ índices)
+- [x] Route collisions resueltos (`notifications/mark-all-read`, `suppliers/:id/reactivate-status`)
+- [x] CORS restringido a `FRONTEND_URL`
+- [x] Paginación estandarizada en 5 endpoints (sales, notifications, audit, suppliers, inventory/lotes)
+- [x] 4 patrones N+1 corregidos (sales, returns, inventory, lotes.helper)
+- [x] Migración `add_clientes_credito_lealtad` aplicada
+- [x] `backend/src/modules/customers/` — módulo completo
+- [x] `backend/src/modules/reports/` — endpoints de los 5 reportes principales
+- [x] `backend/src/companies/` — endpoint `GET /companies/my/sucursales`
+- [x] `frontend/src/views/DashboardView.tsx` — dashboard con KPIs y gráficas reales
+- [x] `frontend/src/views/ClientesView.tsx` — CRUD de clientes
+- [x] `frontend/src/views/FiadosView.tsx` — gestión de crédito y abonos
+- [x] `frontend/src/views/ReportesView.tsx` — visualización de reportes con CSV
+- [x] DevolucionesView actualizado con historial (`GET /returns`)
+- [x] InventarioView actualizado con historial de recepciones
+- [x] RBAC en sidebar filtrado por rol
+- [x] Integración de `clienteId` en la terminal POS
+- [x] Acumulación de puntos al finalizar la venta
+- [x] D10: Migración `add_programa_lealtad_configurable` aplicada (siembra + mapeo de tiers)
+- [x] D10: Configuración de lealtad editable desde Configuración del sitio (con tooltips)
+- [x] D10: Descuento por nivel y canje de puntos operativos en ventas
+- [x] D10: Puntos/nivel/descuento visibles en ClientesView y en el POS
+- [x] D11: Migración `add_combos` aplicada (`Combo`, `ComboProducto`, `DetalleVenta.comboId`/`nombreCombo`)
+- [x] D11: Módulo backend `combos` (CRUD + RBAC + validaciones) registrado en `AppModule`
+- [x] D11: Integración en `POST /sales` (expansión server-side con precios autoritativos)
+- [x] D11: POS — chip/grid de combos + `ComboDetalleModal` + auto-aplicación en carrito (auto-detección)
+- [x] D11: Ticket — combo como bloque (agrupar/stepper/eliminar)
+- [x] D11: Admin — `CombosView` + `ComboModalForm` con builder de items y ahorro en vivo
+- [x] D11: Rutas/permisos/menú configurados para combos
+- [x] D11: Auditoría de combos (`COMBO_CREADO`/`ACTUALIZADO`/`DESACTIVADO`) visible en `AuditoriaView`
+- [x] D11: Detalle de venta muestra el combo aplicado (badge + descuento por línea)
+- [x] D11: Sin campos muertos en combos (tipos, store, includes)
+- [x] D11: Fuentes verificadas — solo Geist / JetBrains Mono / Material Symbols en todo CUDII
+- [x] D11: Sidebar recomposado en secciones temáticas y filtrado por rol (cajas → Operaciones, Promociones nueva)
 - [x] D12: Migración `add_presupuestos` aplicada (`Presupuesto`, `PresupuestoDetalle`, `Empresa.conservarPrecioPresupuesto`, `Empresa.secuenciaPresupuesto`)
 - [x] D12: Refactor de `SalesService` — helper compartido de precios/descuentos + soporte `presupuestoId`/`preciosCongelados`
 - [x] D12: Módulo backend `presupuestos` (create/list/detail/cancelar) registrado en `AppModule`
@@ -864,23 +864,23 @@ model PresupuestoDetalle {
 
 ## Criterios de Salida
 
-- [ ] El schema no tiene campos sin uso (zero dead fields).
-- [ ] Todas las FKs críticas tienen `@@index`.
-- [ ] No hay route collisions — los 2 endpoints renombrados responden correctamente.
-- [ ] La paginación es consistente en todos los módulos: mismo formato, mismos query params.
-- [ ] Una venta con 10 items ejecuta < 25 queries (vs 80+ actual).
-- [ ] El CRUD de clientes funciona desde el frontend.
-- [ ] Las ventas a crédito crean la deuda y descuentan el límite disponible.
-- [ ] Los abonos reducen el saldo correctamente en orden FIFO.
-- [ ] La acumulación de puntos funciona al completar ventas.
-- [ ] El Dashboard muestra métricas reales (no datos hardcodeados).
-- [ ] Los 5 reportes principales están disponibles y el formato CSV funciona.
-- [ ] Los 9 endpoints huérfanos están consumidos o eliminados.
-- [ ] El sidebar muestra menú filtrado por el rol del usuario.
-- [ ] D11: Los combos se crean/editan desde el frontend con validación de ahorro positivo.
-- [ ] D11: La venta con combo genera `DetalleVenta.comboId` y descuenta inventario por producto.
-- [ ] D11: El POS permite vender combos por catálogo y por auto-detección (bloque).
-- [ ] D11: El ahorro del combo se refleja en el desglose del ticket y del cobro.
+- [x] El schema no tiene campos sin uso (zero dead fields).
+- [x] Todas las FKs críticas tienen `@@index`.
+- [x] No hay route collisions — los 2 endpoints renombrados responden correctamente.
+- [x] La paginación es consistente en todos los módulos: mismo formato, mismos query params.
+- [x] Una venta con 10 items ejecuta < 25 queries (vs 80+ actual).
+- [x] El CRUD de clientes funciona desde el frontend.
+- [x] Las ventas a crédito crean la deuda y descuentan el límite disponible.
+- [x] Los abonos reducen el saldo correctamente en orden FIFO.
+- [x] La acumulación de puntos funciona al completar ventas.
+- [x] El Dashboard muestra métricas reales (no datos hardcodeados).
+- [x] Los 5 reportes principales están disponibles y el formato CSV funciona.
+- [x] Los 9 endpoints huérfanos están consumidos o eliminados.
+- [x] El sidebar muestra menú filtrado por el rol del usuario.
+- [x] D11: Los combos se crean/editan desde el frontend con validación de ahorro positivo.
+- [x] D11: La venta con combo genera `DetalleVenta.comboId` y descuenta inventario por producto.
+- [x] D11: El POS permite vender combos por catálogo y por auto-detección (bloque).
+- [x] D11: El ahorro del combo se refleja en el desglose del ticket y del cobro.
 - [x] D12: Los presupuestos se crean desde el POS sin requerir sesión de caja ni tocar inventario.
 - [x] D12: "Vender por ID" carga el presupuesto al ticket y respeta `conservarPrecioPresupuesto` (congelado vs actual).
 - [x] D12: La venta de un presupuesto lo marca `vendido` atómicamente; los duplicados se rechazan.
