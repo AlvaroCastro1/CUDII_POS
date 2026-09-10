@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   CreditCard,
-  Search,
   RefreshCw,
   X,
   Wallet,

@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -128,9 +127,10 @@ export default function ClientesView() {
   const [loadingDetalle, setLoadingDetalle] = useState(false);
 
   /** Paginación de "Últimas compras" dentro del detalle */
-  const [ventasPage, setVentasPage] = useState(1);
   const [ventasMeta, setVentasMeta] = useState<PaginacionMeta | null>(null);
   const VENTAS_POR_PAGINA = 5;
+
+
 
   // D11: Historial de movimientos de puntos del cliente en detalle
   const [movimientosPuntos, setMovimientosPuntos] = useState<
@@ -298,7 +298,6 @@ export default function ClientesView() {
         `/customers/${id}?ventasPage=${paginaVentas}&ventasLimit=${VENTAS_POR_PAGINA}`,
       );
       setDetalle(res.data);
-      setVentasPage(paginaVentas);
       const totalVentas = res.data._count?.ventas ?? 0;
       setVentasMeta({
         total: totalVentas,

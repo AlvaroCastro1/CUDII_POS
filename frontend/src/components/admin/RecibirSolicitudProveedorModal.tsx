@@ -4,10 +4,10 @@ import { api } from '../../lib/api';
 import { toast } from 'sonner';
 
 interface SolicitudDetalle {
-  id: string;
+  id?: string;
   productoId: string;
   nombreProducto: string;
-  unidadMedida: string;
+  unidadMedida?: string;
   cantidadRequerida: number;
   costoUnitarioEstimado: number;
 }

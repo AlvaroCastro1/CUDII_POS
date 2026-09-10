@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle2, ArrowRightLeft, PackageCheck } from 'lucide-react';
+import { X, CheckCircle2, PackageCheck } from 'lucide-react';
 import { api } from '../../lib/api';
 import { toast } from 'sonner';
 

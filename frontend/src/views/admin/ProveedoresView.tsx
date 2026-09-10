@@ -26,7 +26,7 @@ import { Pencil, PowerOff, Power, Truck } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
-import { Switch } from '@/components/ui/switch';
+
 
 interface Proveedor {
   id: string;

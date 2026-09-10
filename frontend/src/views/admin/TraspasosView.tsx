@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   ArrowRightLeft,
   Plus,
   Truck,
   CheckCircle2,
   AlertTriangle,
-  FileText,
   Building2,
   Clock,
   Eye,
-  RotateCcw,
+  PackageCheck,
+  X,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { BuscadorEstandar } from '../../components/ui/BuscadorEstandar';
@@ -47,7 +47,7 @@ interface Traspaso {
   detalles: TraspasoDetalle[];
 }
 
-export const TraspasosView: React.FC = () => {
+export default function TraspasosView() {
   const [traspasos, setTraspasos] = useState<Traspaso[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -200,7 +200,7 @@ export const TraspasosView: React.FC = () => {
         busqueda={q}
         onBusquedaChange={setQ}
         placeholder="Buscar por folio de traspaso, notas u origen..."
-        filtrosExtra={
+        filtrosRapidos={
           <div className="flex items-center gap-3">
             <select
               value={estadoFiltro}
@@ -232,7 +232,7 @@ export const TraspasosView: React.FC = () => {
           setEstadoFiltro('');
           setSucursalOrigenFiltro('');
         }}
-        onRefresh={fetchTraspasos}
+        onActualizar={fetchTraspasos}
       />
 
       {/* Tabla Principal */}
@@ -303,6 +303,32 @@ export const TraspasosView: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-outline/10 bg-surface/50">
+            <span className="text-xs text-on-surface-variant font-medium">
+              Página {page} de {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1.5 rounded-xl border border-outline/20 text-xs font-medium hover:bg-outline/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1.5 rounded-xl border border-outline/20 text-xs font-medium hover:bg-outline/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modales */}
@@ -397,4 +423,6 @@ export const TraspasosView: React.FC = () => {
       )}
     </div>
   );
-};
+}
+
+export { TraspasosView };

@@ -27,11 +27,10 @@ import {
   Image as ImageIcon,
   Boxes,
   Building2,
-  CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
-import { api, obtenerUrlImagen } from '@/lib/api';
+import { api, errorMessage, obtenerUrlImagen } from '@/lib/api';
 import {
   CONFIG_TICKET_DEFAULT,
   type ConfiguracionTicketCompleta,
@@ -576,11 +575,13 @@ export default function ConfiguracionView() {
       toast.success(
         'Logo subido correctamente. Los archivos anteriores no utilizados se han eliminado del servidor.',
       );
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        'En este momento no podemos subir el archivo debido al espacio insuficiente.';
-      toast.error(msg);
+    } catch (err: unknown) {
+      toast.error(
+        errorMessage(
+          err,
+          'En este momento no podemos subir el archivo debido al espacio insuficiente.',
+        ),
+      );
     } finally {
       setIsUploadingLogo(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -802,9 +803,9 @@ return (
               <div className="min-w-0 flex-1">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-outline font-label-sm">Programa Lealtad</div>
                 <div className="text-sm font-bold text-on-surface truncate">
-                  {lealtad.activo ? `Activo (${lealtad.niveles.length} Tiers)` : 'Desactivado'}
+                  {lealtad.habilitado ? `Activo (${lealtad.niveles.length} Tiers)` : 'Desactivado'}
                 </div>
-                <div className="text-[10px] text-outline truncate font-mono">{lealtad.puntosMínimosCanje} pts mín. canje</div>
+                <div className="text-[10px] text-outline truncate font-mono">{lealtad.canjeMinimoPuntos} pts mín. canje</div>
               </div>
             </div>
 

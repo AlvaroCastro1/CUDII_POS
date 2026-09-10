@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Eye, EyeOff } from 'lucide-react';
 import { usePaginacion } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
-import { Switch } from '@/components/ui/switch';
+
 import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 
 const ROLES_OPTIONS = [

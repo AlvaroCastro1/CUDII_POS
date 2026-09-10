@@ -22,7 +22,6 @@ import {
   Gift,
   Search,
   X,
-  RefreshCw,
   AlertCircle,
 } from 'lucide-react';
 import axios from 'axios';
@@ -587,7 +586,7 @@ export default function CombosView() {
               ))}
             </tbody>
           </table>
-          <PaginacionControles meta={meta} onPageChange={irAPagina} />
+          {meta && <PaginacionControles meta={meta} onPageChange={irAPagina} />}
         </div>
       )}
 

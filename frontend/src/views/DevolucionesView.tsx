@@ -210,6 +210,8 @@ export const DevolucionesView: React.FC = () => {
         };
       });
 
+      if (!venta) return;
+
       const payload = {
         ventaId: venta.id,
         tipoResolucion,
@@ -232,8 +234,8 @@ export const DevolucionesView: React.FC = () => {
 
   // ¿Todos los productos de la venta están completamente devueltos?
   const todosAgotados =
-    venta?.detalles?.length > 0 &&
-    venta.detalles.every((det: VentaDetalle) => calcularDisponible(det) <= 0);
+    Boolean(venta?.detalles && venta.detalles.length > 0) &&
+    Boolean(venta?.detalles?.every((det: VentaDetalle) => calcularDisponible(det) <= 0));
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto text-on-surface">
@@ -476,7 +478,7 @@ export const DevolucionesView: React.FC = () => {
             <div>
               <div className="text-xl font-bold text-primary font-mono">Ticket: {venta.folio}</div>
               <div className="text-xs text-outline font-body-md mt-0.5">
-                Fecha: {new Date(venta.creadoEn).toLocaleString()} • Cajero: {venta.cajero?.nombre || 'Cajero'}
+                Fecha: {venta.creadoEn ? new Date(venta.creadoEn).toLocaleString() : 'N/A'} • Cajero: {venta.cajero?.nombre || 'Cajero'}
               </div>
             </div>
             <div className="text-right">

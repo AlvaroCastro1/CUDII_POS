@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   X,
-  Plus,
   Trash2,
   Search,
   Package,
@@ -16,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import type { SolicitudProveedor, EstadoSolicitudProveedor } from '@/types/solicitudProveedor';
+import type { SolicitudProveedor } from '@/types/solicitudProveedor';
 
 interface ProveedorOption {
   id: string;
@@ -55,9 +54,7 @@ export const NuevaSolicitudProveedorModal: React.FC<NuevaSolicitudProveedorModal
 }) => {
   const [proveedores, setProveedores] = useState<ProveedorOption[]>([]);
   const [proveedorId, setProveedorId] = useState<string>(solicitudAEditar?.proveedorId || '');
-  const [estado, setEstado] = useState<EstadoSolicitudProveedor>(
-    solicitudAEditar?.estado || 'BORRADOR',
-  );
+  const estado = solicitudAEditar?.estado || 'BORRADOR';
   const [fechaEntregaEsperada, setFechaEntregaEsperada] = useState<string>(
     solicitudAEditar?.fechaEntregaEsperada
       ? new Date(solicitudAEditar.fechaEntregaEsperada).toISOString().split('T')[0]

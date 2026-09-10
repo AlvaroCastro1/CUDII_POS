@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   ShieldAlert,
   ShieldCheck,
-  Banknote,
   Clock,
 } from 'lucide-react';
 import axios from 'axios';
@@ -40,6 +39,9 @@ interface SesionAbierta {
   efectivoEsperado: number;
   fechaApertura: string;
   minutosAbierta: number;
+  usuario?: { id: string; nombre: string; rol: string } | null;
+  antiguedadMinutos?: number;
+  totalEfectivoEsperado?: number;
 }
 
 interface PreviewCorte {
@@ -210,26 +212,27 @@ export default function CajasView() {
         (s) =>
           s.caja?.nombre?.toLowerCase().includes(q) ||
           s.caja?.sucursal?.nombre?.toLowerCase().includes(q) ||
+          s.cajero?.nombre?.toLowerCase().includes(q) ||
           s.usuario?.nombre?.toLowerCase().includes(q),
       );
     }
 
     if (soloLargas) {
-      lista = lista.filter((s) => (s.antiguedadMinutos ?? 0) >= 480); // 8+ horas
+      lista = lista.filter((s) => (s.minutosAbierta ?? s.antiguedadMinutos ?? 0) >= 480); // 8+ horas
     }
 
     if (filtroAntiguedad === 'mas_8h') {
-      lista = lista.filter((s) => (s.antiguedadMinutos ?? 0) >= 480);
+      lista = lista.filter((s) => (s.minutosAbierta ?? s.antiguedadMinutos ?? 0) >= 480);
     } else if (filtroAntiguedad === 'mas_12h') {
-      lista = lista.filter((s) => (s.antiguedadMinutos ?? 0) >= 720);
+      lista = lista.filter((s) => (s.minutosAbierta ?? s.antiguedadMinutos ?? 0) >= 720);
     } else if (filtroAntiguedad === 'mas_24h') {
-      lista = lista.filter((s) => (s.antiguedadMinutos ?? 0) >= 1440);
+      lista = lista.filter((s) => (s.minutosAbierta ?? s.antiguedadMinutos ?? 0) >= 1440);
     }
 
     if (ordenSesiones === 'antiguedad_desc') {
-      lista.sort((a, b) => (b.antiguedadMinutos ?? 0) - (a.antiguedadMinutos ?? 0));
+      lista.sort((a, b) => (b.minutosAbierta ?? b.antiguedadMinutos ?? 0) - (a.minutosAbierta ?? a.antiguedadMinutos ?? 0));
     } else if (ordenSesiones === 'efectivo_desc') {
-      lista.sort((a, b) => (b.totalEfectivoEsperado ?? 0) - (a.totalEfectivoEsperado ?? 0));
+      lista.sort((a, b) => (b.efectivoEsperado ?? b.totalEfectivoEsperado ?? 0) - (a.efectivoEsperado ?? a.totalEfectivoEsperado ?? 0));
     } else if (ordenSesiones === 'caja') {
       lista.sort((a, b) => (a.caja?.nombre ?? '').localeCompare(b.caja?.nombre ?? ''));
     }

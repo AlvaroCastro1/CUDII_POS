@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
@@ -16,7 +15,7 @@ import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { usePaginacion, type PaginacionMeta } from '@/hooks/usePaginacion';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePosStore, type LineaPresupuesto } from '@/store/usePosStore';
-import { RefreshCw, Eye, XCircle, SlidersHorizontal, X, AlertTriangle, Power, PowerOff, Printer } from 'lucide-react';
+import { Eye, AlertTriangle, Power, PowerOff, Printer } from 'lucide-react';
 import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
 import { PresupuestoTicketModal, type PresupuestoTicketData } from '@/components/pos/PresupuestoTicketModal';
 
@@ -120,7 +119,6 @@ export default function PresupuestosView() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
-  const [mostrarFiltros, setMostrarFiltros] = useState(false);
 
   const [detalle, setDetalle] = useState<DetallePresupuesto | null>(null);
   const [detalleAbierto, setDetalleAbierto] = useState(false);
@@ -179,13 +177,6 @@ export default function PresupuestosView() {
   useEffect(() => {
     fetchLista();
   }, [fetchLista]);
-
-  const buscar = (e: React.FormEvent) => {
-    e.preventDefault();
-    reiniciar();
-    setFiltroEstado(filtroEstado || '');
-    fetchLista();
-  };
 
   const limpiar = () => {
     setSearch('');

@@ -21,7 +21,6 @@ import {
   Percent,
   Banknote,
   BadgePercent,
-  RefreshCw,
 } from 'lucide-react';
 import axios from 'axios';
 import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
@@ -467,7 +466,7 @@ export default function CuponesView() {
               ))}
             </tbody>
           </table>
-          <PaginacionControles meta={meta} onPageChange={irAPagina} />
+          {meta && <PaginacionControles meta={meta} onPageChange={irAPagina} />}
         </div>
       )}
 

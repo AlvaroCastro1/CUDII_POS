@@ -388,26 +388,29 @@ export default function GlobalSearch({
           .get<ResultadoProducto[]>('/products/search', {
             params: { q, limit: 5 },
           })
-          .catch(() => []),
+          .then((r) => r.data)
+          .catch(() => [] as ResultadoProducto[]),
         api
           .get<{ data: ResultadoCategoria[] }>('/categories', {
             params: { search: q, limit: 5 },
           })
-          .catch(() => ({ data: [] })),
+          .then((r) => r.data?.data || [])
+          .catch(() => [] as ResultadoCategoria[]),
         puedeUsuarios
           ? api
               .get<{ data: ResultadoUsuario[] }>('/users', {
                 params: { search: q, limit: 5 },
               })
-              .catch(() => ({ data: [] }))
-          : Promise.resolve({ data: [] }),
+              .then((r) => r.data?.data || [])
+              .catch(() => [] as ResultadoUsuario[])
+          : Promise.resolve([] as ResultadoUsuario[]),
       ]);
 
       if (peticion !== peticionRef.current) return;
 
-      setProductos(prod.data ?? prod);
-      setCategorias(cat.data?.data ?? []);
-      setUsuarios(usr.data?.data ?? []);
+      setProductos(Array.isArray(prod) ? prod : []);
+      setCategorias(Array.isArray(cat) ? cat : []);
+      setUsuarios(Array.isArray(usr) ? usr : []);
       setIsBuscando(false);
     }, 250);
 
