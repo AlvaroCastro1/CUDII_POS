@@ -516,6 +516,9 @@ export default function MainLayout() {
         <div className="flex-1 overflow-y-auto" style={{ willChange: 'transform' }}>
           <Outlet />
         </div>
+
+        {/* Contenedor portal para modales acotados a la pestaña/área de trabajo (no cubren sidebar ni header) */}
+        <div id="tab-modal-portal" className="pointer-events-none absolute inset-x-0 bottom-0 top-24 z-40" />
       </main>
 
       <AtajosTecladoDialog open={isAtajosOpen} onOpenChange={setIsAtajosOpen} />

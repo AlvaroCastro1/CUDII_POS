@@ -288,15 +288,19 @@
     visibility: hidden !important;
   }
 
-  /* Mostrar ÚNICAMENTE el contenedor del ticket con id="printable-ticket" o clase .printable-voucher */
+  /* Mostrar ÚNICAMENTE el contenedor del ticket o del documento formal */
   #printable-ticket,
   #printable-ticket *,
   .printable-voucher,
-  .printable-voucher * {
+  .printable-voucher *,
+  #printable-document,
+  #printable-document *,
+  .printable-document,
+  .printable-document * {
     visibility: visible !important;
   }
 
-  /* Posicionamiento fijo flotante en la esquina superior del papel */
+  /* Posicionamiento fijo flotante en la esquina superior del papel para tickets térmicos (80mm) */
   #printable-ticket,
   .printable-voucher {
     position: fixed !important;
@@ -314,6 +318,27 @@
     font-family: "JetBrains Mono", ui-monospace, monospace !important;
     font-size: 11px !important;
     line-height: 1.25 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    z-index: 999999 !important;
+  }
+
+  /* Posicionamiento para documentos formales a página completa (Carta / A4) */
+  #printable-document,
+  .printable-document {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 10mm 15mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    font-family: inherit !important;
     max-height: none !important;
     overflow: visible !important;
     z-index: 999999 !important;

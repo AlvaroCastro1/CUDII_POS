@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -8,8 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { api } from '@/lib/api';
-import { useAuthStore } from '@/store/useAuthStore';
+import { api, errorMessage } from '@/lib/api';
+
 import { usePaginacion, type PaginacionMeta } from '@/hooks/usePaginacion';
 import { PaginacionControles } from '@/components/ui/PaginacionControles';
 import { BuscadorEstandar } from '@/components/ui/BuscadorEstandar';
@@ -40,7 +40,6 @@ interface ProveedorOption {
 }
 
 export default function SolicitudesProveedorView() {
-  const { user } = useAuthStore();
   const [solicitudes, setSolicitudes] = useState<SolicitudProveedor[]>([]);
   const [proveedores, setProveedores] = useState<ProveedorOption[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -65,7 +64,7 @@ export default function SolicitudesProveedorView() {
   const [logoEmpresa, setLogoEmpresa] = useState<string | undefined>();
 
   // Paginación
-  const { page, limit, setMeta, paramsPaginacion } = usePaginacion();
+  const { page, limit, setMeta, irAPagina } = usePaginacion();
   const [metaInfo, setMetaInfo] = useState<PaginacionMeta | null>(null);
 
   // Cargar configuración de la empresa para logo
@@ -75,11 +74,28 @@ export default function SolicitudesProveedorView() {
       .then((res) => {
         setNombreEmpresa(res.data.nombre || 'CUDII POS');
         const configTicket = res.data.configuracionTicket;
-        if (configTicket?.venta?.logoUrl) {
-          setLogoEmpresa(configTicket.venta.logoUrl);
+        const logo =
+          configTicket?.venta?.logoUrl ||
+          configTicket?.presupuesto?.logoUrl ||
+          res.data.logoUrl ||
+          res.data.logo;
+        if (logo) {
+          setLogoEmpresa(logo);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Fallback a /company-settings/ticket si el rol no tiene acceso a /company-settings
+        api
+          .get('/company-settings/ticket')
+          .then((res) => {
+            const config = res.data;
+            const logo = config?.venta?.logoUrl || config?.presupuesto?.logoUrl;
+            if (logo) {
+              setLogoEmpresa(logo);
+            }
+          })
+          .catch(() => {});
+      });
   }, []);
 
   // Cargar lista de proveedores para el filtro
@@ -101,7 +117,8 @@ export default function SolicitudesProveedorView() {
         '/solicitudes-proveedor',
         {
           params: {
-            ...paramsPaginacion,
+            page,
+            limit,
             q: busqueda.trim() || undefined,
             proveedorId: filtroProveedor || undefined,
             estado: filtroEstado || undefined,
@@ -111,13 +128,13 @@ export default function SolicitudesProveedorView() {
       setSolicitudes(res.data.data || []);
       setMetaInfo(res.data.meta);
       setMeta(res.data.meta);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Error al cargar las solicitudes a proveedores.');
+    } catch (err: unknown) {
+      toast.error(errorMessage(err, 'Error al cargar las solicitudes a proveedores.'));
       setSolicitudes([]);
     } finally {
       setCargando(false);
     }
-  }, [paramsPaginacion, busqueda, filtroProveedor, filtroEstado, setMeta]);
+  }, [page, limit, busqueda, filtroProveedor, filtroEstado, setMeta]);
 
   useEffect(() => {
     cargarSolicitudes();
@@ -134,8 +151,8 @@ export default function SolicitudesProveedorView() {
       await api.patch(`/solicitudes-proveedor/${id}`, { estado: nuevoEstado });
       toast.success(`Estado de la solicitud actualizado a "${nuevoEstado}".`);
       cargarSolicitudes();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Error al cambiar el estado de la solicitud.');
+    } catch (err: unknown) {
+      toast.error(errorMessage(err, 'Error al cambiar el estado de la solicitud.'));
     }
   };
 
@@ -147,8 +164,8 @@ export default function SolicitudesProveedorView() {
       toast.success('Solicitud eliminada correctamente.');
       setIdAEliminar(null);
       cargarSolicitudes();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Error al eliminar la solicitud.');
+    } catch (err: unknown) {
+      toast.error(errorMessage(err, 'Error al eliminar la solicitud.'));
     } finally {
       setIsDeleting(false);
     }
@@ -467,7 +484,7 @@ export default function SolicitudesProveedorView() {
         {/* Paginación */}
         {metaInfo && metaInfo.totalPages > 1 && (
           <div className="p-4 border-t border-outline/10">
-            <PaginacionControles meta={metaInfo} />
+            <PaginacionControles meta={metaInfo} onPageChange={irAPagina} />
           </div>
         )}
       </div>
@@ -491,9 +508,10 @@ export default function SolicitudesProveedorView() {
       {/* Modal Recepción de Mercancía GRN */}
       {solicitudARecibir && (
         <RecibirSolicitudProveedorModal
+          isOpen={Boolean(solicitudARecibir)}
           solicitud={solicitudARecibir}
           onClose={() => setSolicitudARecibir(null)}
-          onExito={() => {
+          onSuccess={() => {
             setSolicitudARecibir(null);
             cargarSolicitudes();
           }}
@@ -512,15 +530,15 @@ export default function SolicitudesProveedorView() {
 
       {/* Diálogo de confirmación para eliminar borrador */}
       <ConfirmDialog
-        open={Boolean(idAEliminar)}
+        isOpen={Boolean(idAEliminar)}
         title="Eliminar borrador de solicitud"
         description="¿Estás seguro de que deseas eliminar este borrador? Esta acción no se puede deshacer."
         confirmText="Eliminar"
         cancelText="Cancelar"
-        variant="destructive"
-        loading={isDeleting}
+        variant="danger"
+        isLoading={isDeleting}
         onConfirm={handleEliminar}
-        onCancel={() => setIdAEliminar(null)}
+        onClose={() => setIdAEliminar(null)}
       />
     </div>
   );
