@@ -27,6 +27,20 @@ type FileFilterCallback = (error: Error | null, acceptFile: boolean) => void;
 type DestinationCallback = (error: Error | null, destination: string) => void;
 type FileNameCallback = (error: Error | null, filename: string) => void;
 
+/** Tipo parcial compatible con Express.Multer.File para los callbacks de diskStorage. */
+interface MulterFileInfo {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size?: number;
+}
+
+/** Request parcial que solo necesita user.empresaId para construir la ruta multitenant. */
+interface MulterRequest {
+  user?: { empresaId?: string };
+}
+
 export interface ArchivoSubido {
   fieldname: string;
   originalname: string;
@@ -93,7 +107,7 @@ export class CompanySettingsController {
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 5 * 1024 * 1024 }, // Máximo 5 MB
-      fileFilter: (_req: any, file: any, cb: FileFilterCallback) => {
+      fileFilter: (_req: MulterRequest, file: MulterFileInfo, cb: FileFilterCallback) => {
         if (!file.mimetype.match(/^image\/(png|jpeg|jpg|webp|gif|svg\+xml)$/)) {
           return cb(
             new BadRequestException(
@@ -105,7 +119,7 @@ export class CompanySettingsController {
         cb(null, true);
       },
       storage: diskStorage({
-        destination: (req: any, _file: any, cb: DestinationCallback) => {
+        destination: (req: MulterRequest, _file: MulterFileInfo, cb: DestinationCallback) => {
           try {
             const empresaId = req.user?.empresaId || 'default';
             const uploadDir = join(
@@ -118,8 +132,9 @@ export class CompanySettingsController {
               mkdirSync(uploadDir, { recursive: true });
             }
             cb(null, uploadDir);
-          } catch (err: any) {
-            if (err?.code === 'ENOSPC') {
+          } catch (err: unknown) {
+            const codigo = (err as NodeJS.ErrnoException)?.code;
+            if (codigo === 'ENOSPC') {
               return cb(
                 new BadRequestException(
                   'En este momento no podemos subir el archivo debido al espacio insuficiente.',
@@ -127,10 +142,10 @@ export class CompanySettingsController {
                 '',
               );
             }
-            cb(err, '');
+            cb(err as Error, '');
           }
         },
-        filename: (_req: any, file: any, cb: FileNameCallback) => {
+        filename: (_req: MulterRequest, file: MulterFileInfo, cb: FileNameCallback) => {
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           const ext = extname(file.originalname);
           cb(null, `logo_${uniqueSuffix}${ext}`);
