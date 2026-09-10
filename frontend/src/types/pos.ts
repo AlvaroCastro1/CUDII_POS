@@ -54,7 +54,7 @@ export interface VentaPago {
 }
 
 export interface VentaDetalle {
-  id?: string;
+  id: string;
   productoId: string;
   nombreProducto?: string;
   cantidad: number;

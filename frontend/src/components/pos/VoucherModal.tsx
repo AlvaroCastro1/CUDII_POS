@@ -46,7 +46,6 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({ venta, onClose }) =>
   const handlePrint = () => window.print();
 
   const pagos = venta.pagos ?? [];
-  const totalPagos = pagos.reduce((acc, p) => acc + p.montoPagado, 0);
   const cambioTotal = pagos.reduce((acc, p) => acc + p.cambio, 0);
 
   // Desglose de descuentos

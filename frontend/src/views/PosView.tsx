@@ -553,6 +553,7 @@ export const PosView: React.FC = () => {
 
       <RegistrarEgresoModal
         isOpen={isOpenEgreso}
+        sesionCajaId={activeSession?.id || ''}
         onClose={() => setIsOpenEgreso(false)}
         onSuccess={() => {
           setIsOpenEgreso(false);

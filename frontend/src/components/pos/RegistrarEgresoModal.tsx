@@ -61,7 +61,7 @@ export const RegistrarEgresoModal: React.FC<RegistrarEgresoModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-in fade-in duration-200">
       <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-surface border border-outline/20 shadow-2xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline/10 bg-surface/50">
@@ -142,9 +142,9 @@ export const RegistrarEgresoModal: React.FC<RegistrarEgresoModalProps> = ({
             </div>
           </div>
 
-          <div className="p-3 rounded-2xl bg-warning/10 border border-warning/20 flex items-start gap-2.5 text-xs text-on-warning">
+          <div className="p-3.5 rounded-2xl bg-warning/10 border border-warning/30 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-200 font-medium">
             <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
-            <span>
+            <span className="leading-relaxed">
               Este monto se descontará automáticamente del efectivo esperado en el Corte X y Corte Z de tu turno.
             </span>
           </div>

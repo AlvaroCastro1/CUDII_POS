@@ -52,6 +52,7 @@ export interface SesionCajaState {
   totalVentasEfectivo: number;
   totalVentasTarjeta: number;
   totalRetiros: number;
+  totalEgresos?: number;
   estado: 'abierta' | 'cerrada';
   caja: {
     id: string;
@@ -102,7 +103,7 @@ interface PosStoreState {
 
 /** D12: Líneas congeladas de un presupuesto listas para cargarse al ticket del POS. */
 export interface LineaPresupuesto {
-  productos: Omit<CartItem, 'comboId' | 'nombreCombo'> & { comboId?: string; nombreCombo?: string }[];
+  productos: (Omit<CartItem, 'comboId' | 'nombreCombo'> & { comboId?: string; nombreCombo?: string })[];
   combos: CartCombo[];
 }
 

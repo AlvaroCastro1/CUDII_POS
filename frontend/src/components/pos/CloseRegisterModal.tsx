@@ -147,6 +147,11 @@ export const CloseRegisterModal: React.FC<CloseRegisterModalProps> = ({
 
   const handleCloseSessionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!activeSession) {
+      setError('No hay ninguna sesión de caja activa.');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 

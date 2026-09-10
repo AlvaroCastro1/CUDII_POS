@@ -1,3 +1,4 @@
+import React, { memo, useState, useRef, useEffect } from 'react';
 import { Search, X, Package, Scale, Droplet, Ruler, Wrench, Camera } from 'lucide-react';
 import { api } from '../../lib/api';
 import type { Categoria, Producto, ProductoInventario } from '../../types/pos';
@@ -214,7 +215,7 @@ export const ProductSearch = memo(function ProductSearch({
               No se encontraron coincidencias para "{searchTerm}"
             </div>
           ) : (
-            results.map((producto) => {
+            results.map((producto: Producto) => {
               const stock = Array.isArray(producto.inventario) && producto.inventario.length > 0
                 ? producto.inventario.reduce((acc: number, inv: ProductoInventario) => acc + (inv.stockActual ?? 0), 0)
                 : (producto.inventario?.[0]?.stockActual ?? 0);
