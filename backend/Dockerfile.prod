@@ -1,0 +1,41 @@
+# Stage 1: Build NestJS
+FROM node:20-alpine AS builder
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+# Instalar TODAS las dependencias (necesarias para compilar TypeScript)
+RUN npm ci
+
+COPY . .
+# Generar Prisma Client
+RUN npx prisma generate
+
+# Compilar código de NestJS
+RUN npm run build
+
+# Stage 2: Producción
+FROM node:20-alpine
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+# Instalar SOLO dependencias de producción para mantener la imagen ligera
+RUN npm ci --omit=dev
+
+# Copiar el Prisma Client generado
+COPY --from=builder /usr/src/app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /usr/src/app/node_modules/@prisma ./node_modules/@prisma
+
+# Copiar el código compilado
+COPY --from=builder /usr/src/app/dist ./dist
+# Copiar el schema de Prisma (útil para migraciones en prod si es necesario)
+COPY --from=builder /usr/src/app/prisma ./prisma
+
+# Asegurar que el directorio de subidas exista con permisos
+RUN mkdir -p uploads/logos && chmod -R 777 uploads
+
+EXPOSE 3000
+
+# Lanzar en modo producción
+CMD ["node", "dist/main.js"]

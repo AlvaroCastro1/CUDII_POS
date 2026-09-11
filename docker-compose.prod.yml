@@ -1,0 +1,83 @@
+services:
+  # Backend NestJS (API)
+  api:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: cudii_api_prod
+    restart: always
+    ports:
+      - "3000:3000"
+    networks:
+      - cudii_prod_net
+    volumes:
+      # MUY IMPORTANTE: Solo mapear la carpeta de subidas para preservar logos y archivos
+      - ./backend/uploads:/usr/src/app/uploads
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_prod:5432/${POSTGRES_DB}?schema=public
+      - REDIS_HOST=redis_prod
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION=${JWT_EXPIRATION}
+    depends_on:
+      postgres_prod:
+        condition: service_healthy
+      redis_prod:
+        condition: service_started
+
+  # Frontend Vite (React) servido por Nginx
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        # Se requiere la URL de la API en tiempo de compilación para que Vite la inyecte
+        - VITE_API_URL=${VITE_API_URL:-http://TU_IP_PUBLICA:3000}
+    container_name: cudii_frontend_prod
+    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - cudii_prod_net
+    depends_on:
+      - api
+
+  # Base de Datos PostgreSQL
+  postgres_prod:
+    image: postgres:15-alpine
+    container_name: cudii_postgres_prod
+    restart: always
+    networks:
+      - cudii_prod_net
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cudii_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cudii_pass123}
+      POSTGRES_DB: ${POSTGRES_DB:-cudii_db}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cudii_admin} -d ${POSTGRES_DB:-cudii_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Caché Redis
+  redis_prod:
+    image: redis:7-alpine
+    container_name: cudii_redis_prod
+    restart: always
+    networks:
+      - cudii_prod_net
+    volumes:
+      - redis_prod_data:/data
+    command: redis-server --appendonly yes
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+
+networks:
+  cudii_prod_net:
+    driver: bridge
