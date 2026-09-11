@@ -120,7 +120,9 @@ export default function SolicitudesProveedorView() {
     api
       .get<{ data?: ProveedorOption[] } | ProveedorOption[]>('/suppliers')
       .then((res) => {
-        const list = Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+        const list = Array.isArray(res.data)
+          ? res.data
+          : (res.data as { data?: ProveedorOption[] })?.data || [];
         setProveedores(list);
       })
       .catch(() => { });

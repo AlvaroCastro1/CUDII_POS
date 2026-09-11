@@ -83,7 +83,9 @@ export const NuevaSolicitudProveedorModal: React.FC<NuevaSolicitudProveedorModal
     api
       .get<{ data?: ProveedorOption[] } | ProveedorOption[]>('/suppliers')
       .then((res) => {
-        const list = Array.isArray(res.data) ? res.data : (res.data as any)?.data || [];
+        const list = Array.isArray(res.data)
+          ? res.data
+          : (res.data as { data?: ProveedorOption[] })?.data || [];
         setProveedores(list);
       })
       .catch(() => {
@@ -146,7 +148,11 @@ export const NuevaSolicitudProveedorModal: React.FC<NuevaSolicitudProveedorModal
     setRenglones((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleUpdateRenglon = (index: number, campo: keyof RenglonDetalle, valor: any) => {
+  const handleUpdateRenglon = (
+    index: number,
+    campo: keyof RenglonDetalle,
+    valor: RenglonDetalle[keyof RenglonDetalle],
+  ) => {
     setRenglones((prev) => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [campo]: valor };
@@ -193,8 +199,9 @@ export const NuevaSolicitudProveedorModal: React.FC<NuevaSolicitudProveedorModal
       }
 
       onGuardado();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Error al guardar la solicitud de producto.';
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { message?: string } } };
+      const msg = errorObj?.response?.data?.message || 'Error al guardar la solicitud de producto.';
       toast.error(msg);
     } finally {
       setIsSaving(false);
