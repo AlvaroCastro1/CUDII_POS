@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, errorMessage, obtenerUrlImagen } from '@/lib/api';
-import { useAuthStore } from '@/store/useAuthStore';
 import { useWhitelabelStore } from '@/store/useWhitelabelStore';
 import {
   type ConfiguracionWhitelabel,
