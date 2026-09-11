@@ -38,6 +38,10 @@ model Empresa {
   // Configuración y personalización de estilo de tickets (Ventas y Presupuestos)
   configuracionTicket Json?
 
+  // Whitelabel: personalización completa de identidad visual por empresa/tenant
+  // (colores, tipografía, logos, favicon, comportamiento de UI)
+  configuracionWhitelabel Json?
+
   estaActivo            Boolean    @default(true)
   creadoEn              DateTime   @default(now())
   actualizadoEn         DateTime   @updatedAt

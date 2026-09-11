@@ -33,6 +33,7 @@ import CombosView from './views/admin/CombosView';
 import PresupuestosView from './views/PresupuestosView';
 import SolicitudesProveedorView from './views/admin/SolicitudesProveedorView';
 import TraspasosView from './views/admin/TraspasosView';
+import WhitelabelView from './views/admin/WhitelabelView';
 
 // Componente para proteger rutas privadas
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -257,6 +258,14 @@ const router = createBrowserRouter([
             ),
           },
           {
+            path: 'whitelabel',
+            element: (
+              <AdminRoute>
+                <WhitelabelView />
+              </AdminRoute>
+            ),
+          },
+          {
             path: 'cupones',
             element: (
               <RequireRol roles={['ADMIN', 'GERENTE']}>
@@ -306,6 +315,14 @@ const router = createBrowserRouter([
 ]);
 
 
+import { useWhitelabelInit } from './hooks/useWhitelabelInit';
+
+// Componente invisible para ejecutar la inicialización de Whitelabel a nivel global
+function AppInit() {
+  useWhitelabelInit();
+  return null;
+}
+
 function App() {
   // Inicializamos el store de tema para que inyecte la clase "dark" al documento si corresponde
   const isDarkMode = useThemeStore((state) => state.isDarkMode);
@@ -321,6 +338,7 @@ function App() {
 
   return (
     <>
+      <AppInit />
       <RouterProvider router={router} />
       {/* Sistema de Toasts configurado para el Whitelabel y Dark Mode */}
       <Toaster 

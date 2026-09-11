@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useThemeStore } from '../../store/useThemeStore';
+import { useWhitelabelStore } from '../../store/useWhitelabelStore';
+import { obtenerUrlImagen } from '@/lib/api';
 import NotificationBell from './NotificationBell';
 import GlobalSearch from './GlobalSearch';
 import AtajosTecladoDialog, { Tecla } from './AtajosTecladoDialog';
@@ -17,6 +19,7 @@ import type { ClaveMenu } from '@/lib/permisos';
 export default function MainLayout() {
   const logout = useAuthStore(state => state.logout);
   const user = useAuthStore(state => state.user);
+  const config = useWhitelabelStore(state => state.config);
 
   const puede = (clave: ClaveMenu) => puedeVerMenu(user?.rol, clave);
   const navigate = useNavigate();
@@ -59,11 +62,15 @@ export default function MainLayout() {
 
         {/* Logo */}
         <div className="h-24 flex items-center shrink-0 pl-6">
-          <div className="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center font-bold shrink-0">
-            <span className="material-symbols-outlined !text-xl">auto_awesome</span>
+          <div className="w-8 h-8 rounded bg-primary/20 text-on-primary flex items-center justify-center font-bold shrink-0">
+            {config.marca.logoPrincipalUrl ? (
+               <img src={obtenerUrlImagen(isDarkMode ? (config.marca.logoModoOscuroUrl || config.marca.logoPrincipalUrl) : config.marca.logoPrincipalUrl)} alt="Logo" className="max-w-full max-h-full rounded" />
+            ) : (
+               <span className="material-symbols-outlined !text-xl text-primary">auto_awesome</span>
+            )}
           </div>
           <span className={`font-display-lg text-2xl tracking-tight text-on-surface whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-in-out max-w-[200px] opacity-100 ml-4 ${isSidebarOpen ? '' : 'md:max-w-0 md:opacity-0 md:ml-0'}`}>
-            Cudii
+            {config.marca.nombreNegocio || 'Cudii'}
           </span>
         </div>
 
@@ -491,13 +498,22 @@ export default function MainLayout() {
                     Ver / Editar mi Perfil
                   </button>
                   {(user?.rol === 'SUPER_ADMIN' || user?.rol === 'ADMIN') && (
-                    <button
-                      onClick={() => { setIsProfileMenuOpen(false); navigate('/admin/configuracion'); }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 transition-colors flex items-center gap-3"
-                    >
-                      <span className="material-symbols-outlined !text-[18px]">settings</span>
-                      Configuración del Sitio
-                    </button>
+                    <>
+                      <button
+                        onClick={() => { setIsProfileMenuOpen(false); navigate('/admin/configuracion'); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 transition-colors flex items-center gap-3"
+                      >
+                        <span className="material-symbols-outlined !text-[18px]">settings</span>
+                        Configuración del Sitio
+                      </button>
+                      <button
+                        onClick={() => { setIsProfileMenuOpen(false); navigate('/admin/whitelabel'); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 transition-colors flex items-center gap-3"
+                      >
+                        <span className="material-symbols-outlined !text-[18px]">palette</span>
+                        Marca y Apariencia
+                      </button>
+                    </>
                   )}
                   <button
                     onClick={() => { setIsProfileMenuOpen(false); logout(); }}

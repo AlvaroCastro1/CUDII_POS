@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Patch,
   Post,
   UploadedFile,
@@ -16,12 +17,15 @@ import { existsSync, mkdirSync } from 'fs';
 import { extname, join } from 'path';
 import { CompanySettingsService } from './company-settings.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { ConfiguracionWhitelabelDto } from './dto/whitelabel.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Rol } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserPayload } from '../auth/interfaces/jwt-payload.interface';
+import { Public } from '../auth/decorators/public.decorator';
+
 
 type FileFilterCallback = (error: Error | null, acceptFile: boolean) => void;
 type DestinationCallback = (error: Error | null, destination: string) => void;
@@ -159,7 +163,7 @@ export class CompanySettingsController {
   ) {
     if (!file) {
       throw new BadRequestException(
-        'En este momento no podemos subir el archivo debido al espacio insuficiente.',
+        'El archivo es inválido, supera el límite o no se recibió correctamente.',
       );
     }
 
@@ -172,5 +176,41 @@ export class CompanySettingsController {
     );
 
     return { url: publicUrl };
+  }
+
+  // ─── Endpoints Whitelabel ────────────────────────────────────────────────────
+
+  /**
+   * Devuelve la configuración Whitelabel de la empresa autenticada.
+   * Accesible por todos los roles autenticados (POS, Dashboard, etc.).
+   */
+  @Get('whitelabel')
+  async getWhitelabel(@CurrentUser() user: CurrentUserPayload) {
+    return this.companySettingsService.getWhitelabel(user.empresaId);
+  }
+
+  /**
+   * Actualiza la configuración Whitelabel de la empresa autenticada.
+   * Solo ADMIN y SUPER_ADMIN pueden modificar la identidad visual.
+   */
+  @Patch('whitelabel')
+  @Roles(Rol.ADMIN, Rol.SUPER_ADMIN)
+  async updateWhitelabel(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    dto: ConfiguracionWhitelabelDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.companySettingsService.updateWhitelabel(user.empresaId, dto);
+  }
+
+  /**
+   * Endpoint público (sin JWT) para que el portal de autofacturación
+   * pueda cargar el tema Whitelabel del tenant por su empresaId.
+   * Solo devuelve la configuración de empresas activas.
+   */
+  @Get('whitelabel/public/:empresaId')
+  @Public()
+  async getWhitelabelPublico(@Param('empresaId') empresaId: string) {
+    return this.companySettingsService.getWhitelabelPublico(empresaId);
   }
 }

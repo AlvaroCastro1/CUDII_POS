@@ -4,8 +4,43 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { NivelLealtadDto, UpdateSettingsDto } from './dto/update-settings.dto';
+import { ConfiguracionWhitelabelDto } from './dto/whitelabel.dto';
 import { resolverNivel } from '../customers/loyalty.util';
+
+/** Valores por defecto del tema Whitelabel, alineados con index.css MD3 de CUDII. */
+const WHITELABEL_DEFAULT = {
+  marca: {
+    nombreNegocio: '',
+    eslogan: '',
+    logoPrincipalUrl: null as string | null,
+    logoModoOscuroUrl: null as string | null,
+    faviconUrl: null as string | null,
+  },
+  colores: {
+    colorPrincipal: '#000000',
+    colorSecundario: '#1E293B',
+    colorBoton: '#000000',
+    colorBotonTexto: '#FFFFFF',
+    colorFondoClaro: '#FDFCFF',
+    colorFondoOscuro: '#131313',
+    colorSuperficieClaro: '#FDFCFF',
+    colorSuperficieOscuro: '#131313',
+    colorTextoClaro: '#1A1C1E',
+    colorTextoOscuro: '#E5E2E1',
+  },
+  tipografia: {
+    fuenteTitulos: 'Geist',
+    fuenteContenido: 'Geist',
+  },
+  interfaz: {
+    modoPredeterminado: 'system' as 'light' | 'dark' | 'system',
+    animacionesHabilitadas: true,
+    estiloNavegacion: 'sidebar' as 'sidebar' | 'topbar',
+  },
+};
+
 
 @Injectable()
 export class CompanySettingsService {
@@ -68,14 +103,29 @@ export class CompanySettingsService {
 
     if (!fs.existsSync(dirEmpresa)) return;
 
+    // Obtener la configuración actual para no borrar logos que aún están en uso
+    const empresa = await this.prisma.empresa.findUnique({
+      where: { id: empresaId },
+      select: { configuracionWhitelabel: true },
+    });
+    
+    const config = (empresa?.configuracionWhitelabel as any)?.marca || {};
+    const logosActivos = [
+      config.logoPrincipalUrl,
+      config.logoModoOscuroUrl,
+      config.faviconUrl,
+      urlLogoActual // El nuevo logo recién subido
+    ].filter(Boolean) as string[];
+
     try {
       const archivos = fs.readdirSync(dirEmpresa);
       for (const archivo of archivos) {
         const rutaCompleta = path.join(dirEmpresa, archivo);
-        const urlRelativa = `/uploads/logos/empresa_${empresaId}/${archivo}`;
         
-        // Si el archivo en disco no es la URL activa actual de la empresa, borrarlo
-        if (!urlLogoActual || !urlLogoActual.endsWith(archivo)) {
+        // Verificar si este archivo está entre los activos
+        const enUso = logosActivos.some(url => url.endsWith(archivo));
+        
+        if (!enUso) {
           if (fs.existsSync(rutaCompleta)) {
             fs.unlinkSync(rutaCompleta);
           }
@@ -307,5 +357,119 @@ export class CompanySettingsService {
         }
       }
     });
+  }
+
+  // ─── Métodos Whitelabel ─────────────────────────────────────────────────────
+
+  /**
+   * Devuelve la configuración Whitelabel activa de la empresa.
+   * Si aún no fue personalizada, devuelve los valores por defecto de CUDII.
+   * @param empresaId Identificador de la empresa del usuario autenticado.
+   */
+  async getWhitelabel(empresaId: string) {
+    const empresa = await this.prisma.empresa.findUnique({
+      where: { id: empresaId },
+      select: { configuracionWhitelabel: true, nombre: true },
+    });
+
+    if (!empresa) {
+      throw new NotFoundException('Empresa no encontrada');
+    }
+
+    const guardado = (empresa.configuracionWhitelabel ?? {}) as Record<string, unknown>;
+    return this.fusionarConDefaults(guardado, empresa.nombre);
+  }
+
+  /**
+   * Versión pública del Whitelabel (sin JWT).
+   * Usada por el portal de autofacturación para aplicar la marca del tenant.
+   * @param empresaId UUID de la empresa cuya marca se desea consultar.
+   */
+  async getWhitelabelPublico(empresaId: string) {
+    const empresa = await this.prisma.empresa.findUnique({
+      where: { id: empresaId },
+      select: { configuracionWhitelabel: true, nombre: true, estaActivo: true },
+    });
+
+    if (!empresa || !empresa.estaActivo) {
+      throw new NotFoundException('Empresa no encontrada');
+    }
+
+    const guardado = (empresa.configuracionWhitelabel ?? {}) as Record<string, unknown>;
+    return this.fusionarConDefaults(guardado, empresa.nombre);
+  }
+
+  /**
+   * Actualiza la configuración Whitelabel de la empresa.
+   * Realiza un merge profundo: solo sobrescribe los campos enviados en el DTO.
+   * @param empresaId Identificador de la empresa del usuario autenticado.
+   * @param dto Campos de configuración Whitelabel a actualizar.
+   */
+  async updateWhitelabel(empresaId: string, dto: ConfiguracionWhitelabelDto) {
+    const empresa = await this.prisma.empresa.findUnique({
+      where: { id: empresaId },
+      select: { configuracionWhitelabel: true, nombre: true },
+    });
+
+    if (!empresa) {
+      throw new NotFoundException('Empresa no encontrada');
+    }
+
+    // Merge profundo: combinar el objeto guardado con las novedades del DTO
+    const actual = (empresa.configuracionWhitelabel ?? {}) as Record<string, unknown>;
+    const actualizado: Record<string, unknown> = {
+      ...actual,
+      ...(dto.marca !== undefined
+        ? { marca: { ...(actual['marca'] as object ?? {}), ...dto.marca } }
+        : {}),
+      ...(dto.colores !== undefined
+        ? { colores: { ...(actual['colores'] as object ?? {}), ...dto.colores } }
+        : {}),
+      ...(dto.tipografia !== undefined
+        ? { tipografia: { ...(actual['tipografia'] as object ?? {}), ...dto.tipografia } }
+        : {}),
+      ...(dto.interfaz !== undefined
+        ? { interfaz: { ...(actual['interfaz'] as object ?? {}), ...dto.interfaz } }
+        : {}),
+    };
+
+    await this.prisma.empresa.update({
+      where: { id: empresaId },
+      data: { configuracionWhitelabel: actualizado as Prisma.InputJsonObject },
+    });
+
+    return this.fusionarConDefaults(actualizado, empresa.nombre);
+  }
+
+  /**
+   * Fusiona la configuración guardada con los valores por defecto de CUDII.
+   * Garantiza que el cliente siempre reciba un objeto completo aunque la empresa
+   * solo haya personalizado algunos campos.
+   * @param guardado Configuración persistida en BD (puede ser parcial o vacía).
+   * @param nombreEmpresa Nombre de la empresa para precargar en marca.nombreNegocio.
+   */
+  private fusionarConDefaults(
+    guardado: Record<string, unknown>,
+    nombreEmpresa: string,
+  ) {
+    return {
+      marca: {
+        ...WHITELABEL_DEFAULT.marca,
+        nombreNegocio: nombreEmpresa,
+        ...((guardado['marca'] as object) ?? {}),
+      },
+      colores: {
+        ...WHITELABEL_DEFAULT.colores,
+        ...((guardado['colores'] as object) ?? {}),
+      },
+      tipografia: {
+        ...WHITELABEL_DEFAULT.tipografia,
+        ...((guardado['tipografia'] as object) ?? {}),
+      },
+      interfaz: {
+        ...WHITELABEL_DEFAULT.interfaz,
+        ...((guardado['interfaz'] as object) ?? {}),
+      },
+    };
   }
 }
