@@ -20,7 +20,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /root/cudii-pos || exit 1
+            cd /root/Public/CUDII_POS || exit 1
             echo "Pulling latest changes..."
             git pull origin main
             echo "Rebuilding containers..."
