@@ -9,7 +9,6 @@ import {
   Type,
   Sun,
   Moon,
-  Monitor,
   Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -120,7 +119,6 @@ const PreviewMiniApp = ({ config, mode }: { config: ConfiguracionWhitelabel; mod
 export default function WhitelabelView() {
   const storeWhitelabel = useWhitelabelStore((state) => state.config);
   const setGlobalWhitelabel = useWhitelabelStore((state) => state.setWhitelabel);
-  const user = useAuthStore((state) => state.user);
   
   const [draft, setDraft] = useState<ConfiguracionWhitelabel>(storeWhitelabel);
   const [isSaving, setIsSaving] = useState(false);
