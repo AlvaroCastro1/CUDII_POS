@@ -37,8 +37,7 @@ ALTER TABLE "DevolucionProducto" ADD COLUMN "creadoEn" TIMESTAMP(3) NOT NULL DEF
 ALTER TABLE "NivelLealtad" ADD COLUMN "creadoEn" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE "NivelLealtad" ADD COLUMN "actualizadoEn" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
--- MovimientoPuntos: agregar actualizadoEn
-ALTER TABLE "MovimientoPuntos" ADD COLUMN "actualizadoEn" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
 
 -- CuentaCreditoCliente: agregar actualizadoEn
 ALTER TABLE "CuentaCreditoCliente" ADD COLUMN "actualizadoEn" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
