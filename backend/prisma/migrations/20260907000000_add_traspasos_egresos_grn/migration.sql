@@ -1,4 +1,4 @@
-﻿-- CreateEnum
+-- CreateEnum
 CREATE TYPE "CategoriaEgresoCaja" AS ENUM ('FLETE', 'LIMPIEZA', 'INSUMOS', 'PROPINAS', 'OTROS');
 
 -- CreateEnum
