@@ -296,8 +296,18 @@ export const PosView: React.FC = () => {
   ]);
 
   const totalArticulos =
-    cart.length +
-    combosEnTicket.reduce((acc, c) => acc + c.cantidad, 0);
+    cart.length + combosEnTicket.reduce((acc, c) => acc + c.cantidad, 0);
+
+  // Cálculo de totales para la barra flotante móvil
+  const subtotalCart = cart.reduce(
+    (acc, item) => acc + item.cantidad * item.precioUnitario - item.descuento,
+    0,
+  );
+  const subtotalCombos = combosEnTicket.reduce(
+    (acc, c) => acc + c.cantidad * c.precioUnitario,
+    0,
+  );
+  const totalMonto = Math.max(0, subtotalCart + subtotalCombos - usePosStore.getState().descuentoGeneral);
 
   if (isLoadingSession) {
     return (
@@ -311,62 +321,66 @@ export const PosView: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-background text-on-surface overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-background text-on-surface overflow-hidden relative">
       {/* Top Header Bar de Acciones de Caja */}
-      <div className="h-16 border-b border-outline/20 px-6 flex items-center justify-between shrink-0 glass-panel z-30">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center font-bold">
+      <div className="min-h-16 py-2 border-b border-outline/20 px-3 sm:px-6 flex items-center justify-between gap-2 shrink-0 glass-panel z-30">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-primary text-on-primary flex items-center justify-center font-bold shrink-0">
             <ShoppingBag className="w-4 h-4" />
           </div>
-          <div>
-            <h1 className="font-display-lg text-lg text-primary leading-tight font-bold">
+          <div className="min-w-0">
+            <h1 className="font-display-lg text-base sm:text-lg text-on-surface leading-tight font-bold truncate">
               Terminal POS
             </h1>
-            <p className="text-[11px] font-label-sm text-outline">
+            <p className="text-[10px] sm:text-[11px] font-label-sm text-outline truncate">
               Caja: {activeSession?.caja?.nombre || 'Caja 01'} • <span className="text-success font-semibold">Turno Activo</span>
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 overflow-x-auto pb-1 sm:pb-0 scrollbar-none shrink-0">
           <button
             onClick={() => navigate('/admin/devoluciones')}
-            className="px-4 py-2 spatial-glass rounded-full text-xs font-label-sm font-semibold text-primary hover:bg-surface-container-high transition-colors flex items-center gap-1.5"
+            className="px-2.5 sm:px-4 py-1.5 sm:py-2 spatial-glass rounded-full text-xs font-label-sm font-semibold text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            title="Devoluciones"
           >
-            <RotateCcw className="w-4 h-4 text-primary" />
-            <span>Devoluciones</span>
+            <RotateCcw className="w-4 h-4 text-on-surface shrink-0" />
+            <span className="hidden sm:inline">Devoluciones</span>
           </button>
 
           <button
             onClick={() => setIsOpenWithdrawal(true)}
-            className="px-4 py-2 spatial-glass rounded-full text-xs font-label-sm font-semibold text-primary hover:bg-surface-container-high transition-colors flex items-center gap-1.5"
+            className="px-2.5 sm:px-4 py-1.5 sm:py-2 spatial-glass rounded-full text-xs font-label-sm font-semibold text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            title="Retiro Parcial"
           >
-            <MinusCircle className="w-4 h-4 text-warning" />
-            <span>Retiro Parcial</span>
+            <MinusCircle className="w-4 h-4 text-warning shrink-0" />
+            <span className="hidden sm:inline">Retiro Parcial</span>
           </button>
 
           <button
             onClick={() => setIsOpenEgreso(true)}
-            className="px-4 py-2 spatial-glass rounded-full text-xs font-label-sm font-semibold text-primary hover:bg-surface-container-high transition-colors flex items-center gap-1.5"
+            className="px-2.5 sm:px-4 py-1.5 sm:py-2 spatial-glass rounded-full text-xs font-label-sm font-semibold text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            title="Registrar Egreso"
           >
-            <Receipt className="w-4 h-4 text-error" />
-            <span>Registrar Egreso</span>
+            <Receipt className="w-4 h-4 text-error shrink-0" />
+            <span className="hidden sm:inline">Registrar Egreso</span>
           </button>
 
           <button
             onClick={() => setIsOpenCloseRegister(true)}
-            className="px-4 py-2 spatial-glass rounded-full text-xs font-label-sm font-bold text-error border border-error/30 hover:bg-error/10 transition-colors flex items-center gap-1.5"
+            className="px-2.5 sm:px-4 py-1.5 sm:py-2 spatial-glass rounded-full text-xs font-label-sm font-bold text-error border border-error/30 hover:bg-error/10 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            title="Cerrar Turno"
           >
-            <Lock className="w-4 h-4" />
-            <span>Cerrar Turno</span>
+            <Lock className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Cerrar Turno</span>
           </button>
         </div>
       </div>
 
-      {/* Main POS Canvas (Catálogo 60% / Panel de Ticket 40%) */}
-      <div className="flex-1 flex gap-6 p-6 overflow-hidden min-h-0">
+      {/* Main POS Canvas (Catálogo 60% / Panel de Ticket 40% en Desktop, apilados en Mobile) */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6 p-3 sm:p-6 overflow-y-auto lg:overflow-hidden min-h-0 pb-20 lg:pb-6">
         {/* PANEL IZQUIERDO: Buscador + Grilla Bento */}
-        <section className="flex-1 flex flex-col min-w-0 space-y-4">
+        <section className="flex-1 flex flex-col min-w-0 space-y-3 sm:space-y-4">
           <ProductSearch
             onSelectProduct={handleSelectProduct}
             selectedCategoriaId={selectedCategoriaId}
@@ -375,11 +389,11 @@ export const PosView: React.FC = () => {
             searchInputRef={searchInputRef}
           />
           {/* Único Scrollbar Maestro para la variedad de productos + combos */}
-          <div className="flex-1 overflow-y-auto min-h-0 pr-2 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto min-h-0 pr-1 sm:pr-2 custom-scrollbar">
             {combosDisponibles.length > 0 && (
               <div className="mb-5">
                 <div className="flex items-center justify-between px-1 mb-2">
-                  <h2 className="font-headline-md text-sm text-primary font-bold flex items-center gap-1.5">
+                  <h2 className="font-headline-md text-sm text-on-surface font-bold flex items-center gap-1.5">
                     <span className="material-symbols-outlined !text-base shrink-0">redeem</span>
                     Combos y Paquetes
                   </h2>
@@ -387,7 +401,7 @@ export const PosView: React.FC = () => {
                     {combosDisponibles.length} disponibles
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4">
                   {combosDisponibles.map((combo) => (
                     <ComboCard
                       key={combo.id}
@@ -407,12 +421,12 @@ export const PosView: React.FC = () => {
         </section>
 
         {/* PANEL DERECHO: Ticket Actual (liquid-glass) */}
-        <aside className="w-full md:w-[420px] flex flex-col h-full shrink-0 overflow-hidden">
-          <div className="liquid-glass rounded-[32px] h-full flex flex-col shadow-2xl relative overflow-hidden">
+        <aside id="pos-ticket-aside" className="w-full lg:w-[420px] flex flex-col min-h-[420px] lg:h-full shrink-0 overflow-hidden">
+          <div className="liquid-glass rounded-[28px] sm:rounded-[32px] h-full flex flex-col shadow-2xl relative overflow-hidden">
             {/* Header del Ticket */}
-            <div className="p-6 border-b border-outline/20 shrink-0">
+            <div className="p-4 sm:p-6 border-b border-outline/20 shrink-0">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="font-headline-md text-2xl text-primary font-bold">
+                <h2 className="font-headline-md text-xl sm:text-2xl text-on-surface font-bold">
                   Ticket Actual
                 </h2>
                 <span className="font-label-sm px-3 py-1 bg-surface-container-high rounded-full text-outline text-xs">
@@ -426,7 +440,7 @@ export const PosView: React.FC = () => {
             </div>
 
             {/* Ítems del Carrito (Scroll limpio sin barra estática innecesaria) */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-3 min-h-0 scrollbar-none">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 min-h-0 scrollbar-none">
               {cart.length === 0 && combosEnTicket.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-outline text-center space-y-2 py-12">
                   <ShoppingBag className="w-12 h-12 stroke-[1.2] opacity-40" />
@@ -465,10 +479,10 @@ export const PosView: React.FC = () => {
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="w-6 h-6 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
-                              <Gift className="w-3.5 h-3.5 text-primary" />
+                              <Gift className="w-3.5 h-3.5 text-on-surface" />
                             </span>
                             <div className="min-w-0">
-                              <p className="text-primary font-body-md text-sm font-semibold truncate">
+                              <p className="text-on-surface font-body-md text-sm font-semibold truncate">
                                 {grupo.nombreCombo}
                               </p>
                               <p className="text-[10px] text-outline font-label-sm">
@@ -479,11 +493,11 @@ export const PosView: React.FC = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="font-mono font-bold text-primary text-sm">
+                            <span className="font-mono font-bold text-on-surface text-sm">
                               ${subtotalGrupo.toFixed(2)}
                             </span>
                             <ChevronDown
-                              className={`w-4 h-4 text-primary transition-transform ${
+                              className={`w-4 h-4 text-on-surface transition-transform ${
                                 expandido ? '' : '-rotate-90'
                               }`}
                             />
@@ -518,6 +532,42 @@ export const PosView: React.FC = () => {
           </div>
         </aside>
       </div>
+
+      {/* Barra Flotante Accesible de Carrito para Celulares (Sticky Bottom Bar) */}
+      {(cart.length > 0 || combosEnTicket.length > 0) && (
+        <div className="fixed bottom-3 left-3 right-3 z-40 lg:hidden">
+          <div className="bg-surface/95 backdrop-blur-md border border-outline/30 rounded-2xl p-3 shadow-2xl flex items-center justify-between gap-3 text-on-surface">
+            <button
+              onClick={() => {
+                document.getElementById('pos-ticket-aside')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="flex items-center gap-2.5 min-w-0 text-left flex-1"
+            >
+              <div className="relative w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center font-bold shrink-0">
+                <ShoppingBag className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center border-2 border-surface">
+                  {totalArticulos}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-outline font-label-sm uppercase tracking-wider">
+                  Ver Ticket ({totalArticulos})
+                </p>
+                <p className="font-mono font-bold text-base text-on-surface leading-none">
+                  ${totalMonto.toFixed(2)}
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={handleCheckout}
+              className="px-5 py-2.5 bg-primary text-on-primary font-bold rounded-xl text-sm font-headline-md flex items-center gap-1.5 shadow-lg active:scale-95 transition-all shrink-0"
+            >
+              <span>COBRAR</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modales POS */}
       <CheckoutModal
