@@ -926,7 +926,7 @@ export default function DashboardView() {
             <h1 className="text-2xl sm:text-3xl font-bold font-display-lg text-on-background">
               Dashboard
             </h1>
-            <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">
+            <span className="px-3 py-1 rounded-full bg-primary/10 text-primary dark:text-white text-xs font-bold border border-primary/20">
               Rol: {rol}
             </span>
           </div>
