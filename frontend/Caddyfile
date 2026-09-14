@@ -10,31 +10,22 @@
 
 # ── Encabezados de Seguridad ─────────────────────────────────
 header {
-    # Evita que el navegador adivine el tipo de contenido
     X-Content-Type-Options "nosniff"
-    # Evita que la app sea embebida en iframes de otros sitios (clickjacking)
     X-Frame-Options "SAMEORIGIN"
-    # Política de referrer: solo envía el origen en solicitudes cross-origin
     Referrer-Policy "strict-origin-when-cross-origin"
-    # Deshabilita acceso a cámara, micrófono y geolocalización por defecto
     Permissions-Policy "camera=(), microphone=(), geolocation=()"
-    # Elimina encabezados que revelan el servidor (fingerprinting)
     -Server
     -X-Powered-By
-    # Fuerza HTTPS por 1 año (solo activo cuando Caddy sirve con TLS)
     Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
 }
 
 # ── Bloqueo de Rutas Sensibles ───────────────────────────────
-# Bloquea cualquier intento de acceder a archivos de configuración,
-# código fuente, bases de datos o secretos del servidor.
 @archivos_sensibles {
     path /.env*
     path /.git*
     path /prisma/*
     path /node_modules/*
     path /src/*
-    path /dist/*
     path *.sql
     path *.ts
     path *.tsx
@@ -47,32 +38,25 @@ header {
 }
 respond @archivos_sensibles 403
 
-# ── Proxy Inverso → API NestJS ───────────────────────────────
-# Redirige /api/* internamente al backend, eliminando el prefijo /api.
-reverse_proxy /api/* api:3000 {
-    header_up X-Real-IP {remote_host}
-    header_up X-Forwarded-For {remote_host}
-    header_up X-Forwarded-Proto {scheme}
-    # Elimina el prefijo /api antes de pasar la solicitud al backend
-    @strip_api path /api/*
-    handle @strip_api {
-        uri strip_prefix /api
-    }
-}
-
 # ── Proxy Inverso → Archivos Subidos ────────────────────────
 # Sirve logos y adjuntos desde el volumen del backend.
-reverse_proxy /uploads/* api:3000 {
-    header_up X-Real-IP {remote_host}
+handle /uploads/* {
+    reverse_proxy api:3000
+}
+
+# ── Proxy Inverso → API NestJS ───────────────────────────────
+# Elimina el prefijo /api antes de enviar la solicitud al backend.
+handle /api/* {
+    uri strip_prefix /api
+    reverse_proxy api:3000
 }
 
 # ── Servidor de Archivos Estáticos (React SPA) ───────────────
-# Compresión gzip/zstd automática.
-# Fallback a index.html para que React Router maneje el ruteo del cliente.
-root * /srv
-encode zstd gzip
-try_files {path} /index.html
-file_server {
-    # No exponer listado de directorios
-    browse off
+handle {
+    root * /srv
+    encode zstd gzip
+    try_files {path} /index.html
+    file_server {
+        browse off
+    }
 }
