@@ -47,7 +47,7 @@ export const OpenCashRegisterModal: React.FC<OpenCashRegisterModalProps> = ({
           <div className="p-4 bg-warning/10 text-warning rounded-2xl border border-warning/30">
             <Lock className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold text-primary dark:text-white font-headline-md">
+          <h2 className="text-2xl font-bold text-on-surface font-headline-md">
             Apertura de Caja Requerida
           </h2>
           <p className="text-xs text-outline font-body-md">
@@ -63,7 +63,7 @@ export const OpenCashRegisterModal: React.FC<OpenCashRegisterModalProps> = ({
 
         <form onSubmit={handleOpenRegister} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-primary dark:text-white mb-1.5 font-label-sm">
+            <label className="block text-xs font-semibold text-on-surface mb-1.5 font-label-sm">
               Fondo Inicial en Efectivo ($)
             </label>
             <div className="relative flex items-center">
@@ -75,7 +75,7 @@ export const OpenCashRegisterModal: React.FC<OpenCashRegisterModalProps> = ({
                 onChange={(e) => setMontoInicial(e.target.value)}
                 placeholder="500.00"
                 required
-                className="w-full pl-10 pr-4 py-3 bg-surface-container-low border border-outline/20 rounded-xl text-primary dark:text-white font-bold text-xl focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                className="w-full pl-10 pr-4 py-3 bg-surface-container-low border border-outline/20 rounded-xl text-on-surface font-bold text-xl focus:outline-none focus:ring-2 focus:ring-primary font-mono"
               />
             </div>
           </div>
