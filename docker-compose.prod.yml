@@ -6,10 +6,8 @@ services:
       dockerfile: Dockerfile.prod
     container_name: cudii_api_prod
     restart: always
-    # Puerto 3000 solo expuesto internamente (Caddy hace el proxy)
-    # No exponer hacia el host mejora la seguridad
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
     networks:
       - cudii_prod_net
     volumes:
@@ -29,30 +27,20 @@ services:
       redis_prod:
         condition: service_started
 
-  # Frontend Vite (React) servido por Caddy (HTTPS automático)
+  # Frontend Vite (React) servido por Nginx
   frontend:
     build: 
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
         # Se requiere la URL de la API en tiempo de compilación para que Vite la inyecte
-        - VITE_API_URL=${VITE_API_URL:-/api}
+        - VITE_API_URL=${VITE_API_URL:-http://TU_IP_PUBLICA:3000}
     container_name: cudii_frontend_prod
     restart: always
     ports:
-      - "80:80"      # HTTP (Caddy redirige automáticamente a HTTPS si hay dominio)
-      - "443:443"    # HTTPS (Let's Encrypt automático con dominio)
-      - "443:443/udp" # HTTP/3 (QUIC)
+      - "80:80"
     networks:
       - cudii_prod_net
-    volumes:
-      # Volumen persistente para certificados TLS y datos de Caddy
-      - caddy_data:/data
-      - caddy_config:/config
-    environment:
-      # Cambia a tu dominio real (ej: app.micudii.com) para HTTPS automático.
-      # Deja como IP o http:// para modo HTTP sin TLS.
-      - CADDY_HOST=${CADDY_HOST:-http://:80}
     depends_on:
       - api
 
@@ -89,8 +77,6 @@ services:
 volumes:
   postgres_prod_data:
   redis_prod_data:
-  caddy_data:     # Certificados TLS y estado de Caddy (NO borrar en producción)
-  caddy_config:   # Configuración en caché de Caddy
 
 networks:
   cudii_prod_net:
