@@ -114,6 +114,65 @@ CREATE INDEX "TraspasoDetalle_productoId_idx" ON "TraspasoDetalle"("productoId")
 -- CreateIndex
 CREATE INDEX "TraspasoDetalle_loteId_idx" ON "TraspasoDetalle"("loteId");
 
+-- CreateEnum
+CREATE TYPE "EstadoSolicitudProveedor" AS ENUM ('BORRADOR', 'ENVIADA', 'PARCIAL', 'COMPLETA', 'CANCELADA');
+
+-- CreateTable
+CREATE TABLE "SolicitudProveedor" (
+    "id" TEXT NOT NULL,
+    "empresaId" TEXT NOT NULL,
+    "proveedorId" TEXT,
+    "creadoPorId" TEXT NOT NULL,
+    "folio" TEXT NOT NULL,
+    "estado" "EstadoSolicitudProveedor" NOT NULL DEFAULT 'BORRADOR',
+    "fechaEmision" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "fechaEntregaEsperada" TIMESTAMP(3),
+    "notas" TEXT,
+    "totalEstimado" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "estaActivo" BOOLEAN NOT NULL DEFAULT true,
+    "eliminadoEn" TIMESTAMP(3),
+    "creadoEn" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "actualizadoEn" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SolicitudProveedor_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SolicitudProveedorDetalle" (
+    "id" TEXT NOT NULL,
+    "solicitudProveedorId" TEXT NOT NULL,
+    "productoId" TEXT NOT NULL,
+    "nombreProducto" TEXT NOT NULL,
+    "unidadMedida" TEXT NOT NULL DEFAULT 'pieza',
+    "cantidadRequerida" DOUBLE PRECISION NOT NULL,
+    "costoUnitarioEstimado" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "subtotalEstimado" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "notas" TEXT,
+    "creadoEn" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SolicitudProveedorDetalle_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SolicitudProveedor_empresaId_folio_key" ON "SolicitudProveedor"("empresaId", "folio");
+CREATE INDEX "SolicitudProveedor_empresaId_creadoEn_idx" ON "SolicitudProveedor"("empresaId", "creadoEn");
+CREATE INDEX "SolicitudProveedor_empresaId_estado_idx" ON "SolicitudProveedor"("empresaId", "estado");
+CREATE INDEX "SolicitudProveedor_empresaId_estaActivo_idx" ON "SolicitudProveedor"("empresaId", "estaActivo");
+CREATE INDEX "SolicitudProveedor_proveedorId_idx" ON "SolicitudProveedor"("proveedorId");
+
+-- CreateIndex
+CREATE INDEX "SolicitudProveedorDetalle_solicitudProveedorId_idx" ON "SolicitudProveedorDetalle"("solicitudProveedorId");
+CREATE INDEX "SolicitudProveedorDetalle_productoId_idx" ON "SolicitudProveedorDetalle"("productoId");
+
+-- AddForeignKey
+ALTER TABLE "SolicitudProveedor" ADD CONSTRAINT "SolicitudProveedor_empresaId_fkey" FOREIGN KEY ("empresaId") REFERENCES "Empresa"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "SolicitudProveedor" ADD CONSTRAINT "SolicitudProveedor_proveedorId_fkey" FOREIGN KEY ("proveedorId") REFERENCES "Proveedor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "SolicitudProveedor" ADD CONSTRAINT "SolicitudProveedor_creadoPorId_fkey" FOREIGN KEY ("creadoPorId") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SolicitudProveedorDetalle" ADD CONSTRAINT "SolicitudProveedorDetalle_solicitudProveedorId_fkey" FOREIGN KEY ("solicitudProveedorId") REFERENCES "SolicitudProveedor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "SolicitudProveedorDetalle" ADD CONSTRAINT "SolicitudProveedorDetalle_productoId_fkey" FOREIGN KEY ("productoId") REFERENCES "Producto"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
 -- CreateIndex
 CREATE INDEX "RecepcionMercancia_solicitudProveedorId_idx" ON "RecepcionMercancia"("solicitudProveedorId");
 
