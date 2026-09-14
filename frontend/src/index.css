@@ -257,6 +257,24 @@
     animation: float 15s ease-in-out infinite;
     will-change: transform;
   }
+
+  /* ── Corrección global de contraste en modo oscuro ──────────────────────
+     Cubre inputs nativos del navegador para que siempre sean legibles. */
+  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="reset"]) {
+    color-scheme: dark;
+    background-color: var(--surface-container-high);
+    color: var(--on-surface);
+  }
+  .dark textarea {
+    color-scheme: dark;
+    background-color: var(--surface-container-high);
+    color: var(--on-surface);
+  }
+  .dark select {
+    color-scheme: dark;
+    background-color: var(--surface-container-high);
+    color: var(--on-surface);
+  }
 }
 
 /* ── Estilos del Dashboard dinámico CUDII ───────────── */
