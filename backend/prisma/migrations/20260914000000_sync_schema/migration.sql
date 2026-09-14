@@ -1,4 +1,4 @@
-﻿-- AlterEnum
+-- AlterEnum
 BEGIN;
 CREATE TYPE "EstadoSolicitudProveedor_new" AS ENUM ('BORRADOR', 'ENVIADA', 'APROBADA', 'RECHAZADA', 'RECIBIDA', 'CANCELADA');
 ALTER TABLE "SolicitudProveedor" ALTER COLUMN "estado" DROP DEFAULT;
