@@ -340,6 +340,17 @@ export const PosView: React.FC = () => {
 
         <div className="flex items-center gap-1.5 sm:gap-3 overflow-x-auto pb-1 sm:pb-0 scrollbar-none shrink-0">
           <button
+            onClick={() => {
+              document.getElementById('pos-ticket-aside')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-primary/15 border border-primary/30 rounded-full text-xs font-label-sm font-bold text-on-surface hover:bg-primary/25 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            title="Ir al Ticket Actual"
+          >
+            <ShoppingBag className="w-4 h-4 text-on-surface shrink-0" />
+            <span>Ticket ({totalArticulos})</span>
+          </button>
+
+          <button
             onClick={() => navigate('/admin/devoluciones')}
             className="px-2.5 sm:px-4 py-1.5 sm:py-2 spatial-glass rounded-full text-xs font-label-sm font-semibold text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-1.5 whitespace-nowrap"
             title="Devoluciones"
