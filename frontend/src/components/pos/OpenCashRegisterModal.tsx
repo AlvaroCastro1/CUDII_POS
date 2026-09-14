@@ -42,7 +42,7 @@ export const OpenCashRegisterModal: React.FC<OpenCashRegisterModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6 sm:p-8 overflow-y-auto">
-      <div className="bg-surface-container-high border border-outline/20 rounded-[28px] max-w-md w-full p-6 shadow-2xl space-y-6 text-on-surface my-auto">
+      <div className="bg-surface border border-outline/20 rounded-[28px] max-w-md w-full p-6 shadow-2xl space-y-6 text-on-surface my-auto">
         <div className="flex flex-col items-center text-center space-y-2">
           <div className="p-4 bg-warning/10 text-warning rounded-2xl border border-warning/30">
             <Lock className="w-8 h-8" />
@@ -75,7 +75,7 @@ export const OpenCashRegisterModal: React.FC<OpenCashRegisterModalProps> = ({
                 onChange={(e) => setMontoInicial(e.target.value)}
                 placeholder="500.00"
                 required
-                className="w-full pl-10 pr-4 py-3 bg-surface-container-highest border border-outline/20 rounded-xl text-primary dark:text-white font-bold text-xl focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                className="w-full pl-10 pr-4 py-3 bg-surface-container-low border border-outline/20 rounded-xl text-primary dark:text-white font-bold text-xl focus:outline-none focus:ring-2 focus:ring-primary font-mono"
               />
             </div>
           </div>

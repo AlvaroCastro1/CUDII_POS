@@ -19,6 +19,13 @@ function aplicarTokensCSS(config: ConfiguracionWhitelabel) {
     document.head.appendChild(styleEl);
   }
 
+  const primaryDarkColor =
+    !config.colores.colorPrincipal ||
+    config.colores.colorPrincipal === '#000000' ||
+    config.colores.colorPrincipal === '#131313'
+      ? '#FFFFFF'
+      : config.colores.colorPrincipal;
+
   // Generamos el CSS dinámico. Nota: se inyectan las fuentes y colores.
   styleEl.innerHTML = `
     :root {
@@ -35,16 +42,16 @@ function aplicarTokensCSS(config: ConfiguracionWhitelabel) {
       --on-background: ${config.colores.colorTextoClaro};
       --on-surface: ${config.colores.colorTextoClaro};
       --on-surface-variant: color-mix(in srgb, ${config.colores.colorTextoClaro} 80%, transparent);
-      
+
       --font-display-lg: "${config.tipografia.fuenteTitulos}", var(--font-mono);
       --font-headline-md: "${config.tipografia.fuenteTitulos}", var(--font-mono);
       --font-body-lg: "${config.tipografia.fuenteContenido}", sans-serif;
       --font-body-md: "${config.tipografia.fuenteContenido}", sans-serif;
     }
-    
+
     .dark {
-      --primary: ${config.colores.colorPrincipal};
-      --on-primary: ${config.colores.colorBotonTexto};
+      --primary: ${primaryDarkColor};
+      --on-primary: ${config.colores.colorPrincipal === '#000000' ? '#000000' : config.colores.colorBotonTexto};
       --background: ${config.colores.colorFondoOscuro};
       --surface: ${config.colores.colorSuperficieOscuro};
       --surface-variant: color-mix(in srgb, ${config.colores.colorSuperficieOscuro} 80%, #fff);
