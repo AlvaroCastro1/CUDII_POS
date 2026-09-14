@@ -41,6 +41,7 @@ export const PosView: React.FC = () => {
   const setActiveSession = usePosStore((s) => s.setActiveSession);
   const quitarUltimaLinea = usePosStore((s) => s.quitarUltimaLinea);
   const presupuestoActivoId = usePosStore((s) => s.presupuestoActivoId);
+  const descuentoGeneral = usePosStore((s) => s.descuentoGeneral);
 
   // Ref del buscador de productos, expuesta para atajos de teclado (Ctrl+F).
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -307,7 +308,7 @@ export const PosView: React.FC = () => {
     (acc, c) => acc + c.cantidad * c.precioUnitario,
     0,
   );
-  const totalMonto = Math.max(0, subtotalCart + subtotalCombos - usePosStore.getState().descuentoGeneral);
+  const totalMonto = Math.max(0, subtotalCart + subtotalCombos - descuentoGeneral);
 
   if (isLoadingSession) {
     return (
